@@ -1,0 +1,273 @@
+package services
+
+import (
+	"crypto/rand"
+	"encoding/hex"
+	"fmt"
+	"time"
+
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+
+	"github.com/vovk4morkovk4/isolate-panel/internal/models"
+)
+
+type UserService struct {
+	db *gorm.DB
+}
+
+func NewUserService(db *gorm.DB) *UserService {
+	return &UserService{db: db}
+}
+
+type CreateUserRequest struct {
+	Username          string `json:"username" validate:"required,min=3,max=50"`
+	Email             string `json:"email" validate:"email"`
+	Password          string `json:"password" validate:"required,min=8"`
+	TrafficLimitBytes *int64 `json:"traffic_limit_bytes"`
+	ExpiryDays        *int   `json:"expiry_days"`
+	InboundIDs        []uint `json:"inbound_ids"`
+}
+
+type UpdateUserRequest struct {
+	Username          *string `json:"username" validate:"omitempty,min=3,max=50"`
+	Email             *string `json:"email" validate:"omitempty,email"`
+	Password          *string `json:"password" validate:"omitempty,min=8"`
+	TrafficLimitBytes *int64  `json:"traffic_limit_bytes"`
+	IsActive          *bool   `json:"is_active"`
+	InboundIDs        []uint  `json:"inbound_ids"`
+}
+
+type UserResponse struct {
+	ID                uint    `json:"id"`
+	Username          string  `json:"username"`
+	Email             string  `json:"email"`
+	UUID              string  `json:"uuid"`
+	Password          string  `json:"password"`
+	Token             *string `json:"token"`
+	SubscriptionToken string  `json:"subscription_token"`
+	TrafficLimitBytes *int64  `json:"traffic_limit_bytes"`
+	TrafficUsedBytes  int64   `json:"traffic_used_bytes"`
+	ExpiryDate        *string `json:"expiry_date"`
+	IsActive          bool    `json:"is_active"`
+	IsOnline          bool    `json:"is_online"`
+	CreatedAt         string  `json:"created_at"`
+	Inbounds          []uint  `json:"inbound_ids"`
+}
+
+// CreateUser creates a new user with auto-generated credentials
+func (us *UserService) CreateUser(req *CreateUserRequest, adminID uint) (*models.User, error) {
+	// Check if username already exists
+	var existing models.User
+	if err := us.db.Where("username = ?", req.Username).First(&existing).Error; err == nil {
+		return nil, fmt.Errorf("username already exists")
+	}
+
+	// Generate UUID v4
+	userUUID := uuid.New().String()
+
+	// Generate subscription token
+	subToken, err := generateToken(32)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate subscription token: %w", err)
+	}
+
+	// Generate TUIC token (optional)
+	var tuicToken *string
+	token, err := generateToken(16)
+	if err == nil {
+		tuicToken = &token
+	}
+
+	// Calculate expiry date
+	var expiryDate *time.Time
+	if req.ExpiryDays != nil && *req.ExpiryDays > 0 {
+		expiry := time.Now().AddDate(0, 0, *req.ExpiryDays)
+		expiryDate = &expiry
+	}
+
+	// Create user
+	user := &models.User{
+		Username:          req.Username,
+		Email:             req.Email,
+		UUID:              userUUID,
+		Password:          req.Password,
+		Token:             tuicToken,
+		SubscriptionToken: subToken,
+		TrafficLimitBytes: req.TrafficLimitBytes,
+		TrafficUsedBytes:  0,
+		ExpiryDate:        expiryDate,
+		IsActive:          true,
+		IsOnline:          false,
+		CreatedByAdminID:  &adminID,
+	}
+
+	if err := us.db.Create(user).Error; err != nil {
+		return nil, fmt.Errorf("failed to create user: %w", err)
+	}
+
+	// Create user-inbound mappings
+	if len(req.InboundIDs) > 0 {
+		for _, inboundID := range req.InboundIDs {
+			mapping := &models.UserInboundMapping{
+				UserID:    user.ID,
+				InboundID: inboundID,
+			}
+			if err := us.db.Create(mapping).Error; err != nil {
+				// Log error but don't fail user creation
+				fmt.Printf("Warning: Failed to create user-inbound mapping: %v\n", err)
+			}
+		}
+	}
+
+	return user, nil
+}
+
+// GetUser retrieves a user by ID
+func (us *UserService) GetUser(id uint) (*models.User, error) {
+	var user models.User
+	if err := us.db.Preload("CreatedByAdmin").First(&user, id).Error; err != nil {
+		return nil, fmt.Errorf("user not found: %w", err)
+	}
+	return &user, nil
+}
+
+// ListUsers retrieves all users with pagination
+func (us *UserService) ListUsers(page, pageSize int) ([]models.User, int64, error) {
+	var users []models.User
+	var total int64
+
+	// Count total
+	if err := us.db.Model(&models.User{}).Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to count users: %w", err)
+	}
+
+	// Get paginated results
+	offset := (page - 1) * pageSize
+	if err := us.db.Preload("CreatedByAdmin").
+		Offset(offset).
+		Limit(pageSize).
+		Order("created_at DESC").
+		Find(&users).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to list users: %w", err)
+	}
+
+	return users, total, nil
+}
+
+// UpdateUser updates a user
+func (us *UserService) UpdateUser(id uint, req *UpdateUserRequest) (*models.User, error) {
+	var user models.User
+	if err := us.db.First(&user, id).Error; err != nil {
+		return nil, fmt.Errorf("user not found: %w", err)
+	}
+
+	// Update fields
+	if req.Username != nil {
+		user.Username = *req.Username
+	}
+	if req.Email != nil {
+		user.Email = *req.Email
+	}
+	if req.Password != nil {
+		user.Password = *req.Password
+	}
+	if req.TrafficLimitBytes != nil {
+		user.TrafficLimitBytes = req.TrafficLimitBytes
+	}
+	if req.IsActive != nil {
+		user.IsActive = *req.IsActive
+	}
+
+	if err := us.db.Save(&user).Error; err != nil {
+		return nil, fmt.Errorf("failed to update user: %w", err)
+	}
+
+	// Update inbound mappings if provided
+	if req.InboundIDs != nil {
+		// Delete existing mappings
+		us.db.Where("user_id = ?", user.ID).Delete(&models.UserInboundMapping{})
+
+		// Create new mappings
+		for _, inboundID := range req.InboundIDs {
+			mapping := &models.UserInboundMapping{
+				UserID:    user.ID,
+				InboundID: inboundID,
+			}
+			us.db.Create(mapping)
+		}
+	}
+
+	return &user, nil
+}
+
+// DeleteUser deletes a user
+func (us *UserService) DeleteUser(id uint) error {
+	var user models.User
+	if err := us.db.First(&user, id).Error; err != nil {
+		return fmt.Errorf("user not found: %w", err)
+	}
+
+	// Delete user (cascades to mappings)
+	if err := us.db.Delete(&user).Error; err != nil {
+		return fmt.Errorf("failed to delete user: %w", err)
+	}
+
+	return nil
+}
+
+// RegenerateCredentials regenerates user credentials
+func (us *UserService) RegenerateCredentials(id uint) (*models.User, error) {
+	var user models.User
+	if err := us.db.First(&user, id).Error; err != nil {
+		return nil, fmt.Errorf("user not found: %w", err)
+	}
+
+	// Regenerate UUID
+	user.UUID = uuid.New().String()
+
+	// Regenerate subscription token
+	subToken, err := generateToken(32)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate subscription token: %w", err)
+	}
+	user.SubscriptionToken = subToken
+
+	// Regenerate TUIC token
+	token, err := generateToken(16)
+	if err == nil {
+		user.Token = &token
+	}
+
+	if err := us.db.Save(&user).Error; err != nil {
+		return nil, fmt.Errorf("failed to update user: %w", err)
+	}
+
+	return &user, nil
+}
+
+// GetUserInbounds retrieves inbounds for a user
+func (us *UserService) GetUserInbounds(userID uint) ([]models.Inbound, error) {
+	var mappings []models.UserInboundMapping
+	if err := us.db.Preload("Inbound").Where("user_id = ?", userID).Find(&mappings).Error; err != nil {
+		return nil, fmt.Errorf("failed to get user inbounds: %w", err)
+	}
+
+	inbounds := make([]models.Inbound, 0, len(mappings))
+	for _, mapping := range mappings {
+		if mapping.Inbound != nil {
+			inbounds = append(inbounds, *mapping.Inbound)
+		}
+	}
+
+	return inbounds, nil
+}
+
+// generateToken generates a random hex token
+func generateToken(length int) (string, error) {
+	bytes := make([]byte, length)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bytes), nil
+}

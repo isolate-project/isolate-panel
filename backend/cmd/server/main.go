@@ -77,9 +77,13 @@ func main() {
 	}
 	tokenService := auth.NewTokenService(jwtSecret, 15*time.Minute, 7*24*time.Hour)
 
+	// Initialize services
+	userService := services.NewUserService(db.DB)
+
 	// Initialize handlers
 	authHandler := api.NewAuthHandler(db.DB, tokenService)
 	coresHandler := api.NewCoresHandler(coreManager)
+	usersHandler := api.NewUsersHandler(userService)
 
 	// Initialize rate limiter for login (5 attempts per minute per IP)
 	loginLimiter := middleware.NewRateLimiter(5, 1*time.Minute)
@@ -128,6 +132,16 @@ func main() {
 	coresGroup.Post("/:name/restart", coresHandler.RestartCore)
 	coresGroup.Get("/:name/status", coresHandler.GetCoreStatus)
 
+	// User management routes (protected)
+	usersGroup := protectedGroup.Group("/users")
+	usersGroup.Get("/", usersHandler.ListUsers)
+	usersGroup.Post("/", usersHandler.CreateUser)
+	usersGroup.Get("/:id", usersHandler.GetUser)
+	usersGroup.Put("/:id", usersHandler.UpdateUser)
+	usersGroup.Delete("/:id", usersHandler.DeleteUser)
+	usersGroup.Post("/:id/regenerate", usersHandler.RegenerateCredentials)
+	usersGroup.Get("/:id/inbounds", usersHandler.GetUserInbounds)
+
 	// Get port from environment or use default
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -136,17 +150,29 @@ func main() {
 
 	log.Printf("Starting Isolate Panel on port %s", port)
 	log.Println("✓ Authentication system enabled")
-	log.Println("  - POST /api/auth/login - Login")
-	log.Println("  - POST /api/auth/refresh - Refresh token")
-	log.Println("  - POST /api/auth/logout - Logout")
-	log.Println("  - GET /api/me - Get current admin info (protected)")
 	log.Println("✓ Core management enabled")
-	log.Println("  - GET /api/cores - List all cores")
-	log.Println("  - GET /api/cores/:name - Get core info")
-	log.Println("  - POST /api/cores/:name/start - Start core")
-	log.Println("  - POST /api/cores/:name/stop - Stop core")
-	log.Println("  - POST /api/cores/:name/restart - Restart core")
-	log.Println("  - GET /api/cores/:name/status - Get core status")
+	log.Println("✓ User management enabled")
+	log.Println("")
+	log.Println("API Endpoints:")
+	log.Println("  Auth:")
+	log.Println("    POST /api/auth/login")
+	log.Println("    POST /api/auth/refresh")
+	log.Println("    POST /api/auth/logout")
+	log.Println("  Admin:")
+	log.Println("    GET  /api/me")
+	log.Println("  Cores:")
+	log.Println("    GET  /api/cores")
+	log.Println("    POST /api/cores/:name/start")
+	log.Println("    POST /api/cores/:name/stop")
+	log.Println("    POST /api/cores/:name/restart")
+	log.Println("  Users:")
+	log.Println("    GET  /api/users")
+	log.Println("    POST /api/users")
+	log.Println("    GET  /api/users/:id")
+	log.Println("    PUT  /api/users/:id")
+	log.Println("    DELETE /api/users/:id")
+	log.Println("    POST /api/users/:id/regenerate")
+	log.Println("    GET  /api/users/:id/inbounds")
 
 	if err := app.Listen(":" + port); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
