@@ -1,0 +1,20 @@
+services:
+  isolate-panel:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: isolate-panel-dev
+    ports:
+      - "8080:8080"  # Backend API
+      - "5173:5173"  # Vite dev server
+    volumes:
+      - ../backend:/app/backend
+      - ../frontend:/app/frontend
+      - ../data:/app/data
+    environment:
+      - APP_ENV=development
+      - PORT=8080
+      - DATABASE_PATH=/app/data/isolate-panel.db
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
