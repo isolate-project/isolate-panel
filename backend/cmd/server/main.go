@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	"fmt"
 	"os"
 	"time"
 
@@ -10,82 +10,107 @@ import (
 
 	"github.com/vovk4morkovk4/isolate-panel/internal/api"
 	"github.com/vovk4morkovk4/isolate-panel/internal/auth"
+	appconfig "github.com/vovk4morkovk4/isolate-panel/internal/config"
 	"github.com/vovk4morkovk4/isolate-panel/internal/core"
 	"github.com/vovk4morkovk4/isolate-panel/internal/database"
 	"github.com/vovk4morkovk4/isolate-panel/internal/database/seeds"
+	applogger "github.com/vovk4morkovk4/isolate-panel/internal/logger"
 	"github.com/vovk4morkovk4/isolate-panel/internal/middleware"
 	"github.com/vovk4morkovk4/isolate-panel/internal/services"
 )
 
 func main() {
-	// Database configuration
-	dbPath := os.Getenv("DATABASE_PATH")
-	if dbPath == "" {
-		dbPath = "./data/isolate-panel.db"
+	// Load configuration
+	configPath := os.Getenv("CONFIG_PATH")
+	cfg, err := appconfig.Load(configPath)
+	if err != nil {
+		fmt.Printf("Failed to load configuration: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Initialize logger
+	if err := applogger.Init(&applogger.Config{
+		Level:      cfg.Logging.Level,
+		Format:     cfg.Logging.Format,
+		Output:     cfg.Logging.Output,
+		FilePath:   cfg.Logging.FilePath,
+		MaxSize:    cfg.Logging.MaxSize,
+		MaxBackups: cfg.Logging.MaxBackups,
+		MaxAge:     cfg.Logging.MaxAge,
+		Compress:   cfg.Logging.Compress,
+	}); err != nil {
+		fmt.Printf("Failed to initialize logger: %v\n", err)
+		os.Exit(1)
+	}
+
+	log := applogger.Log
+	log.Info().Msg("Starting Isolate Panel")
+	log.Info().Str("env", cfg.App.Env).Msg("Environment")
+
+	// Validate configuration (only in production)
+	if cfg.IsProduction() {
+		if err := cfg.Validate(); err != nil {
+			log.Fatal().Err(err).Msg("Configuration validation failed")
+		}
+	} else {
+		log.Warn().Msg("Running in development mode - some validations are skipped")
+		if cfg.JWT.Secret == "change-this-in-production-use-env-var" {
+			log.Warn().Msg("Using default JWT secret - set JWT_SECRET environment variable in production!")
+		}
 	}
 
 	// Initialize database
 	db, err := database.New(&database.Config{
-		Path:         dbPath,
-		MaxOpenConns: 10,
-		MaxIdleConns: 5,
+		Path:         cfg.Database.Path,
+		MaxOpenConns: cfg.Database.MaxOpenConns,
+		MaxIdleConns: cfg.Database.MaxIdleConns,
 		LogLevel:     logger.Info,
 	})
 	if err != nil {
-		log.Fatalf("Failed to initialize database: %v", err)
+		log.Fatal().Err(err).Msg("Failed to initialize database")
 	}
 	defer db.Close()
 
 	// Run migrations
-	log.Println("Running database migrations...")
+	log.Info().Msg("Running database migrations")
 	if err := db.RunMigrations(); err != nil {
-		log.Fatalf("Failed to run migrations: %v", err)
+		log.Fatal().Err(err).Msg("Failed to run migrations")
 	}
-	log.Println("✓ Migrations completed")
+	log.Info().Msg("Migrations completed")
 
 	// Run seeders in development
-	if os.Getenv("APP_ENV") == "development" {
-		log.Println("Running database seeders...")
+	if cfg.IsDevelopment() {
+		log.Info().Msg("Running database seeders")
 		seeder := seeds.NewSeeder(db.DB)
 		if err := seeder.RunAll(); err != nil {
-			log.Fatalf("Failed to run seeders: %v", err)
+			log.Fatal().Err(err).Msg("Failed to run seeders")
 		}
 	}
 
 	// Initialize Core Manager
-	supervisorURL := os.Getenv("SUPERVISOR_URL")
-	if supervisorURL == "" {
-		supervisorURL = "http://localhost:9001/RPC2"
-	}
-	coreManager := core.NewCoreManager(db.DB, supervisorURL)
+	coreManager := core.NewCoreManager(db.DB, cfg.Cores.SupervisorURL)
 
 	// Initialize Core Lifecycle Manager (lazy loading)
 	lifecycleManager := services.NewCoreLifecycleManager(db.DB, coreManager)
 
 	// Initialize Config Service
-	configDir := os.Getenv("CONFIG_DIR")
-	if configDir == "" {
-		configDir = "./data/cores"
-	}
-	configService := services.NewConfigService(db.DB, coreManager, configDir)
+	configService := services.NewConfigService(db.DB, coreManager, cfg.Cores.ConfigDir)
 
 	// Connect ConfigService to LifecycleManager
 	lifecycleManager.SetConfigService(configService)
 
 	// Initialize cores (lazy loading - only start if needed)
-	log.Println("Initializing cores (lazy loading)...")
+	log.Info().Msg("Initializing cores (lazy loading)")
 	if err := lifecycleManager.InitializeCores(); err != nil {
-		log.Printf("Warning: Failed to initialize cores: %v", err)
-		// Don't fail startup, cores can be started manually
+		log.Warn().Err(err).Msg("Failed to initialize cores - cores can be started manually")
 	}
 
 	// Initialize JWT token service
-	jwtSecret := os.Getenv("JWT_SECRET")
-	if jwtSecret == "" {
-		jwtSecret = "change-this-in-production-use-env-var-at-least-64-chars-long"
-		log.Println("WARNING: Using default JWT secret. Set JWT_SECRET environment variable in production!")
-	}
-	tokenService := auth.NewTokenService(jwtSecret, 15*time.Minute, 7*24*time.Hour)
+	tokenService := auth.NewTokenService(
+		cfg.JWT.Secret,
+		time.Duration(cfg.JWT.AccessTokenTTL)*time.Second,
+		time.Duration(cfg.JWT.RefreshTokenTTL)*time.Second,
+	)
 
 	// Initialize services
 	userService := services.NewUserService(db.DB)
@@ -102,8 +127,17 @@ func main() {
 
 	// Initialize Fiber app
 	app := fiber.New(fiber.Config{
-		AppName: "Isolate Panel v0.1.0",
+		AppName:      fmt.Sprintf("%s v0.1.0", cfg.App.Name),
+		ErrorHandler: middleware.ErrorHandler,
 	})
+
+	// Global middleware
+	app.Use(middleware.Recovery())
+	app.Use(middleware.CORS())
+	app.Use(middleware.RequestLogger())
+
+	// 404 handler
+	app.Use(middleware.NotFoundHandler)
 
 	// Health check endpoint
 	app.Get("/health", func(c fiber.Ctx) error {
@@ -111,6 +145,7 @@ func main() {
 			"status":   "ok",
 			"message":  "Isolate Panel is running",
 			"database": "connected",
+			"version":  "0.1.0",
 		})
 	})
 
@@ -122,6 +157,7 @@ func main() {
 		return c.JSON(fiber.Map{
 			"message": "Isolate Panel API",
 			"version": "0.1.0",
+			"docs":    "/api/docs",
 		})
 	})
 
@@ -165,46 +201,22 @@ func main() {
 	inboundsGroup.Post("/assign", inboundsHandler.AssignInboundToUser)
 	inboundsGroup.Post("/unassign", inboundsHandler.UnassignInboundFromUser)
 
-	// Get port from environment or use default
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
+	// Log startup information
+	log.Info().
+		Str("host", cfg.App.Host).
+		Int("port", cfg.App.Port).
+		Msg("Starting HTTP server")
 
-	log.Printf("Starting Isolate Panel on port %s", port)
-	log.Println("✓ Authentication system enabled")
-	log.Println("✓ Core management enabled")
-	log.Println("✓ User management enabled")
-	log.Println("✓ Inbound management enabled")
-	log.Println("")
-	log.Println("API Endpoints:")
-	log.Println("  Auth:")
-	log.Println("    POST /api/auth/login")
-	log.Println("    POST /api/auth/refresh")
-	log.Println("    POST /api/auth/logout")
-	log.Println("  Admin:")
-	log.Println("    GET  /api/me")
-	log.Println("  Cores:")
-	log.Println("    GET  /api/cores")
-	log.Println("    POST /api/cores/:name/start")
-	log.Println("    POST /api/cores/:name/stop")
-	log.Println("    POST /api/cores/:name/restart")
-	log.Println("  Users:")
-	log.Println("    GET  /api/users")
-	log.Println("    POST /api/users")
-	log.Println("    GET  /api/users/:id")
-	log.Println("    PUT  /api/users/:id")
-	log.Println("    DELETE /api/users/:id")
-	log.Println("    POST /api/users/:id/regenerate")
-	log.Println("    GET  /api/users/:id/inbounds")
-	log.Println("  Inbounds:")
-	log.Println("    GET  /api/inbounds")
-	log.Println("    POST /api/inbounds")
-	log.Println("    GET  /api/inbounds/:id")
-	log.Println("    PUT  /api/inbounds/:id")
-	log.Println("    DELETE /api/inbounds/:id")
+	log.Info().Msg("✓ Authentication system enabled")
+	log.Info().Msg("✓ Core management enabled")
+	log.Info().Msg("✓ User management enabled")
+	log.Info().Msg("✓ Inbound management enabled")
+	log.Info().Msg("✓ Structured logging enabled")
+	log.Info().Msg("✓ Configuration management enabled")
 
-	if err := app.Listen(":" + port); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+	// Start server
+	addr := fmt.Sprintf("%s:%d", cfg.App.Host, cfg.App.Port)
+	if err := app.Listen(addr); err != nil {
+		log.Fatal().Err(err).Msg("Failed to start server")
 	}
 }

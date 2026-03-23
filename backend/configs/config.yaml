@@ -5,7 +5,7 @@ app:
   host: "127.0.0.1"
 
 database:
-  path: "/app/data/isolate-panel.db"
+  path: "./data/isolate-panel.db"
   max_open_conns: 10
   max_idle_conns: 5
 
@@ -15,8 +15,14 @@ jwt:
   refresh_token_ttl: 604800  # 7 days
 
 logging:
-  level: "debug"
-  format: "json"
+  level: "info"
+  format: "console"  # "json" or "console"
+  output: "both"     # "stdout", "file", or "both"
+  file_path: "./logs/isolate-panel.log"
+  max_size: 100      # megabytes
+  max_backups: 3     # number of backups
+  max_age: 28        # days
+  compress: true     # compress rotated files
 
 security:
   argon2:
@@ -25,3 +31,7 @@ security:
     threads: 4
     key_length: 32
     salt_length: 16
+
+cores:
+  config_dir: "./data/cores"
+  supervisor_url: "http://localhost:9001/RPC2"
