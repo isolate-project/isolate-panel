@@ -42,6 +42,16 @@ type User struct {
 	IsActive          bool  `gorm:"default:true"`
 }
 
+type Core struct {
+	ID         uint   `gorm:"primaryKey"`
+	Name       string `gorm:"uniqueIndex;not null"`
+	Version    string `gorm:"not null"`
+	IsEnabled  bool   `gorm:"default:true"`
+	IsRunning  bool   `gorm:"default:false"`
+	ConfigPath string
+	LogPath    string
+}
+
 func NewSeeder(db *gorm.DB) *Seeder {
 	return &Seeder{db: db}
 }
@@ -51,6 +61,7 @@ func (s *Seeder) RunAll() error {
 	seeders := []func() error{
 		s.SeedDefaultAdmin,
 		s.SeedDefaultSettings,
+		s.SeedCores,
 		s.SeedDevelopmentUsers,
 	}
 
@@ -121,6 +132,50 @@ func (s *Seeder) SeedDefaultSettings() error {
 	}
 
 	fmt.Println("✓ Default settings seeded")
+	return nil
+}
+
+// SeedCores creates default core entries
+func (s *Seeder) SeedCores() error {
+	cores := []Core{
+		{
+			Name:       "singbox",
+			Version:    "1.13.3",
+			IsEnabled:  true,
+			IsRunning:  false,
+			ConfigPath: "/app/data/cores/singbox/config.json",
+			LogPath:    "/var/log/isolate-panel/singbox.log",
+		},
+		{
+			Name:       "xray",
+			Version:    "26.2.6",
+			IsEnabled:  true,
+			IsRunning:  false,
+			ConfigPath: "/app/data/cores/xray/config.json",
+			LogPath:    "/var/log/isolate-panel/xray.log",
+		},
+		{
+			Name:       "mihomo",
+			Version:    "1.19.21",
+			IsEnabled:  true,
+			IsRunning:  false,
+			ConfigPath: "/app/data/cores/mihomo/config.yaml",
+			LogPath:    "/var/log/isolate-panel/mihomo.log",
+		},
+	}
+
+	for _, core := range cores {
+		var existing Core
+		err := s.db.Table("cores").Where("name = ?", core.Name).First(&existing).Error
+
+		if err == gorm.ErrRecordNotFound {
+			if err := s.db.Table("cores").Create(&core).Error; err != nil {
+				return fmt.Errorf("failed to seed core %s: %w", core.Name, err)
+			}
+		}
+	}
+
+	fmt.Println("✓ Cores seeded (singbox, xray, mihomo)")
 	return nil
 }
 

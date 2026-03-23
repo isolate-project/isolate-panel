@@ -10,9 +10,11 @@ import (
 
 	"github.com/vovk4morkovk4/isolate-panel/internal/api"
 	"github.com/vovk4morkovk4/isolate-panel/internal/auth"
+	"github.com/vovk4morkovk4/isolate-panel/internal/core"
 	"github.com/vovk4morkovk4/isolate-panel/internal/database"
 	"github.com/vovk4morkovk4/isolate-panel/internal/database/seeds"
 	"github.com/vovk4morkovk4/isolate-panel/internal/middleware"
+	"github.com/vovk4morkovk4/isolate-panel/internal/services"
 )
 
 func main() {
@@ -50,6 +52,23 @@ func main() {
 		}
 	}
 
+	// Initialize Core Manager
+	supervisorURL := os.Getenv("SUPERVISOR_URL")
+	if supervisorURL == "" {
+		supervisorURL = "http://localhost:9001/RPC2"
+	}
+	coreManager := core.NewCoreManager(db.DB, supervisorURL)
+
+	// Initialize Core Lifecycle Manager (lazy loading)
+	lifecycleManager := services.NewCoreLifecycleManager(db.DB, coreManager)
+
+	// Initialize cores (lazy loading - only start if needed)
+	log.Println("Initializing cores (lazy loading)...")
+	if err := lifecycleManager.InitializeCores(); err != nil {
+		log.Printf("Warning: Failed to initialize cores: %v", err)
+		// Don't fail startup, cores can be started manually
+	}
+
 	// Initialize JWT token service
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
@@ -60,6 +79,7 @@ func main() {
 
 	// Initialize handlers
 	authHandler := api.NewAuthHandler(db.DB, tokenService)
+	coresHandler := api.NewCoresHandler(coreManager)
 
 	// Initialize rate limiter for login (5 attempts per minute per IP)
 	loginLimiter := middleware.NewRateLimiter(5, 1*time.Minute)
@@ -99,6 +119,15 @@ func main() {
 	protectedGroup := apiGroup.Group("/", middleware.AuthMiddleware(tokenService))
 	protectedGroup.Get("/me", authHandler.Me)
 
+	// Core management routes (protected)
+	coresGroup := protectedGroup.Group("/cores")
+	coresGroup.Get("/", coresHandler.ListCores)
+	coresGroup.Get("/:name", coresHandler.GetCore)
+	coresGroup.Post("/:name/start", coresHandler.StartCore)
+	coresGroup.Post("/:name/stop", coresHandler.StopCore)
+	coresGroup.Post("/:name/restart", coresHandler.RestartCore)
+	coresGroup.Get("/:name/status", coresHandler.GetCoreStatus)
+
 	// Get port from environment or use default
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -111,6 +140,13 @@ func main() {
 	log.Println("  - POST /api/auth/refresh - Refresh token")
 	log.Println("  - POST /api/auth/logout - Logout")
 	log.Println("  - GET /api/me - Get current admin info (protected)")
+	log.Println("✓ Core management enabled")
+	log.Println("  - GET /api/cores - List all cores")
+	log.Println("  - GET /api/cores/:name - Get core info")
+	log.Println("  - POST /api/cores/:name/start - Start core")
+	log.Println("  - POST /api/cores/:name/stop - Stop core")
+	log.Println("  - POST /api/cores/:name/restart - Restart core")
+	log.Println("  - GET /api/cores/:name/status - Get core status")
 
 	if err := app.Listen(":" + port); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
