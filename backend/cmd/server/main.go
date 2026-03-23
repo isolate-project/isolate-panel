@@ -3,12 +3,16 @@ package main
 import (
 	"log"
 	"os"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"gorm.io/gorm/logger"
 
+	"github.com/vovk4morkovk4/isolate-panel/internal/api"
+	"github.com/vovk4morkovk4/isolate-panel/internal/auth"
 	"github.com/vovk4morkovk4/isolate-panel/internal/database"
 	"github.com/vovk4morkovk4/isolate-panel/internal/database/seeds"
+	"github.com/vovk4morkovk4/isolate-panel/internal/middleware"
 )
 
 func main() {
@@ -46,6 +50,20 @@ func main() {
 		}
 	}
 
+	// Initialize JWT token service
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		jwtSecret = "change-this-in-production-use-env-var-at-least-64-chars-long"
+		log.Println("WARNING: Using default JWT secret. Set JWT_SECRET environment variable in production!")
+	}
+	tokenService := auth.NewTokenService(jwtSecret, 15*time.Minute, 7*24*time.Hour)
+
+	// Initialize handlers
+	authHandler := api.NewAuthHandler(db.DB, tokenService)
+
+	// Initialize rate limiter for login (5 attempts per minute per IP)
+	loginLimiter := middleware.NewRateLimiter(5, 1*time.Minute)
+
 	// Initialize Fiber app
 	app := fiber.New(fiber.Config{
 		AppName: "Isolate Panel v0.1.0",
@@ -60,14 +78,26 @@ func main() {
 		})
 	})
 
-	// API routes placeholder
-	api := app.Group("/api")
-	api.Get("/", func(c fiber.Ctx) error {
+	// API routes
+	apiGroup := app.Group("/api")
+
+	// Public routes (no auth required)
+	apiGroup.Get("/", func(c fiber.Ctx) error {
 		return c.JSON(fiber.Map{
 			"message": "Isolate Panel API",
 			"version": "0.1.0",
 		})
 	})
+
+	// Auth routes
+	authGroup := apiGroup.Group("/auth")
+	authGroup.Post("/login", middleware.LoginRateLimiter(loginLimiter), authHandler.Login)
+	authGroup.Post("/refresh", authHandler.Refresh)
+	authGroup.Post("/logout", authHandler.Logout)
+
+	// Protected routes (auth required)
+	protectedGroup := apiGroup.Group("/", middleware.AuthMiddleware(tokenService))
+	protectedGroup.Get("/me", authHandler.Me)
 
 	// Get port from environment or use default
 	port := os.Getenv("PORT")
@@ -76,12 +106,12 @@ func main() {
 	}
 
 	log.Printf("Starting Isolate Panel on port %s", port)
-	if err := app.Listen(":" + port); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
-	}
-}
+	log.Println("✓ Authentication system enabled")
+	log.Println("  - POST /api/auth/login - Login")
+	log.Println("  - POST /api/auth/refresh - Refresh token")
+	log.Println("  - POST /api/auth/logout - Logout")
+	log.Println("  - GET /api/me - Get current admin info (protected)")
 
-	log.Printf("Starting Isolate Panel on port %s", port)
 	if err := app.Listen(":" + port); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
