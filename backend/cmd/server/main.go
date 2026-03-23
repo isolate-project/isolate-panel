@@ -62,6 +62,16 @@ func main() {
 	// Initialize Core Lifecycle Manager (lazy loading)
 	lifecycleManager := services.NewCoreLifecycleManager(db.DB, coreManager)
 
+	// Initialize Config Service
+	configDir := os.Getenv("CONFIG_DIR")
+	if configDir == "" {
+		configDir = "./data/cores"
+	}
+	configService := services.NewConfigService(db.DB, coreManager, configDir)
+
+	// Connect ConfigService to LifecycleManager
+	lifecycleManager.SetConfigService(configService)
+
 	// Initialize cores (lazy loading - only start if needed)
 	log.Println("Initializing cores (lazy loading)...")
 	if err := lifecycleManager.InitializeCores(); err != nil {
@@ -79,11 +89,13 @@ func main() {
 
 	// Initialize services
 	userService := services.NewUserService(db.DB)
+	inboundService := services.NewInboundService(db.DB, lifecycleManager)
 
 	// Initialize handlers
 	authHandler := api.NewAuthHandler(db.DB, tokenService)
 	coresHandler := api.NewCoresHandler(coreManager)
 	usersHandler := api.NewUsersHandler(userService)
+	inboundsHandler := api.NewInboundsHandler(inboundService)
 
 	// Initialize rate limiter for login (5 attempts per minute per IP)
 	loginLimiter := middleware.NewRateLimiter(5, 1*time.Minute)
@@ -142,6 +154,17 @@ func main() {
 	usersGroup.Post("/:id/regenerate", usersHandler.RegenerateCredentials)
 	usersGroup.Get("/:id/inbounds", usersHandler.GetUserInbounds)
 
+	// Inbound management routes (protected)
+	inboundsGroup := protectedGroup.Group("/inbounds")
+	inboundsGroup.Get("/", inboundsHandler.ListInbounds)
+	inboundsGroup.Post("/", inboundsHandler.CreateInbound)
+	inboundsGroup.Get("/:id", inboundsHandler.GetInbound)
+	inboundsGroup.Put("/:id", inboundsHandler.UpdateInbound)
+	inboundsGroup.Delete("/:id", inboundsHandler.DeleteInbound)
+	inboundsGroup.Get("/core/:core_id", inboundsHandler.GetInboundsByCore)
+	inboundsGroup.Post("/assign", inboundsHandler.AssignInboundToUser)
+	inboundsGroup.Post("/unassign", inboundsHandler.UnassignInboundFromUser)
+
 	// Get port from environment or use default
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -152,6 +175,7 @@ func main() {
 	log.Println("✓ Authentication system enabled")
 	log.Println("✓ Core management enabled")
 	log.Println("✓ User management enabled")
+	log.Println("✓ Inbound management enabled")
 	log.Println("")
 	log.Println("API Endpoints:")
 	log.Println("  Auth:")
@@ -173,6 +197,12 @@ func main() {
 	log.Println("    DELETE /api/users/:id")
 	log.Println("    POST /api/users/:id/regenerate")
 	log.Println("    GET  /api/users/:id/inbounds")
+	log.Println("  Inbounds:")
+	log.Println("    GET  /api/inbounds")
+	log.Println("    POST /api/inbounds")
+	log.Println("    GET  /api/inbounds/:id")
+	log.Println("    PUT  /api/inbounds/:id")
+	log.Println("    DELETE /api/inbounds/:id")
 
 	if err := app.Listen(":" + port); err != nil {
 		log.Fatalf("Failed to start server: %v", err)

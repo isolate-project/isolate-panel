@@ -11,16 +11,24 @@ import (
 
 // CoreLifecycleManager manages automatic starting/stopping of cores based on inbounds
 type CoreLifecycleManager struct {
-	db          *gorm.DB
-	coreManager *core.CoreManager
+	db            *gorm.DB
+	coreManager   *core.CoreManager
+	configService *ConfigService
 }
 
 // NewCoreLifecycleManager creates a new lifecycle manager
 func NewCoreLifecycleManager(db *gorm.DB, coreManager *core.CoreManager) *CoreLifecycleManager {
-	return &CoreLifecycleManager{
+	clm := &CoreLifecycleManager{
 		db:          db,
 		coreManager: coreManager,
 	}
+	// Initialize config service (will be set later to avoid circular dependency)
+	return clm
+}
+
+// SetConfigService sets the config service (called after initialization)
+func (clm *CoreLifecycleManager) SetConfigService(configService *ConfigService) {
+	clm.configService = configService
 }
 
 // InitializeCores starts only necessary cores at system startup (lazy loading)
@@ -75,6 +83,13 @@ func (clm *CoreLifecycleManager) OnInboundCreated(inbound *models.Inbound) error
 		return err
 	}
 
+	// Regenerate config
+	if clm.configService != nil {
+		if err := clm.configService.RegenerateConfig(coreModel.Name); err != nil {
+			fmt.Printf("Warning: failed to regenerate config for %s: %v\n", coreModel.Name, err)
+		}
+	}
+
 	// Check if core is running
 	isRunning, err := clm.coreManager.IsCoreRunning(coreModel.Name)
 	if err != nil {
@@ -86,6 +101,12 @@ func (clm *CoreLifecycleManager) OnInboundCreated(inbound *models.Inbound) error
 
 		if err := clm.coreManager.StartCore(coreModel.Name); err != nil {
 			return fmt.Errorf("failed to start core: %w", err)
+		}
+	} else {
+		// Core is already running, reload it to apply new config
+		fmt.Printf("Reloading core %s (inbound created: %d)\n", coreModel.Name, inbound.ID)
+		if err := clm.coreManager.RestartCore(coreModel.Name); err != nil {
+			fmt.Printf("Warning: failed to reload core %s: %v\n", coreModel.Name, err)
 		}
 	}
 
@@ -110,6 +131,13 @@ func (clm *CoreLifecycleManager) OnInboundDeleted(inbound *models.Inbound) error
 		return err
 	}
 
+	// Regenerate config
+	if clm.configService != nil {
+		if err := clm.configService.RegenerateConfig(coreModel.Name); err != nil {
+			fmt.Printf("Warning: failed to regenerate config for %s: %v\n", coreModel.Name, err)
+		}
+	}
+
 	// If this was the last inbound, stop the core
 	if count == 0 {
 		fmt.Printf("Stopping core %s (last inbound deleted: %d)\n", coreModel.Name, inbound.ID)
@@ -118,6 +146,15 @@ func (clm *CoreLifecycleManager) OnInboundDeleted(inbound *models.Inbound) error
 			fmt.Printf("Failed to stop core %s: %v\n", coreModel.Name, err)
 			// Don't return error, this is not critical
 		}
+	} else {
+		// There are still inbounds, reload the core to apply new config
+		isRunning, _ := clm.coreManager.IsCoreRunning(coreModel.Name)
+		if isRunning {
+			fmt.Printf("Reloading core %s (inbound deleted: %d)\n", coreModel.Name, inbound.ID)
+			if err := clm.coreManager.RestartCore(coreModel.Name); err != nil {
+				fmt.Printf("Warning: failed to reload core %s: %v\n", coreModel.Name, err)
+			}
+		}
 	}
 
 	return nil
@@ -125,6 +162,12 @@ func (clm *CoreLifecycleManager) OnInboundDeleted(inbound *models.Inbound) error
 
 // OnInboundUpdated is called when an inbound is updated
 func (clm *CoreLifecycleManager) OnInboundUpdated(inbound *models.Inbound, wasEnabled bool) error {
+	// Load core
+	var coreModel models.Core
+	if err := clm.db.First(&coreModel, inbound.CoreID).Error; err != nil {
+		return err
+	}
+
 	// If inbound was disabled and now enabled, check if we need to start core
 	if !wasEnabled && inbound.IsEnabled {
 		return clm.OnInboundCreated(inbound)
@@ -133,6 +176,25 @@ func (clm *CoreLifecycleManager) OnInboundUpdated(inbound *models.Inbound, wasEn
 	// If inbound was enabled and now disabled, check if we need to stop core
 	if wasEnabled && !inbound.IsEnabled {
 		return clm.OnInboundDeleted(inbound)
+	}
+
+	// If inbound is still enabled, regenerate config and reload core
+	if inbound.IsEnabled {
+		// Regenerate config
+		if clm.configService != nil {
+			if err := clm.configService.RegenerateConfig(coreModel.Name); err != nil {
+				fmt.Printf("Warning: failed to regenerate config for %s: %v\n", coreModel.Name, err)
+			}
+		}
+
+		// Reload core if running
+		isRunning, _ := clm.coreManager.IsCoreRunning(coreModel.Name)
+		if isRunning {
+			fmt.Printf("Reloading core %s (inbound updated: %d)\n", coreModel.Name, inbound.ID)
+			if err := clm.coreManager.RestartCore(coreModel.Name); err != nil {
+				fmt.Printf("Warning: failed to reload core %s: %v\n", coreModel.Name, err)
+			}
+		}
 	}
 
 	return nil
