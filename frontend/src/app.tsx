@@ -16,6 +16,7 @@ import { Settings } from './pages/Settings'
 import { WarpRoutes } from './pages/WarpRoutes'
 import { GeoRules } from './pages/GeoRules'
 import { Backups } from './pages/Backups'
+import { Notifications } from './pages/Notifications'
 import { NotFound } from './pages/NotFound'
 import { useSessionExpired } from './hooks/useSessionExpired'
 import './i18n'
@@ -133,6 +134,14 @@ function ProtectedBackups() {
   )
 }
 
+function ProtectedNotifications() {
+  return (
+    <ProtectedRoute>
+      <Notifications />
+    </ProtectedRoute>
+  )
+}
+
 export function App() {
   // Monitor for session expiration
   useSessionExpired()
@@ -155,6 +164,7 @@ export function App() {
         <Route path="/warp" component={ProtectedWarpRoutes} />
         <Route path="/geo" component={ProtectedGeoRules} />
         <Route path="/backups" component={ProtectedBackups} />
+        <Route path="/notifications" component={ProtectedNotifications} />
         <Route default component={NotFound} />
       </Router>
       <ToastContainer />

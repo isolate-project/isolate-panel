@@ -42,7 +42,8 @@
     "settings": "Настройки",
     "warp": "WARP маршруты",
     "geo": "GeoIP/GeoSite",
-    "backups": "Резервные копии"
+    "backups": "Резервные копии",
+    "notifications": "Уведомления"
   },
   "auth": {
     "login": "Вход",

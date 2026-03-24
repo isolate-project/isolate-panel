@@ -42,7 +42,8 @@
     "settings": "设置",
     "warp": "WARP 路由",
     "geo": "GeoIP/GeoSite",
-    "backups": "备份"
+    "backups": "备份",
+    "notifications": "通知"
   },
   "auth": {
     "login": "登录",

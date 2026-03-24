@@ -144,8 +144,14 @@ func main() {
 	)
 	connectionTracker.Start()
 
+	// Initialize Notification service
+	notificationService := services.NewNotificationService(db.DB, "", "", "", "")
+	if err := notificationService.Initialize(); err != nil {
+		log.Warn().Err(err).Msg("Failed to initialize Notification service")
+	}
+
 	// Initialize quota enforcer (for automatic quota enforcement)
-	quotaEnforcer := services.NewQuotaEnforcer(db.DB, configService)
+	quotaEnforcer := services.NewQuotaEnforcer(db.DB, configService, notificationService)
 
 	// Initialize data aggregator (hourly and daily aggregation)
 	dataAggregator := services.NewDataAggregator(db.DB, 0)
@@ -215,6 +221,7 @@ func main() {
 	statsHandler := api.NewStatsHandler(db.DB, trafficCollector, connectionTracker)
 	warpHandler := api.NewWarpHandler(warpService, geoService)
 	backupHandler := api.NewBackupHandler(backupService, backupScheduler)
+	notificationHandler := api.NewNotificationHandler(notificationService)
 
 	// Initialize rate limiter for login (5 attempts per minute per IP)
 	loginLimiter := middleware.NewRateLimiter(5, 1*time.Minute)
@@ -339,6 +346,9 @@ func main() {
 
 	// Backup routes (protected)
 	backupHandler.RegisterRoutes(protectedGroup)
+
+	// Notification routes (protected)
+	notificationHandler.RegisterRoutes(protectedGroup)
 
 	// Subscription routes (public, token-based auth, rate limited)
 	subscriptionRoutes := app.Group("", middleware.SubscriptionRateLimiter())

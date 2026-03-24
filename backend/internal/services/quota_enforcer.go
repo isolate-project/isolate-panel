@@ -12,16 +12,18 @@ import (
 // QuotaEnforcer enforces user quotas
 // Uses graceful reload for all cores (simpler than per-core strategies)
 type QuotaEnforcer struct {
-	db            *gorm.DB
-	configService *ConfigService
-	mu            sync.Mutex
+	db                  *gorm.DB
+	configService       *ConfigService
+	notificationService *NotificationService
+	mu                  sync.Mutex
 }
 
 // NewQuotaEnforcer creates a new quota enforcer
-func NewQuotaEnforcer(db *gorm.DB, configService *ConfigService) *QuotaEnforcer {
+func NewQuotaEnforcer(db *gorm.DB, configService *ConfigService, notificationService *NotificationService) *QuotaEnforcer {
 	return &QuotaEnforcer{
-		db:            db,
-		configService: configService,
+		db:                  db,
+		configService:       configService,
+		notificationService: notificationService,
 	}
 }
 
@@ -59,7 +61,10 @@ func (qe *QuotaEnforcer) DisableUser(ctx context.Context, user *models.User) err
 		_ = qe.configService.RegenerateAndReload(coreName)
 	}
 
-	// TODO: Send notification when notification service is implemented
+	// Send notification
+	if qe.notificationService != nil {
+		qe.notificationService.NotifyQuotaExceeded(user)
+	}
 
 	return nil
 }

@@ -42,7 +42,8 @@
     "settings": "Settings",
     "warp": "WARP Routes",
     "geo": "GeoIP/GeoSite",
-    "backups": "Backups"
+    "backups": "Backups",
+    "notifications": "Notifications"
   },
   "auth": {
     "login": "Login",
