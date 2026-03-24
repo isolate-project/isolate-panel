@@ -167,7 +167,12 @@
     "hysteria2": "Hysteria2",
     "tuic": "TUIC",
     "portConflict": "Этот порт уже используется другим входящим.",
-    "bulkAssignSuccess": "Назначения пользователей успешно обновлены"
+    "bulkAssignSuccess": "Назначения пользователей успешно обновлены",
+    "tlsCertificate": "TLS сертификат",
+    "noCertificate": "Без сертификата (использовать стандартный)",
+    "selectCertificate": "Выберите сертификат...",
+    "certificateHint": "Выберите сертификат для TLS. Если не выбран, будет использоваться стандартный сертификат.",
+    "enableInbound": "Включить этот inbound"
   },
   "settings": {
     "title": "Настройки",

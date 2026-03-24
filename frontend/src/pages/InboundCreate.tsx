@@ -12,6 +12,8 @@ import { FormField } from '../components/forms/FormField'
 import { useCores } from '../hooks/useCores'
 import { useProtocols, useProtocolSchema, useProtocolDefaults } from '../hooks/useProtocols'
 import { useCreateInbound } from '../hooks/useInbounds'
+import { useQuery } from '../hooks/useQuery'
+import { certificateApi } from '../api/endpoints'
 import type { Core, ProtocolSummary } from '../types'
 import { ChevronLeft, ChevronRight, Check, Zap } from 'lucide-preact'
 import { useTranslation } from 'react-i18next'
@@ -29,6 +31,7 @@ interface WizardData {
   config: Record<string, unknown>
   tls_enabled: boolean
   reality_enabled: boolean
+  tls_cert_id: number | null
   is_enabled: boolean
 }
 
@@ -46,6 +49,7 @@ export function InboundCreate() {
     config: {},
     tls_enabled: true,
     reality_enabled: false,
+    tls_cert_id: null,
     is_enabled: true,
   })
 
@@ -56,6 +60,13 @@ export function InboundCreate() {
   const { data: schema } = useProtocolSchema(data.protocol)
   const { data: defaults } = useProtocolDefaults(data.protocol)
   const { mutate: createInbound, isLoading: isCreating } = useCreateInbound()
+  
+  // Fetch certificates for dropdown
+  const { data: certData } = useQuery<{ options: { id: number; domain: string; label: string }[] }>(
+    'certificates-dropdown',
+    () => certificateApi.dropdown().then(res => res.data as { options: { id: number; domain: string; label: string }[] }),
+    { enabled: data.tls_enabled }
+  )
 
   // Apply defaults when protocol is selected
   useEffect(() => {
@@ -118,6 +129,7 @@ export function InboundCreate() {
       listen_address: data.listen_address,
       tls_enabled: data.tls_enabled,
       reality_enabled: data.reality_enabled,
+      tls_cert_id: data.tls_cert_id,
       is_enabled: data.is_enabled,
       config_json: JSON.stringify(data.config),
     }
@@ -363,6 +375,30 @@ export function InboundCreate() {
               value={data.is_enabled}
               onChange={(_, value) => setData((prev) => ({ ...prev, is_enabled: value as boolean }))}
             />
+
+            {/* Certificate selection (only if TLS enabled) */}
+            {data.tls_enabled && (
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-primary mb-1">
+                  {t('inbounds.tlsCertificate')}
+                </label>
+                <Select
+                  value={data.tls_cert_id?.toString() || ''}
+                  onChange={(e: Event) => {
+                    const val = (e.target as HTMLSelectElement).value
+                    setData((prev) => ({ ...prev, tls_cert_id: val ? Number(val) : null }))
+                  }}
+                  options={[
+                    { value: '', label: t('inbounds.noCertificate') },
+                    ...(certData?.options.map(opt => ({ value: opt.id.toString(), label: opt.label })) || []),
+                  ]}
+                  placeholder={t('inbounds.selectCertificate')}
+                />
+                <p className="text-xs text-secondary mt-1">
+                  {t('inbounds.certificateHint')}
+                </p>
+              </div>
+            )}
 
             {/* Transport settings from schema */}
             {schema?.transport && schema.transport.length > 0 && (

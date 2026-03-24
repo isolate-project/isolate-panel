@@ -246,6 +246,7 @@ func main() {
 	// Certificate management routes (protected)
 	certsGroup := protectedGroup.Group("/certificates")
 	certsGroup.Get("/", certificatesHandler.ListCertificates)
+	certsGroup.Get("/dropdown", certificatesHandler.ListCertificatesDropdown)
 	certsGroup.Post("/", certificatesHandler.RequestCertificate)
 	certsGroup.Post("/upload", certificatesHandler.UploadCertificate)
 	certsGroup.Get("/:id", certificatesHandler.GetCertificate)

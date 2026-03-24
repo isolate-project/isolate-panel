@@ -167,7 +167,12 @@
     "hysteria2": "Hysteria2",
     "tuic": "TUIC",
     "portConflict": "此端口已被其他入站占用。",
-    "bulkAssignSuccess": "用户分配已成功更新"
+    "bulkAssignSuccess": "用户分配已成功更新",
+    "tlsCertificate": "TLS 证书",
+    "noCertificate": "无证书（使用默认）",
+    "selectCertificate": "选择证书...",
+    "certificateHint": "选择 TLS 证书。如果未选择，将使用默认证书。",
+    "enableInbound": "启用此入站"
   },
   "settings": {
     "title": "设置",

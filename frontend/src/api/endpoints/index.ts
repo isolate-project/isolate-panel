@@ -115,6 +115,7 @@ export const subscriptionApi = {
 // Certificate endpoints
 export const certificateApi = {
   list: () => apiClient.get('/certificates'),
+  dropdown: () => apiClient.get('/certificates/dropdown'),
   request: (data: { domain: string; is_wildcard: boolean }) => apiClient.post('/certificates', data),
   upload: (data: { certificate: string; private_key: string; issuer?: string; domain: string; is_wildcard: boolean }) =>
     apiClient.post('/certificates/upload', data),

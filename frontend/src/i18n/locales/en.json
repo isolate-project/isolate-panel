@@ -362,7 +362,12 @@
     "removeUserConfirm": "Remove this user from the inbound?",
     "backToInbounds": "Back to Inbounds",
     "editInbound": "Edit Inbound",
-    "bulkAssignSuccess": "User assignments updated successfully"
+    "bulkAssignSuccess": "User assignments updated successfully",
+    "tlsCertificate": "TLS Certificate",
+    "noCertificate": "No certificate (use default)",
+    "selectCertificate": "Select a certificate...",
+    "certificateHint": "Select a certificate for TLS. If not selected, the default certificate will be used.",
+    "enableInbound": "Enable this inbound"
   },
   "ramPanic": {
     "title": "Emergency Memory Management",

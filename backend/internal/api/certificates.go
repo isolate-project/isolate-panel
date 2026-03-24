@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/vovk4morkovk4/isolate-panel/internal/acme"
 	"github.com/vovk4morkovk4/isolate-panel/internal/models"
 	"github.com/vovk4morkovk4/isolate-panel/internal/services"
 	"gorm.io/gorm"
@@ -49,6 +50,50 @@ func (h *CertificatesHandler) ListCertificates(c fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"certificates": certs,
 		"total":        len(certs),
+	})
+}
+
+// ListCertificatesDropdown returns a simplified list for dropdown selection
+func (h *CertificatesHandler) ListCertificatesDropdown(c fiber.Ctx) error {
+	certs, err := h.certService.ListCertificates()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	// Filter only active/expiring certificates
+	type CertOption struct {
+		ID     uint   `json:"id"`
+		Domain string `json:"domain"`
+		Label  string `json:"label"` // e.g., "example.com (expires in 30 days)"
+	}
+
+	var options []CertOption
+	for _, cert := range certs {
+		if cert.Status == models.CertificateStatusActive || cert.Status == models.CertificateStatusExpiring {
+			days := acme.GetCertificateDaysUntilExpiry(cert.NotAfter)
+			var label string
+			if days <= 0 {
+				label = fmt.Sprintf("%s (expired)", cert.Domain)
+			} else if days <= 30 {
+				label = fmt.Sprintf("%s (expires in %d days) ⚠️", cert.Domain, days)
+			} else {
+				label = fmt.Sprintf("%s (valid for %d days)", cert.Domain, days)
+			}
+			if cert.IsWildcard {
+				label = "*." + cert.Domain + " (wildcard)"
+			}
+			options = append(options, CertOption{
+				ID:     cert.ID,
+				Domain: cert.Domain,
+				Label:  label,
+			})
+		}
+	}
+
+	return c.JSON(fiber.Map{
+		"options": options,
 	})
 }
 
