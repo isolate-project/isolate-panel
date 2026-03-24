@@ -9,8 +9,8 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/vovk4morkovk4/isolate-panel/internal/core"
-	"github.com/vovk4morkovk4/isolate-panel/internal/core/mihomo"
 	"github.com/vovk4morkovk4/isolate-panel/internal/core/singbox"
+	mihomocore "github.com/vovk4morkovk4/isolate-panel/internal/cores/mihomo"
 	xraycore "github.com/vovk4morkovk4/isolate-panel/internal/cores/xray"
 	"github.com/vovk4morkovk4/isolate-panel/internal/models"
 )
@@ -167,19 +167,26 @@ func (s *ConfigService) generateXrayConfig(inbounds []models.Inbound, outbounds 
 
 // generateMihomoConfig generates Mihomo configuration
 func (s *ConfigService) generateMihomoConfig(inbounds []models.Inbound, outbounds []models.Outbound, path string) error {
-	config, err := mihomo.GenerateConfig(inbounds, outbounds)
+	if len(inbounds) == 0 {
+		return fmt.Errorf("no inbounds provided")
+	}
+
+	// Use the first inbound's core ID
+	coreID := inbounds[0].CoreID
+
+	config, err := mihomocore.GenerateConfig(s.db, coreID)
 	if err != nil {
 		return err
 	}
 
-	// Write config
-	if err := mihomo.WriteConfig(config, path); err != nil {
-		return err
+	// Validate config first
+	if err := mihomocore.ValidateConfig(config); err != nil {
+		return fmt.Errorf("config validation failed: %w", err)
 	}
 
-	// Validate config
-	if err := mihomo.ValidateConfig(path); err != nil {
-		return fmt.Errorf("config validation failed: %w", err)
+	// Write config using built-in function
+	if err := mihomocore.WriteConfig(config, path); err != nil {
+		return err
 	}
 
 	return nil
