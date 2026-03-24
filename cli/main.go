@@ -38,6 +38,13 @@ func init() {
 	rootCmd.AddCommand(cmd.LogoutCmd())
 	rootCmd.AddCommand(cmd.ProfileCmd())
 	rootCmd.AddCommand(cmd.UserCmd())
+	rootCmd.AddCommand(cmd.InboundCmd())
+	rootCmd.AddCommand(cmd.OutboundCmd())
+	rootCmd.AddCommand(cmd.CoreCmd())
+	rootCmd.AddCommand(cmd.StatsCmd())
+	rootCmd.AddCommand(cmd.ConnectionsCmd())
+	rootCmd.AddCommand(cmd.CertCmd())
+	rootCmd.AddCommand(cmd.CompletionCmd())
 	// rootCmd.AddCommand(cmd.BackupCmd()) // Temporarily disabled
 }
 
