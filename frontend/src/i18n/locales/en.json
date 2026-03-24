@@ -369,6 +369,24 @@
     "certificateHint": "Select a certificate for TLS. If not selected, the default certificate will be used.",
     "enableInbound": "Enable this inbound"
   },
+  "connections": {
+    "description": "Monitor active user connections in real-time",
+    "activeConnections": "active connections",
+    "noConnections": "No active connections",
+    "noConnectionsDesc": "There are currently no active connections",
+    "filterByUserId": "Filter by user ID...",
+    "user": "User",
+    "core": "Core",
+    "source": "Source",
+    "destination": "Destination",
+    "duration": "Duration",
+    "traffic": "Traffic",
+    "disconnect": "Disconnect",
+    "confirmDisconnect": "Are you sure you want to disconnect this user?",
+    "disconnected": "User disconnected successfully",
+    "autoRefreshOn": "Auto-refresh: ON",
+    "autoRefreshOff": "Auto-refresh: OFF"
+  },
   "ramPanic": {
     "title": "Emergency Memory Management",
     "ramUsage": "RAM Usage",

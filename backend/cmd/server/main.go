@@ -118,6 +118,17 @@ func main() {
 	outboundService := services.NewOutboundService(db.DB, configService)
 	subscriptionService := services.NewSubscriptionService(db.DB, "")
 
+	// Initialize traffic collector (auto-detects interval, default 30s)
+	trafficCollector := services.NewTrafficCollector(db.DB, 0)
+	trafficCollector.Start()
+
+	// Initialize connection tracker (default 10s interval for real-time feel)
+	connectionTracker := services.NewConnectionTracker(db.DB, 0)
+	connectionTracker.Start()
+
+	// Initialize quota enforcer (for automatic quota enforcement)
+	_ = services.NewQuotaEnforcer(db.DB, configService)
+
 	// Initialize certificate service (with Cloudflare DNS-01 challenge)
 	certService, err := services.NewCertificateService(db.DB, services.CertificateServiceConfig{
 		CertDir:     "/etc/isolate-panel/certs",
@@ -142,6 +153,7 @@ func main() {
 	protocolsHandler := api.NewProtocolsHandler()
 	subscriptionsHandler := api.NewSubscriptionsHandler(subscriptionService)
 	certificatesHandler := api.NewCertificatesHandler(certService, db.DB)
+	statsHandler := api.NewStatsHandler(trafficCollector, connectionTracker)
 
 	// Initialize rate limiter for login (5 attempts per minute per IP)
 	loginLimiter := middleware.NewRateLimiter(5, 1*time.Minute)
@@ -253,6 +265,13 @@ func main() {
 	certsGroup.Post("/:id/renew", certificatesHandler.RenewCertificate)
 	certsGroup.Post("/:id/revoke", certificatesHandler.RevokeCertificate)
 	certsGroup.Delete("/:id", certificatesHandler.DeleteCertificate)
+
+	// Stats and monitoring routes (protected)
+	statsGroup := protectedGroup.Group("/stats")
+	statsGroup.Get("/dashboard", statsHandler.GetDashboardStats)
+	statsGroup.Get("/user/:user_id/traffic", statsHandler.GetUserTrafficStats)
+	statsGroup.Get("/connections", statsHandler.GetActiveConnections)
+	statsGroup.Post("/user/:user_id/disconnect", statsHandler.DisconnectUser)
 
 	// Subscription routes (public, token-based auth, rate limited)
 	subscriptionRoutes := app.Group("", middleware.SubscriptionRateLimiter())

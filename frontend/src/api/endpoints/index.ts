@@ -1,4 +1,5 @@
 import apiClient from '../client'
+export { apiClient }
 
 // Auth endpoints
 export const authApi = {
