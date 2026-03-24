@@ -11,7 +11,7 @@ import (
 	"github.com/vovk4morkovk4/isolate-panel/internal/core"
 	"github.com/vovk4morkovk4/isolate-panel/internal/core/mihomo"
 	"github.com/vovk4morkovk4/isolate-panel/internal/core/singbox"
-	"github.com/vovk4morkovk4/isolate-panel/internal/core/xray"
+	xraycore "github.com/vovk4morkovk4/isolate-panel/internal/cores/xray"
 	"github.com/vovk4morkovk4/isolate-panel/internal/models"
 )
 
@@ -140,31 +140,26 @@ func (s *ConfigService) generateSingboxConfig(inbounds []models.Inbound, outboun
 
 // generateXrayConfig generates Xray configuration
 func (s *ConfigService) generateXrayConfig(inbounds []models.Inbound, outbounds []models.Outbound, path string) error {
-	config, err := xray.GenerateConfig(inbounds, outbounds)
+	if len(inbounds) == 0 {
+		return fmt.Errorf("no inbounds provided")
+	}
+
+	// Use the first inbound's core ID
+	coreID := inbounds[0].CoreID
+
+	config, err := xraycore.GenerateConfig(s.db, coreID)
 	if err != nil {
 		return err
 	}
 
-	// Marshal to JSON
-	data, err := json.MarshalIndent(config, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal config: %w", err)
-	}
-
-	// Create directory if not exists
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return fmt.Errorf("failed to create directory: %w", err)
-	}
-
-	// Write to file
-	if err := os.WriteFile(path, data, 0644); err != nil {
-		return fmt.Errorf("failed to write config: %w", err)
-	}
-
-	// Validate config
-	if err := xray.ValidateConfig(path); err != nil {
+	// Validate config first
+	if err := xraycore.ValidateConfig(config); err != nil {
 		return fmt.Errorf("config validation failed: %w", err)
+	}
+
+	// Write config using built-in function
+	if err := xraycore.WriteConfig(config, path); err != nil {
+		return err
 	}
 
 	return nil
