@@ -55,6 +55,30 @@ var inboundDeleteCmd = &cobra.Command{
 	RunE:  runInboundDelete,
 }
 
+var inboundAddUsersCmd = &cobra.Command{
+	Use:   "add-users <inbound-id> <user-id1> [user-id2] [...]",
+	Short: "Add users to inbound",
+	Long:  `Add one or more users to an inbound.`,
+	Args:  cobra.MinimumNArgs(2),
+	RunE:  runInboundAddUsers,
+}
+
+var inboundRemoveUserCmd = &cobra.Command{
+	Use:   "remove-user <inbound-id> <user-id>",
+	Short: "Remove user from inbound",
+	Long:  `Remove a user from an inbound.`,
+	Args:  cobra.ExactArgs(2),
+	RunE:  runInboundRemoveUser,
+}
+
+var inboundUsersCmd = &cobra.Command{
+	Use:   "users <inbound-id>",
+	Short: "List users in inbound",
+	Long:  `List all users assigned to an inbound.`,
+	Args:  cobra.ExactArgs(1),
+	RunE:  runInboundUsers,
+}
+
 func init() {
 	// Global inbound flags
 	inboundCmd.PersistentFlags().StringVar(&inboundFormat, "format", "table", "Output format (table, json, csv, quiet)")
@@ -70,6 +94,9 @@ func init() {
 	inboundCmd.AddCommand(inboundShowCmd)
 	inboundCmd.AddCommand(inboundCreateCmd)
 	inboundCmd.AddCommand(inboundDeleteCmd)
+	inboundCmd.AddCommand(inboundAddUsersCmd)
+	inboundCmd.AddCommand(inboundRemoveUserCmd)
+	inboundCmd.AddCommand(inboundUsersCmd)
 }
 
 // InboundCmd returns the inbound command
@@ -218,6 +245,28 @@ func runInboundCreate(cmd *cobra.Command, args []string) error {
 
 func runInboundDelete(cmd *cobra.Command, args []string) error {
 	fmt.Printf("Deleting inbound: %s\n", args[0])
+	fmt.Println("API integration - to be implemented")
+	return nil
+}
+
+func runInboundAddUsers(cmd *cobra.Command, args []string) error {
+	inboundID := args[0]
+	userIDs := args[1:]
+	fmt.Printf("Adding users %v to inbound %s\n", userIDs, inboundID)
+	fmt.Println("API integration - to be implemented")
+	return nil
+}
+
+func runInboundRemoveUser(cmd *cobra.Command, args []string) error {
+	inboundID, userID := args[0], args[1]
+	fmt.Printf("Removing user %s from inbound %s\n", userID, inboundID)
+	fmt.Println("API integration - to be implemented")
+	return nil
+}
+
+func runInboundUsers(cmd *cobra.Command, args []string) error {
+	inboundID := args[0]
+	fmt.Printf("Listing users in inbound %s\n", inboundID)
 	fmt.Println("API integration - to be implemented")
 	return nil
 }

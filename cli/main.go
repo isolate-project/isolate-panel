@@ -31,6 +31,7 @@ func init() {
 	rootCmd.PersistentFlags().StringP("config", "c", "", "config file path")
 	rootCmd.PersistentFlags().StringP("url", "u", "http://localhost:8080", "panel URL")
 	rootCmd.PersistentFlags().StringP("token", "t", "", "API token")
+	rootCmd.PersistentFlags().Bool("no-color", false, "Disable colored output")
 
 	// Add subcommands
 	rootCmd.AddCommand(versionCmd)
@@ -44,8 +45,8 @@ func init() {
 	rootCmd.AddCommand(cmd.StatsCmd())
 	rootCmd.AddCommand(cmd.ConnectionsCmd())
 	rootCmd.AddCommand(cmd.CertCmd())
+	rootCmd.AddCommand(cmd.BackupCmd())
 	rootCmd.AddCommand(cmd.CompletionCmd())
-	// rootCmd.AddCommand(cmd.BackupCmd()) // Temporarily disabled
 }
 
 var versionCmd = &cobra.Command{

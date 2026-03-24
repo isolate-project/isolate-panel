@@ -65,6 +65,22 @@ var userCredentialsCmd = &cobra.Command{
 	RunE:  runUserCredentials,
 }
 
+var userRegenerateCmd = &cobra.Command{
+	Use:   "regenerate <username|id>",
+	Short: "Regenerate user credentials",
+	Long:  `Regenerate user credentials. Use --force to skip confirmation.`,
+	Args:  cobra.ExactArgs(1),
+	RunE:  runUserRegenerate,
+}
+
+var userUpdateCmd = &cobra.Command{
+	Use:   "update <username|id>",
+	Short: "Update user",
+	Long:  `Update user properties.`,
+	Args:  cobra.ExactArgs(1),
+	RunE:  runUserUpdate,
+}
+
 func init() {
 	// Global user flags
 	userCmd.PersistentFlags().StringVar(&userFormat, "format", "table", "Output format (table, json, csv, quiet)")
@@ -74,6 +90,11 @@ func init() {
 	userCreateCmd.Flags().Int64Var(&userTrafficLimit, "traffic-limit", 0, "Traffic limit in bytes")
 	userCreateCmd.Flags().StringVar(&userExpiry, "expiry", "", "Expiry date (ISO 8601)")
 
+	// Update flags
+	userUpdateCmd.Flags().Int64Var(&userTrafficLimit, "traffic-limit", 0, "Traffic limit in bytes")
+	userUpdateCmd.Flags().StringVar(&userExpiry, "expiry", "", "Expiry date (ISO 8601)")
+	userUpdateCmd.Flags().BoolVar(&userActive, "active", true, "User active status")
+
 	// Delete flags
 	userDeleteCmd.Flags().BoolVar(&userForce, "force", false, "Skip confirmation")
 
@@ -81,8 +102,10 @@ func init() {
 	userCmd.AddCommand(userListCmd)
 	userCmd.AddCommand(userShowCmd)
 	userCmd.AddCommand(userCreateCmd)
+	userCmd.AddCommand(userUpdateCmd)
 	userCmd.AddCommand(userDeleteCmd)
 	userCmd.AddCommand(userCredentialsCmd)
+	userCmd.AddCommand(userRegenerateCmd)
 }
 
 // UserCmd returns the user command
@@ -230,8 +253,20 @@ func runUserDelete(cmd *cobra.Command, args []string) error {
 }
 
 func runUserCredentials(cmd *cobra.Command, args []string) error {
-	// TODO: Implement user credentials
-	fmt.Println("User credentials command - to be implemented")
+	fmt.Printf("Showing credentials for: %s\n", args[0])
+	fmt.Println("API integration - to be implemented")
+	return nil
+}
+
+func runUserRegenerate(cmd *cobra.Command, args []string) error {
+	fmt.Printf("Regenerating credentials for: %s\n", args[0])
+	fmt.Println("API integration - to be implemented")
+	return nil
+}
+
+func runUserUpdate(cmd *cobra.Command, args []string) error {
+	fmt.Printf("Updating user: %s\n", args[0])
+	fmt.Println("API integration - to be implemented")
 	return nil
 }
 
