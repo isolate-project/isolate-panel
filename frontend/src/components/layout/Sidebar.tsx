@@ -1,5 +1,5 @@
 import { clsx } from 'clsx'
-import { Home, Users, ArrowDownToLine, ArrowUpFromLine, Box, Shield, Activity, Settings, Globe, Network } from 'lucide-preact'
+import { Home, Users, ArrowDownToLine, ArrowUpFromLine, Box, Shield, Activity, Settings, Globe, Network, Database } from 'lucide-preact'
 import { useTranslation } from 'react-i18next'
 
 interface SidebarProps {
@@ -20,6 +20,7 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
     { name: t('nav.connections'), href: '/connections', icon: Activity },
     { name: t('nav.warp'), href: '/warp', icon: Network },
     { name: t('nav.geo'), href: '/geo', icon: Globe },
+    { name: t('nav.backups'), href: '/backups', icon: Database },
     { name: t('nav.settings'), href: '/settings', icon: Settings },
   ]
 

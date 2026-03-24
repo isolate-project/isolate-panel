@@ -17,6 +17,7 @@ import (
 	"github.com/vovk4morkovk4/isolate-panel/internal/database/seeds"
 	applogger "github.com/vovk4morkovk4/isolate-panel/internal/logger"
 	"github.com/vovk4morkovk4/isolate-panel/internal/middleware"
+	"github.com/vovk4morkovk4/isolate-panel/internal/scheduler"
 	"github.com/vovk4morkovk4/isolate-panel/internal/services"
 )
 
@@ -166,6 +167,18 @@ func main() {
 		log.Warn().Err(err).Msg("Failed to initialize Geo service")
 	}
 
+	// Initialize Backup service
+	backupService := services.NewBackupService(db.DB, "/app/data/backups", "/app/data")
+	if err := backupService.Initialize(); err != nil {
+		log.Warn().Err(err).Msg("Failed to initialize Backup service")
+	}
+
+	// Initialize Backup Scheduler
+	backupScheduler := scheduler.NewBackupScheduler(db.DB, backupService)
+	if err := backupScheduler.Initialize(); err != nil {
+		log.Warn().Err(err).Msg("Failed to initialize Backup Scheduler")
+	}
+
 	// Start quota enforcement loop (check every 5 minutes)
 	go func() {
 		ticker := time.NewTicker(5 * time.Minute)
@@ -201,6 +214,7 @@ func main() {
 	certificatesHandler := api.NewCertificatesHandler(certService, db.DB)
 	statsHandler := api.NewStatsHandler(db.DB, trafficCollector, connectionTracker)
 	warpHandler := api.NewWarpHandler(warpService, geoService)
+	backupHandler := api.NewBackupHandler(backupService, backupScheduler)
 
 	// Initialize rate limiter for login (5 attempts per minute per IP)
 	loginLimiter := middleware.NewRateLimiter(5, 1*time.Minute)
@@ -323,6 +337,9 @@ func main() {
 	// WARP and Geo routes (protected)
 	warpHandler.RegisterRoutes(protectedGroup)
 
+	// Backup routes (protected)
+	backupHandler.RegisterRoutes(protectedGroup)
+
 	// Subscription routes (public, token-based auth, rate limited)
 	subscriptionRoutes := app.Group("", middleware.SubscriptionRateLimiter())
 	subscriptionRoutes.Get("/sub/:token", subscriptionsHandler.GetV2RaySubscription)
@@ -346,6 +363,7 @@ func main() {
 	log.Info().Msg("✓ Subscription service enabled")
 	log.Info().Msg("✓ Structured logging enabled")
 	log.Info().Msg("✓ Configuration management enabled")
+	log.Info().Msg("✓ Backup system enabled")
 
 	// Start server
 	addr := fmt.Sprintf("%s:%d", cfg.App.Host, cfg.App.Port)

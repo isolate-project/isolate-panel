@@ -216,3 +216,30 @@ export const warpApi = {
 
   updateDatabases: () => apiClient.post('/geo/update'),
 }
+
+// Backup endpoints
+export const backupApi = {
+  list: () => apiClient.get('/backups'),
+
+  get: (id: number) => apiClient.get(`/backups/${id}`),
+
+  create: (data: {
+    type?: string
+    encryption_enabled?: boolean
+    include_cores?: boolean
+    include_certs?: boolean
+    include_warp?: boolean
+    include_geo?: boolean
+  }) => apiClient.post('/backups/create', data),
+
+  restore: (id: number, force?: boolean) =>
+    apiClient.post(`/backups/${id}/restore`, { force }),
+
+  delete: (id: number) => apiClient.delete(`/backups/${id}`),
+
+  download: (id: number) => apiClient.get(`/backups/${id}/download`),
+
+  getSchedule: () => apiClient.get('/backups/schedule'),
+
+  setSchedule: (cron: string) => apiClient.post('/backups/schedule', { cron }),
+}
