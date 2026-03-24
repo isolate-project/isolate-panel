@@ -114,8 +114,14 @@ func main() {
 		time.Duration(cfg.JWT.RefreshTokenTTL)*time.Second,
 	)
 
+	// Initialize Notification service (before other services that depend on it)
+	notificationService := services.NewNotificationService(db.DB, "", "", "", "")
+	if err := notificationService.Initialize(); err != nil {
+		log.Warn().Err(err).Msg("Failed to initialize Notification service")
+	}
+
 	// Initialize services
-	userService := services.NewUserService(db.DB)
+	userService := services.NewUserService(db.DB, notificationService)
 	inboundService := services.NewInboundService(db.DB, lifecycleManager)
 	outboundService := services.NewOutboundService(db.DB, configService)
 	subscriptionService := services.NewSubscriptionService(db.DB, "")
@@ -143,12 +149,6 @@ func main() {
 		cfg.Cores.MihomoAPIKey,
 	)
 	connectionTracker.Start()
-
-	// Initialize Notification service
-	notificationService := services.NewNotificationService(db.DB, "", "", "", "")
-	if err := notificationService.Initialize(); err != nil {
-		log.Warn().Err(err).Msg("Failed to initialize Notification service")
-	}
 
 	// Initialize quota enforcer (for automatic quota enforcement)
 	quotaEnforcer := services.NewQuotaEnforcer(db.DB, configService, notificationService)
@@ -191,6 +191,8 @@ func main() {
 		defer ticker.Stop()
 		for range ticker.C {
 			quotaEnforcer.CheckAndEnforce(context.Background())
+			// Also check for expiring users
+			userService.CheckExpiringUsers()
 		}
 	}()
 
@@ -209,8 +211,12 @@ func main() {
 		log.Warn().Err(err).Msg("Failed to initialize certificate service - ACME features disabled")
 	}
 
+	// Set notification service for certificate and core lifecycle
+	certService.SetNotificationService(notificationService)
+	lifecycleManager.SetNotificationService(notificationService)
+
 	// Initialize handlers
-	authHandler := api.NewAuthHandler(db.DB, tokenService)
+	authHandler := api.NewAuthHandler(db.DB, tokenService, notificationService)
 	coresHandler := api.NewCoresHandler(coreManager)
 	usersHandler := api.NewUsersHandler(userService)
 	inboundsHandler := api.NewInboundsHandler(inboundService)

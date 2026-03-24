@@ -13,11 +13,15 @@ import (
 )
 
 type UserService struct {
-	db *gorm.DB
+	db                  *gorm.DB
+	notificationService *NotificationService
 }
 
-func NewUserService(db *gorm.DB) *UserService {
-	return &UserService{db: db}
+func NewUserService(db *gorm.DB, notificationService *NotificationService) *UserService {
+	return &UserService{
+		db:                  db,
+		notificationService: notificationService,
+	}
 }
 
 type CreateUserRequest struct {
@@ -120,6 +124,11 @@ func (us *UserService) CreateUser(req *CreateUserRequest, adminID uint) (*models
 		}
 	}
 
+	// Send notification
+	if us.notificationService != nil {
+		us.notificationService.NotifyUserCreated(user)
+	}
+
 	return user, nil
 }
 
@@ -213,6 +222,11 @@ func (us *UserService) DeleteUser(id uint) error {
 		return fmt.Errorf("failed to delete user: %w", err)
 	}
 
+	// Send notification
+	if us.notificationService != nil {
+		us.notificationService.NotifyUserDeleted(&user)
+	}
+
 	return nil
 }
 
@@ -261,6 +275,35 @@ func (us *UserService) GetUserInbounds(userID uint) ([]models.Inbound, error) {
 	}
 
 	return inbounds, nil
+}
+
+// CheckExpiringUsers checks for users expiring in 7, 3, and 1 days and sends notifications
+func (us *UserService) CheckExpiringUsers() {
+	if us.notificationService == nil {
+		return
+	}
+
+	var users []models.User
+	// Get users with expiry dates in the next 7 days
+	if err := us.db.Where("expiry_date IS NOT NULL AND is_active = ?", true).
+		Find(&users).Error; err != nil {
+		return
+	}
+
+	now := time.Now()
+	for i := range users {
+		user := &users[i]
+		if user.ExpiryDate == nil {
+			continue
+		}
+
+		daysLeft := int(user.ExpiryDate.Sub(now).Hours() / 24)
+
+		// Send notification for 7, 3, and 1 days
+		if daysLeft == 7 || daysLeft == 3 || daysLeft == 1 {
+			us.notificationService.NotifyExpiryWarning(user, daysLeft)
+		}
+	}
 }
 
 // generateToken generates a random hex token

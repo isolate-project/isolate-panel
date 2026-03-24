@@ -10,17 +10,20 @@ import (
 
 	"github.com/vovk4morkovk4/isolate-panel/internal/auth"
 	"github.com/vovk4morkovk4/isolate-panel/internal/models"
+	"github.com/vovk4morkovk4/isolate-panel/internal/services"
 )
 
 type AuthHandler struct {
-	db           *gorm.DB
-	tokenService *auth.TokenService
+	db                  *gorm.DB
+	tokenService        *auth.TokenService
+	notificationService *services.NotificationService
 }
 
-func NewAuthHandler(db *gorm.DB, tokenService *auth.TokenService) *AuthHandler {
+func NewAuthHandler(db *gorm.DB, tokenService *auth.TokenService, notificationService *services.NotificationService) *AuthHandler {
 	return &AuthHandler{
-		db:           db,
-		tokenService: tokenService,
+		db:                  db,
+		tokenService:        tokenService,
+		notificationService: notificationService,
 	}
 }
 
@@ -68,6 +71,10 @@ func (h *AuthHandler) Login(c fiber.Ctx) error {
 	var admin models.Admin
 	if err := h.db.Where("username = ? AND is_active = ?", req.Username, true).First(&admin).Error; err != nil {
 		h.db.Create(&attempt)
+
+		// Check for multiple failed attempts
+		h.checkFailedLoginAttempts(req.Username, c.IP())
+
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": "Invalid username or password",
 		})
@@ -77,6 +84,10 @@ func (h *AuthHandler) Login(c fiber.Ctx) error {
 	valid, err := auth.VerifyPassword(req.Password, admin.PasswordHash)
 	if err != nil || !valid {
 		h.db.Create(&attempt)
+
+		// Check for multiple failed attempts
+		h.checkFailedLoginAttempts(req.Username, c.IP())
+
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": "Invalid username or password",
 		})
@@ -221,4 +232,23 @@ func (h *AuthHandler) Me(c fiber.Ctx) error {
 		Email:        admin.Email,
 		IsSuperAdmin: admin.IsSuperAdmin,
 	})
+}
+
+// checkFailedLoginAttempts checks for multiple failed login attempts and sends notification
+func (h *AuthHandler) checkFailedLoginAttempts(username, ip string) {
+	if h.notificationService == nil {
+		return
+	}
+
+	// Count failed attempts from this IP in the last hour
+	var count int64
+	oneHourAgo := time.Now().Add(-1 * time.Hour)
+	h.db.Model(&models.LoginAttempt{}).
+		Where("ip_address = ? AND success = ? AND created_at > ?", ip, false, oneHourAgo).
+		Count(&count)
+
+	// Send notification after 5 failed attempts
+	if count >= 5 {
+		h.notificationService.NotifyFailedLogin(ip, username, int(count))
+	}
 }

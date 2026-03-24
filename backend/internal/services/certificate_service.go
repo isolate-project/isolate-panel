@@ -17,15 +17,16 @@ import (
 
 // CertificateService manages TLS certificates
 type CertificateService struct {
-	db            *gorm.DB
-	acmeClient    *acme.ACMEClient
-	certDir       string
-	email         string
-	dnsProvider   string
-	credentials   map[string]string
-	mu            sync.Mutex
-	stopRenewal   chan struct{}
-	renewalTicker *time.Ticker
+	db                  *gorm.DB
+	acmeClient          *acme.ACMEClient
+	certDir             string
+	email               string
+	dnsProvider         string
+	credentials         map[string]string
+	mu                  sync.Mutex
+	stopRenewal         chan struct{}
+	renewalTicker       *time.Ticker
+	notificationService *NotificationService
 }
 
 // CertificateServiceConfig holds configuration for CertificateService
@@ -35,6 +36,11 @@ type CertificateServiceConfig struct {
 	DNSProvider string // "cloudflare"
 	Credentials map[string]string
 	Staging     bool // Use ACME staging server
+}
+
+// SetNotificationService sets the notification service
+func (cs *CertificateService) SetNotificationService(ns *NotificationService) {
+	cs.notificationService = ns
 }
 
 // NewCertificateService creates a new certificate service
@@ -198,6 +204,11 @@ func (cs *CertificateService) RenewCertificate(certID uint) (*models.Certificate
 
 	if err := cs.db.Save(&cert).Error; err != nil {
 		return nil, fmt.Errorf("failed to update certificate record: %w", err)
+	}
+
+	// Send notification
+	if cs.notificationService != nil {
+		cs.notificationService.NotifyCertRenewed(&cert)
 	}
 
 	return &cert, nil

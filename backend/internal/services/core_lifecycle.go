@@ -11,9 +11,10 @@ import (
 
 // CoreLifecycleManager manages automatic starting/stopping of cores based on inbounds
 type CoreLifecycleManager struct {
-	db            *gorm.DB
-	coreManager   *core.CoreManager
-	configService *ConfigService
+	db                  *gorm.DB
+	coreManager         *core.CoreManager
+	configService       *ConfigService
+	notificationService *NotificationService
 }
 
 // NewCoreLifecycleManager creates a new lifecycle manager
@@ -29,6 +30,11 @@ func NewCoreLifecycleManager(db *gorm.DB, coreManager *core.CoreManager) *CoreLi
 // SetConfigService sets the config service (called after initialization)
 func (clm *CoreLifecycleManager) SetConfigService(configService *ConfigService) {
 	clm.configService = configService
+}
+
+// SetNotificationService sets the notification service
+func (clm *CoreLifecycleManager) SetNotificationService(ns *NotificationService) {
+	clm.notificationService = ns
 }
 
 // InitializeCores starts only necessary cores at system startup (lazy loading)
@@ -100,6 +106,10 @@ func (clm *CoreLifecycleManager) OnInboundCreated(inbound *models.Inbound) error
 		fmt.Printf("Starting core %s (first inbound created: %d)\n", coreModel.Name, inbound.ID)
 
 		if err := clm.coreManager.StartCore(coreModel.Name); err != nil {
+			// Send notification about core error
+			if clm.notificationService != nil {
+				clm.notificationService.NotifyCoreError(coreModel.Name, err)
+			}
 			return fmt.Errorf("failed to start core: %w", err)
 		}
 	} else {
@@ -107,6 +117,10 @@ func (clm *CoreLifecycleManager) OnInboundCreated(inbound *models.Inbound) error
 		fmt.Printf("Reloading core %s (inbound created: %d)\n", coreModel.Name, inbound.ID)
 		if err := clm.coreManager.RestartCore(coreModel.Name); err != nil {
 			fmt.Printf("Warning: failed to reload core %s: %v\n", coreModel.Name, err)
+			// Send notification about core error
+			if clm.notificationService != nil {
+				clm.notificationService.NotifyCoreError(coreModel.Name, err)
+			}
 		}
 	}
 
