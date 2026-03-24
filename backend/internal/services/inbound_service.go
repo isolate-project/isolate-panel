@@ -256,3 +256,72 @@ func (s *InboundService) ValidateInboundConfig(protocol string, configJSON strin
 
 	return nil
 }
+
+// GetInboundUsers returns all users assigned to a specific inbound
+func (s *InboundService) GetInboundUsers(inboundID uint) ([]models.User, error) {
+	// Check inbound exists
+	var inbound models.Inbound
+	if err := s.db.First(&inbound, inboundID).Error; err != nil {
+		return nil, fmt.Errorf("inbound not found: %w", err)
+	}
+
+	var mappings []models.UserInboundMapping
+	if err := s.db.Preload("User").Where("inbound_id = ?", inboundID).Find(&mappings).Error; err != nil {
+		return nil, fmt.Errorf("failed to get inbound users: %w", err)
+	}
+
+	users := make([]models.User, 0, len(mappings))
+	for _, mapping := range mappings {
+		if mapping.User != nil {
+			users = append(users, *mapping.User)
+		}
+	}
+
+	return users, nil
+}
+
+// BulkAssignUsers adds and removes multiple users from an inbound in one operation
+func (s *InboundService) BulkAssignUsers(inboundID uint, addUserIDs, removeUserIDs []uint) (int, int, error) {
+	// Check inbound exists
+	var inbound models.Inbound
+	if err := s.db.First(&inbound, inboundID).Error; err != nil {
+		return 0, 0, fmt.Errorf("inbound not found: %w", err)
+	}
+
+	added := 0
+	removed := 0
+
+	// Remove users
+	for _, userID := range removeUserIDs {
+		result := s.db.Where("user_id = ? AND inbound_id = ?", userID, inboundID).Delete(&models.UserInboundMapping{})
+		if result.RowsAffected > 0 {
+			removed++
+		}
+	}
+
+	// Add users
+	for _, userID := range addUserIDs {
+		// Check user exists
+		var user models.User
+		if err := s.db.First(&user, userID).Error; err != nil {
+			continue // Skip invalid users
+		}
+
+		// Check if mapping already exists
+		var existing models.UserInboundMapping
+		err := s.db.Where("user_id = ? AND inbound_id = ?", userID, inboundID).First(&existing).Error
+		if err == nil {
+			continue // Already assigned
+		}
+
+		mapping := &models.UserInboundMapping{
+			UserID:    userID,
+			InboundID: inboundID,
+		}
+		if err := s.db.Create(mapping).Error; err == nil {
+			added++
+		}
+	}
+
+	return added, removed, nil
+}

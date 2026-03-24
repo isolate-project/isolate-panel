@@ -69,6 +69,41 @@ export const inboundApi = {
 
   unassign: (inboundId: number, userId: number) =>
     apiClient.post('/inbounds/unassign', { inbound_id: inboundId, user_id: userId }),
+
+  getUsers: (id: number) => apiClient.get(`/inbounds/${id}/users`),
+
+  bulkAssignUsers: (id: number, addUserIds: number[], removeUserIds: number[]) =>
+    apiClient.post(`/inbounds/${id}/users/bulk`, { add_user_ids: addUserIds, remove_user_ids: removeUserIds }),
+}
+
+// Outbound endpoints
+export const outboundApi = {
+  list: (params?: { core_id?: number; protocol?: string }) =>
+    apiClient.get('/outbounds', { params }),
+
+  get: (id: number) => apiClient.get(`/outbounds/${id}`),
+
+  create: (data: Record<string, unknown>) => apiClient.post('/outbounds', data),
+
+  update: (id: number, data: Record<string, unknown>) => apiClient.put(`/outbounds/${id}`, data),
+
+  delete: (id: number) => apiClient.delete(`/outbounds/${id}`),
+}
+
+// Protocol endpoints
+export const protocolApi = {
+  list: (params?: { core?: string; direction?: string }) =>
+    apiClient.get('/protocols', { params }),
+
+  get: (name: string) => apiClient.get(`/protocols/${name}`),
+
+  getDefaults: (name: string) => apiClient.get(`/protocols/${name}/defaults`),
+}
+
+// Subscription endpoints (admin)
+export const subscriptionApi = {
+  getShortURL: (userId: number, token: string) =>
+    apiClient.get(`/subscriptions/${userId}/short-url`, { params: { token } }),
 }
 
 // System endpoints

@@ -613,6 +613,363 @@ Unassign inbound from user.
 
 ---
 
+## Protocols (Phase 3)
+
+Protocol Schema Registry - dynamic protocol-aware forms.
+
+### GET /api/protocols
+
+List all available protocols.
+
+**Query Parameters:**
+- `core` (optional): Filter by core name (singbox, xray, mihomo)
+- `direction` (optional): Filter by direction (inbound, outbound)
+
+**Response (200):**
+```json
+{
+  "protocols": [
+    {
+      "protocol": "vless",
+      "label": "VLESS",
+      "description": "Next-generation V2Ray protocol",
+      "core": ["xray"],
+      "direction": "inbound",
+      "requires_tls": true,
+      "category": "shadow"
+    }
+  ],
+  "total": 25
+}
+```
+
+---
+
+### GET /api/protocols/:name
+
+Get full schema for a specific protocol.
+
+**Response (200):**
+```json
+{
+  "protocol": "vless",
+  "label": "VLESS",
+  "description": "Next-generation V2Ray protocol",
+  "core": ["xray"],
+  "direction": "inbound",
+  "requires_tls": true,
+  "parameters": {
+    "uuid": {
+      "name": "uuid",
+      "label": "UUID",
+      "type": "uuid",
+      "required": true,
+      "auto_generate": true,
+      "auto_gen_func": "GenerateUUIDv4"
+    }
+  },
+  "transport": ["tcp", "ws", "grpc"],
+  "category": "shadow"
+}
+```
+
+---
+
+### GET /api/protocols/:name/defaults
+
+Get auto-generated default values for a protocol.
+
+**Response (200):**
+```json
+{
+  "protocol": "vless",
+  "defaults": {
+    "uuid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "flow": "",
+    "encryption": "none"
+  }
+}
+```
+
+---
+
+## Outbounds (Phase 3)
+
+CRUD operations for outbound connections.
+
+### GET /api/outbounds
+
+List all outbounds.
+
+**Query Parameters:**
+- `core_id` (optional): Filter by core ID
+- `protocol` (optional): Filter by protocol
+
+**Response (200):**
+```json
+[
+  {
+    "id": 1,
+    "name": "Direct Outbound",
+    "protocol": "direct",
+    "core_id": 1,
+    "config_json": "{}",
+    "priority": 1,
+    "is_enabled": true,
+    "created_at": "2024-03-24T10:00:00Z",
+    "updated_at": "2024-03-24T10:00:00Z",
+    "core": {
+      "id": 1,
+      "name": "singbox",
+      "type": "singbox"
+    }
+  }
+]
+```
+
+---
+
+### POST /api/outbounds
+
+Create a new outbound.
+
+**Request:**
+```json
+{
+  "name": "Direct Outbound",
+  "protocol": "direct",
+  "core_id": 1,
+  "config_json": "{}",
+  "priority": 1,
+  "is_enabled": true
+}
+```
+
+**Response (201):**
+```json
+{
+  "id": 1,
+  "name": "Direct Outbound",
+  "protocol": "direct",
+  "core_id": 1,
+  "config_json": "{}",
+  "priority": 1,
+  "is_enabled": true,
+  "created_at": "2024-03-24T10:00:00Z",
+  "updated_at": "2024-03-24T10:00:00Z"
+}
+```
+
+**Behavior:** Auto-regenerates core config on success.
+
+---
+
+### GET /api/outbounds/:id
+
+Get a specific outbound by ID.
+
+**Response (200):**
+```json
+{
+  "id": 1,
+  "name": "Direct Outbound",
+  "protocol": "direct",
+  "core_id": 1,
+  "config_json": "{}",
+  "priority": 1,
+  "is_enabled": true,
+  "created_at": "2024-03-24T10:00:00Z",
+  "updated_at": "2024-03-24T10:00:00Z"
+}
+```
+
+---
+
+### PUT /api/outbounds/:id
+
+Update an existing outbound.
+
+**Request:**
+```json
+{
+  "name": "Direct Outbound Updated",
+  "priority": 2,
+  "is_enabled": false
+}
+```
+
+**Response (200):**
+```json
+{
+  "id": 1,
+  "name": "Direct Outbound Updated",
+  "protocol": "direct",
+  "core_id": 1,
+  "config_json": "{}",
+  "priority": 2,
+  "is_enabled": false,
+  "updated_at": "2024-03-24T11:00:00Z"
+}
+```
+
+**Behavior:** Auto-regenerates core config on success.
+
+---
+
+### DELETE /api/outbounds/:id
+
+Delete an outbound.
+
+**Response (200):**
+```json
+{
+  "message": "Outbound deleted successfully"
+}
+```
+
+**Behavior:** Auto-regenerates core config on success.
+
+---
+
+## Inbound User Management (Phase 3)
+
+Bulk user assignment operations.
+
+### GET /api/inbounds/:id/users
+
+List users assigned to a specific inbound.
+
+**Response (200):**
+```json
+{
+  "users": [
+    {
+      "id": 1,
+      "username": "user1",
+      "uuid": "a1b2c3d4-...",
+      "is_active": true
+    }
+  ],
+  "total": 1
+}
+```
+
+---
+
+### POST /api/inbounds/:id/users/bulk
+
+Bulk add/remove users from an inbound.
+
+**Request:**
+```json
+{
+  "add_user_ids": [2, 3],
+  "remove_user_ids": [1]
+}
+```
+
+**Response (200):**
+```json
+{
+  "message": "Users updated successfully",
+  "added": 2,
+  "removed": 1
+}
+```
+
+---
+
+## Subscriptions (Phase 3)
+
+Public subscription endpoints (no JWT auth, token-based).
+
+### GET /sub/:token
+
+V2Ray subscription format (base64-encoded links).
+
+**Authentication:** Token from user's `subscription_token` field
+
+**Response (200):**
+```
+Content-Type: text/plain
+vmess://ey...
+vless://abc...
+trojan://xyz...
+```
+
+**Rate Limit:** 10 requests/hour per token, 30 requests/hour per IP
+
+---
+
+### GET /sub/:token/clash
+
+Clash subscription format (YAML).
+
+**Response (200):**
+```yaml
+Content-Type: text/yaml
+proxies:
+  - name: "VLESS-443"
+    type: vless
+    server: example.com
+    port: 443
+    uuid: "..."
+proxy-groups:
+  - name: "Proxy"
+    type: select
+    proxies:
+      - "VLESS-443"
+```
+
+---
+
+### GET /sub/:token/singbox
+
+Sing-box subscription format (JSON).
+
+**Response (200):**
+```json
+Content-Type: application/json
+{
+  "outbounds": [
+    {
+      "type": "vless",
+      "tag": "VLESS-443",
+      "server": "example.com",
+      "server_port": 443,
+      "uuid": "..."
+    }
+  ]
+}
+```
+
+---
+
+### GET /s/:short_code
+
+Short URL redirect to full subscription URL.
+
+**Response (302):** Redirects to `/sub/:token`
+
+---
+
+### GET /api/subscriptions/:user_id/short-url
+
+(Admin, requires JWT) Generate or retrieve short URL for a user.
+
+**Query Parameters:**
+- `token` (required): User's subscription token
+
+**Response (200):**
+```json
+{
+  "short_url": "http://localhost:8080/s/abc12345",
+  "short_code": "abc12345"
+}
+```
+
+---
+
 ## Error Responses
 
 All endpoints may return the following error responses:
@@ -671,13 +1028,17 @@ Configuration files are automatically regenerated when:
 
 ---
 
-## Total Endpoints: 31
+## Total Endpoints: 46
 
 - **Auth:** 4 endpoints
 - **Admin:** 1 endpoint
 - **Cores:** 6 endpoints
 - **Users:** 7 endpoints
 - **Inbounds:** 8 endpoints
+- **Protocols:** 3 endpoints (Phase 3)
+- **Outbounds:** 5 endpoints (Phase 3)
+- **Inbound Users:** 2 endpoints (Phase 3)
+- **Subscriptions:** 5 endpoints (Phase 3)
 - **Health:** 1 endpoint
 - **API Info:** 1 endpoint
 - **Docs:** 1 endpoint (this page)

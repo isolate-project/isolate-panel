@@ -11,8 +11,9 @@ import { Input } from '../components/ui/Input'
 import { Select } from '../components/ui/Select'
 import { useUsers, useDeleteUser, useRegenerateCredentials, useUserInbounds } from '../hooks/useUsers'
 import { UserForm } from '../components/forms/UserForm'
+import { SubscriptionLinks } from '../components/features/SubscriptionLinks'
 import type { User, Inbound } from '../types'
-import { Plus, Edit, Trash2, RefreshCw, Copy, List, ChevronLeft, ChevronRight, Search } from 'lucide-preact'
+import { Plus, Edit, Trash2, RefreshCw, Copy, List, ChevronLeft, ChevronRight, Search, Link as LinkIcon } from 'lucide-preact'
 import { useTranslation } from 'react-i18next'
 
 export function Users() {
@@ -37,6 +38,8 @@ export function Users() {
   const [userToDelete, setUserToDelete] = useState<User | null>(null)
   const [isInboundsModalOpen, setIsInboundsModalOpen] = useState(false)
   const [userForInbounds, setUserForInbounds] = useState<User | null>(null)
+  const [isSubscriptionOpen, setIsSubscriptionOpen] = useState(false)
+  const [userForSubscription, setUserForSubscription] = useState<User | null>(null)
 
   // Extract users and pagination info from response
   const users = response?.users || []
@@ -241,6 +244,16 @@ export function Users() {
                             <List className="w-4 h-4 text-secondary" />
                           </button>
                           <button
+                            onClick={() => {
+                              setUserForSubscription(user)
+                              setIsSubscriptionOpen(true)
+                            }}
+                            className="p-1 hover:bg-hover rounded transition-base"
+                            title={t('subscriptions.title')}
+                          >
+                            <LinkIcon className="w-4 h-4 text-secondary" />
+                          </button>
+                          <button
                             onClick={() => copyToClipboard(user.subscription_token)}
                             className="p-1 hover:bg-hover rounded transition-base"
                             title={t('users.copyToken')}
@@ -424,6 +437,18 @@ export function Users() {
       >
         {userForInbounds && <UserInboundsView userId={userForInbounds.id} />}
       </Modal>
+
+      {/* Subscription Links Modal */}
+      {userForSubscription && (
+        <SubscriptionLinks
+          isOpen={isSubscriptionOpen}
+          onClose={() => {
+            setIsSubscriptionOpen(false)
+            setUserForSubscription(null)
+          }}
+          user={userForSubscription}
+        />
+      )}
     </PageLayout>
   )
 }

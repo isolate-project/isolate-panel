@@ -201,3 +201,60 @@ func (h *InboundsHandler) UnassignInboundFromUser(c fiber.Ctx) error {
 		"message": "Inbound unassigned from user successfully",
 	})
 }
+
+// GetInboundUsers returns all users assigned to an inbound
+func (h *InboundsHandler) GetInboundUsers(c fiber.Ctx) error {
+	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid inbound ID",
+		})
+	}
+
+	users, err := h.inboundService.GetInboundUsers(uint(id))
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"users": users,
+		"total": len(users),
+	})
+}
+
+// BulkAssignUsers bulk adds/removes users from an inbound
+func (h *InboundsHandler) BulkAssignUsers(c fiber.Ctx) error {
+	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid inbound ID",
+		})
+	}
+
+	type BulkRequest struct {
+		AddUserIDs    []uint `json:"add_user_ids"`
+		RemoveUserIDs []uint `json:"remove_user_ids"`
+	}
+
+	var req BulkRequest
+	if err := c.Bind().JSON(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request body",
+		})
+	}
+
+	added, removed, err := h.inboundService.BulkAssignUsers(uint(id), req.AddUserIDs, req.RemoveUserIDs)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Bulk operation completed",
+		"added":   added,
+		"removed": removed,
+	})
+}

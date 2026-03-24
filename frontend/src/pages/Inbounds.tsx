@@ -1,4 +1,5 @@
 import { useState } from 'preact/hooks'
+import { route } from 'preact-router'
 import { PageLayout } from '../components/layout/PageLayout'
 import { PageHeader } from '../components/layout/PageHeader'
 import { Card } from '../components/ui/Card'
@@ -11,7 +12,6 @@ import { Input } from '../components/ui/Input'
 import { Select } from '../components/ui/Select'
 import { useInbounds, useDeleteInbound, useAssignUser, useUnassignUser } from '../hooks/useInbounds'
 import { useUsers } from '../hooks/useUsers'
-import { InboundForm } from '../components/forms/InboundForm'
 import type { Inbound, User } from '../types'
 import { Plus, Edit, Trash2, Users as UsersIcon, Search, UserMinus } from 'lucide-preact'
 import { useTranslation } from 'react-i18next'
@@ -26,9 +26,6 @@ export function Inbounds() {
 
   const [searchTerm, setSearchTerm] = useState('')
   const [protocolFilter, setProtocolFilter] = useState<string>('all')
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [selectedInbound, setSelectedInbound] = useState<Inbound | null>(null)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [inboundToDelete, setInboundToDelete] = useState<Inbound | null>(null)
   const [isUsersModalOpen, setIsUsersModalOpen] = useState(false)
@@ -78,7 +75,7 @@ export function Inbounds() {
         actions={
           <Button
             variant="primary"
-            onClick={() => setIsCreateModalOpen(true)}
+            onClick={() => route('/inbounds/create')}
           >
             <Plus className="w-4 h-4 mr-2" />
             {t('inbounds.addInbound')}
@@ -171,10 +168,7 @@ export function Inbounds() {
                   {t('inbounds.assignUsers')}
                 </Button>
                 <button
-                  onClick={() => {
-                    setSelectedInbound(inbound)
-                    setIsEditModalOpen(true)
-                  }}
+                  onClick={() => route(`/inbounds/${inbound.id}`)}
                   className="p-2 hover:bg-hover rounded transition-base"
                 >
                   <Edit className="w-4 h-4 text-secondary" />
@@ -207,55 +201,13 @@ export function Inbounds() {
               {t('common.clearFilters')}
             </Button>
           ) : (
-            <Button variant="primary" onClick={() => setIsCreateModalOpen(true)}>
+            <Button variant="primary" onClick={() => route('/inbounds/create')}>
               <Plus className="w-4 h-4 mr-2" />
               {t('inbounds.addInbound')}
             </Button>
           )}
         </Card>
       )}
-
-      {/* Create Inbound Modal */}
-      <Modal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        title={t('inbounds.addInbound')}
-        size="lg"
-      >
-        <InboundForm
-          onSuccess={() => {
-            setIsCreateModalOpen(false)
-            refetch()
-          }}
-          onCancel={() => setIsCreateModalOpen(false)}
-        />
-      </Modal>
-
-      {/* Edit Inbound Modal */}
-      <Modal
-        isOpen={isEditModalOpen}
-        onClose={() => {
-          setIsEditModalOpen(false)
-          setSelectedInbound(null)
-        }}
-        title={t('inbounds.editInbound')}
-        size="lg"
-      >
-        {selectedInbound && (
-          <InboundForm
-            inbound={selectedInbound}
-            onSuccess={() => {
-              setIsEditModalOpen(false)
-              setSelectedInbound(null)
-              refetch()
-            }}
-            onCancel={() => {
-              setIsEditModalOpen(false)
-              setSelectedInbound(null)
-            }}
-          />
-        )}
-      </Modal>
 
       {/* Delete Confirmation Modal */}
       <Modal

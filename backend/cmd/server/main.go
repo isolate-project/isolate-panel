@@ -115,12 +115,17 @@ func main() {
 	// Initialize services
 	userService := services.NewUserService(db.DB)
 	inboundService := services.NewInboundService(db.DB, lifecycleManager)
+	outboundService := services.NewOutboundService(db.DB, configService)
+	subscriptionService := services.NewSubscriptionService(db.DB, "")
 
 	// Initialize handlers
 	authHandler := api.NewAuthHandler(db.DB, tokenService)
 	coresHandler := api.NewCoresHandler(coreManager)
 	usersHandler := api.NewUsersHandler(userService)
 	inboundsHandler := api.NewInboundsHandler(inboundService)
+	outboundsHandler := api.NewOutboundsHandler(outboundService)
+	protocolsHandler := api.NewProtocolsHandler()
+	subscriptionsHandler := api.NewSubscriptionsHandler(subscriptionService)
 
 	// Initialize rate limiter for login (5 attempts per minute per IP)
 	loginLimiter := middleware.NewRateLimiter(5, 1*time.Minute)
@@ -190,6 +195,12 @@ func main() {
 	usersGroup.Post("/:id/regenerate", usersHandler.RegenerateCredentials)
 	usersGroup.Get("/:id/inbounds", usersHandler.GetUserInbounds)
 
+	// Protocol registry routes (protected)
+	protocolsGroup := protectedGroup.Group("/protocols")
+	protocolsGroup.Get("/", protocolsHandler.ListProtocols)
+	protocolsGroup.Get("/:name", protocolsHandler.GetProtocol)
+	protocolsGroup.Get("/:name/defaults", protocolsHandler.GetProtocolDefaults)
+
 	// Inbound management routes (protected)
 	inboundsGroup := protectedGroup.Group("/inbounds")
 	inboundsGroup.Get("/", inboundsHandler.ListInbounds)
@@ -200,6 +211,25 @@ func main() {
 	inboundsGroup.Get("/core/:core_id", inboundsHandler.GetInboundsByCore)
 	inboundsGroup.Post("/assign", inboundsHandler.AssignInboundToUser)
 	inboundsGroup.Post("/unassign", inboundsHandler.UnassignInboundFromUser)
+	inboundsGroup.Get("/:id/users", inboundsHandler.GetInboundUsers)
+	inboundsGroup.Post("/:id/users/bulk", inboundsHandler.BulkAssignUsers)
+
+	// Outbound management routes (protected)
+	outboundsGroup := protectedGroup.Group("/outbounds")
+	outboundsGroup.Get("/", outboundsHandler.ListOutbounds)
+	outboundsGroup.Post("/", outboundsHandler.CreateOutbound)
+	outboundsGroup.Get("/:id", outboundsHandler.GetOutbound)
+	outboundsGroup.Put("/:id", outboundsHandler.UpdateOutbound)
+	outboundsGroup.Delete("/:id", outboundsHandler.DeleteOutbound)
+
+	// Subscription short URL management (protected, admin)
+	protectedGroup.Get("/subscriptions/:user_id/short-url", subscriptionsHandler.GetUserShortURL)
+
+	// Subscription routes (public, token-based auth)
+	app.Get("/sub/:token", subscriptionsHandler.GetV2RaySubscription)
+	app.Get("/sub/:token/clash", subscriptionsHandler.GetClashSubscription)
+	app.Get("/sub/:token/singbox", subscriptionsHandler.GetSingboxSubscription)
+	app.Get("/s/:code", subscriptionsHandler.RedirectShortURL)
 
 	// Log startup information
 	log.Info().
@@ -211,6 +241,9 @@ func main() {
 	log.Info().Msg("✓ Core management enabled")
 	log.Info().Msg("✓ User management enabled")
 	log.Info().Msg("✓ Inbound management enabled")
+	log.Info().Msg("✓ Outbound management enabled")
+	log.Info().Msg("✓ Protocol registry enabled")
+	log.Info().Msg("✓ Subscription service enabled")
 	log.Info().Msg("✓ Structured logging enabled")
 	log.Info().Msg("✓ Configuration management enabled")
 
