@@ -2,35 +2,15 @@ package services
 
 import (
 	"context"
-	"time"
+
+	"github.com/vovk4morkovk4/isolate-panel/internal/stats"
 )
 
-// TrafficSample represents a single traffic measurement
-type TrafficSample struct {
-	UserID    uint
-	InboundID uint
-	CoreID    uint
-	Upload    uint64
-	Download  uint64
-	Timestamp time.Time
-}
+// TrafficSample is an alias for stats.TrafficSample for backward compatibility
+type TrafficSample = stats.TrafficSample
 
-// ConnectionInfo represents an active connection
-type ConnectionInfo struct {
-	UserID          uint
-	InboundID       uint
-	CoreID          uint
-	CoreName        string
-	SourceIP        string
-	SourcePort      int
-	DestinationIP   string
-	DestinationPort int
-	StartedAt       time.Time
-	LastActivity    time.Time
-	Upload          uint64
-	Download        uint64
-	ConnectionID    string // Core-specific connection identifier
-}
+// ConnectionInfo is an alias for stats.ConnectionInfo for backward compatibility
+type ConnectionInfo = stats.ConnectionInfo
 
 // CoreStatsProvider defines the interface for collecting stats from different cores
 type CoreStatsProvider interface {

@@ -63,6 +63,13 @@ type Argon2Config struct {
 type CoresConfig struct {
 	ConfigDir     string `mapstructure:"config_dir"`
 	SupervisorURL string `mapstructure:"supervisor_url"`
+	// gRPC/HTTP API addresses for stats collection
+	XrayAPIAddr    string `mapstructure:"xray_api_addr"`    // e.g., "127.0.0.1:10085"
+	SingboxAPIAddr string `mapstructure:"singbox_api_addr"` // e.g., "127.0.0.1:9090"
+	MihomoAPIAddr  string `mapstructure:"mihomo_api_addr"`  // e.g., "127.0.0.1:9091"
+	// API keys for Sing-box and Mihomo (Clash-compatible API)
+	SingboxAPIKey string `mapstructure:"singbox_api_key"`
+	MihomoAPIKey  string `mapstructure:"mihomo_api_key"`
 }
 
 // Load loads configuration from file and environment variables

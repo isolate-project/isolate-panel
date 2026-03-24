@@ -126,6 +126,17 @@ export const certificateApi = {
   delete: (id: number) => apiClient.delete(`/certificates/${id}`),
 }
 
+// Stats and monitoring endpoints
+export const statsApi = {
+  dashboard: () => apiClient.get('/stats/dashboard'),
+  userTraffic: (userId: number, params?: { granularity?: string; days?: number }) =>
+    apiClient.get(`/stats/user/${userId}/traffic`, { params }),
+  connections: (userId?: number) =>
+    apiClient.get('/stats/connections', { params: userId ? { user_id: userId } : {} }),
+  disconnectUser: (userId: number) =>
+    apiClient.post(`/stats/user/${userId}/disconnect`),
+}
+
 // System endpoints
 export const systemApi = {
   health: () => apiClient.get('/health'),

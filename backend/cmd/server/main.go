@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"time"
@@ -119,15 +120,48 @@ func main() {
 	subscriptionService := services.NewSubscriptionService(db.DB, "")
 
 	// Initialize traffic collector (auto-detects interval, default 30s)
-	trafficCollector := services.NewTrafficCollector(db.DB, 0)
+	trafficCollector := services.NewTrafficCollector(
+		db.DB,
+		0, // auto-detect interval
+		cfg.Cores.XrayAPIAddr,
+		cfg.Cores.SingboxAPIAddr,
+		cfg.Cores.MihomoAPIAddr,
+		cfg.Cores.SingboxAPIKey,
+		cfg.Cores.MihomoAPIKey,
+	)
 	trafficCollector.Start()
 
 	// Initialize connection tracker (default 10s interval for real-time feel)
-	connectionTracker := services.NewConnectionTracker(db.DB, 0)
+	connectionTracker := services.NewConnectionTracker(
+		db.DB,
+		0, // auto-detect interval
+		cfg.Cores.XrayAPIAddr,
+		cfg.Cores.SingboxAPIAddr,
+		cfg.Cores.MihomoAPIAddr,
+		cfg.Cores.SingboxAPIKey,
+		cfg.Cores.MihomoAPIKey,
+	)
 	connectionTracker.Start()
 
 	// Initialize quota enforcer (for automatic quota enforcement)
-	_ = services.NewQuotaEnforcer(db.DB, configService)
+	quotaEnforcer := services.NewQuotaEnforcer(db.DB, configService)
+
+	// Initialize data aggregator (hourly and daily aggregation)
+	dataAggregator := services.NewDataAggregator(db.DB, 0)
+	dataAggregator.Start()
+
+	// Initialize data retention service (cleanup old data)
+	dataRetention := services.NewDataRetentionService(db.DB, 0)
+	dataRetention.Start()
+
+	// Start quota enforcement loop (check every 5 minutes)
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			quotaEnforcer.CheckAndEnforce(context.Background())
+		}
+	}()
 
 	// Initialize certificate service (with Cloudflare DNS-01 challenge)
 	certService, err := services.NewCertificateService(db.DB, services.CertificateServiceConfig{
@@ -153,7 +187,7 @@ func main() {
 	protocolsHandler := api.NewProtocolsHandler()
 	subscriptionsHandler := api.NewSubscriptionsHandler(subscriptionService)
 	certificatesHandler := api.NewCertificatesHandler(certService, db.DB)
-	statsHandler := api.NewStatsHandler(trafficCollector, connectionTracker)
+	statsHandler := api.NewStatsHandler(db.DB, trafficCollector, connectionTracker)
 
 	// Initialize rate limiter for login (5 attempts per minute per IP)
 	loginLimiter := middleware.NewRateLimiter(5, 1*time.Minute)
