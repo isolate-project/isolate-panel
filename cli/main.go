@@ -37,6 +37,7 @@ func init() {
 	rootCmd.AddCommand(cmd.LoginCmd())
 	rootCmd.AddCommand(cmd.LogoutCmd())
 	rootCmd.AddCommand(cmd.ProfileCmd())
+	rootCmd.AddCommand(cmd.UserCmd())
 	// rootCmd.AddCommand(cmd.BackupCmd()) // Temporarily disabled
 }
 
