@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/skip2/go-qrcode"
 
 	"github.com/vovk4morkovk4/isolate-panel/internal/services"
 )
@@ -46,6 +47,7 @@ func (h *SubscriptionsHandler) GetV2RaySubscription(c fiber.Ctx) error {
 	c.Set("Content-Type", "text/plain; charset=utf-8")
 	c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s.txt", data.User.Username))
 	c.Set("Subscription-Userinfo", h.buildUserinfo(data))
+	c.Set("Profile-Update-Interval", "24") // 24 hours
 	return c.SendString(result)
 }
 
@@ -73,6 +75,7 @@ func (h *SubscriptionsHandler) GetClashSubscription(c fiber.Ctx) error {
 	c.Set("Content-Type", "text/yaml; charset=utf-8")
 	c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s.yaml", data.User.Username))
 	c.Set("Subscription-Userinfo", h.buildUserinfo(data))
+	c.Set("Profile-Update-Interval", "24") // 24 hours
 	return c.SendString(result)
 }
 
@@ -100,6 +103,7 @@ func (h *SubscriptionsHandler) GetSingboxSubscription(c fiber.Ctx) error {
 	c.Set("Content-Type", "application/json; charset=utf-8")
 	c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s.json", data.User.Username))
 	c.Set("Subscription-Userinfo", h.buildUserinfo(data))
+	c.Set("Profile-Update-Interval", "24") // 24 hours
 	return c.SendString(result)
 }
 
@@ -144,6 +148,93 @@ func (h *SubscriptionsHandler) GetUserShortURL(c fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"short_code": shortURL.ShortCode,
 		"short_url":  fmt.Sprintf("/s/%s", shortURL.ShortCode),
+	})
+}
+
+// GetQRCode generates a QR code for the subscription URL
+func (h *SubscriptionsHandler) GetQRCode(c fiber.Ctx) error {
+	token := c.Params("token")
+	if token == "" {
+		return c.Status(fiber.StatusNotFound).SendString("Not Found")
+	}
+
+	// Verify the token is valid
+	_, err := h.subscriptionService.GetUserBySubscriptionToken(token)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).SendString("Not Found")
+	}
+
+	// Build subscription URL
+	scheme := "https"
+	if c.Protocol() == "http" {
+		scheme = "http"
+	}
+	subscriptionURL := fmt.Sprintf("%s://%s/sub/%s", scheme, c.Hostname(), token)
+
+	// Generate QR code
+	png, err := qrcode.Encode(subscriptionURL, qrcode.Medium, 256)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString("Failed to generate QR code")
+	}
+
+	c.Set("Content-Type", "image/png")
+	return c.Send(png)
+}
+
+// GetAccessStats returns subscription access statistics (admin endpoint)
+func (h *SubscriptionsHandler) GetAccessStats(c fiber.Ctx) error {
+	userID, err := strconv.ParseUint(c.Params("user_id"), 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid user ID",
+		})
+	}
+
+	daysStr := c.Query("days", "7")
+	days, err := strconv.Atoi(daysStr)
+	if err != nil || days < 1 || days > 365 {
+		days = 7
+	}
+
+	stats, err := h.subscriptionService.GetAccessStats(uint(userID), days)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.JSON(stats)
+}
+
+// RegenerateToken regenerates a user's subscription token (admin endpoint)
+func (h *SubscriptionsHandler) RegenerateToken(c fiber.Ctx) error {
+	userID, err := strconv.ParseUint(c.Params("user_id"), 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid user ID",
+		})
+	}
+
+	newToken, err := h.subscriptionService.RegenerateToken(uint(userID))
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	// Build URLs
+	scheme := "https"
+	if c.Protocol() == "http" {
+		scheme = "http"
+	}
+	host := c.Hostname()
+
+	return c.JSON(fiber.Map{
+		"subscription_token": newToken,
+		"subscription_url":   fmt.Sprintf("%s://%s/sub/%s", scheme, host, newToken),
+		"clash_url":          fmt.Sprintf("%s://%s/sub/%s/clash", scheme, host, newToken),
+		"singbox_url":        fmt.Sprintf("%s://%s/sub/%s/singbox", scheme, host, newToken),
+		"qr_code_url":        fmt.Sprintf("%s://%s/sub/%s/qr", scheme, host, newToken),
 	})
 }
 

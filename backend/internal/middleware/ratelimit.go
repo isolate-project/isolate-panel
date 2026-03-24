@@ -98,3 +98,28 @@ func LoginRateLimiter(limiter *RateLimiter) fiber.Handler {
 		return c.Next()
 	}
 }
+
+// SubscriptionRateLimiter creates a rate limiter for subscription endpoints
+// Limits: 10 requests/hour per token, 30 requests/hour per IP
+func SubscriptionRateLimiter() fiber.Handler {
+	tokenLimiter := NewRateLimiter(10, 1*time.Hour)
+	ipLimiter := NewRateLimiter(30, 1*time.Hour)
+
+	return func(c fiber.Ctx) error {
+		// Get token from URL
+		token := c.Params("token")
+		if token != "" {
+			if !tokenLimiter.Allow("token:" + token) {
+				return c.Status(fiber.StatusTooManyRequests).SendString("Subscription rate limit exceeded (token). Please try again later.")
+			}
+		}
+
+		// Also check IP
+		ip := c.IP()
+		if !ipLimiter.Allow("ip:" + ip) {
+			return c.Status(fiber.StatusTooManyRequests).SendString("Subscription rate limit exceeded (IP). Please try again later.")
+		}
+
+		return c.Next()
+	}
+}

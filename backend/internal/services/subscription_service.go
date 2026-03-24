@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"gorm.io/gorm"
@@ -19,6 +20,19 @@ import (
 type SubscriptionService struct {
 	db       *gorm.DB
 	panelURL string
+	cache    *sync.Map // map[string]cacheEntry
+	cacheTTL time.Duration
+}
+
+// cacheEntry holds cached subscription data
+type cacheEntry struct {
+	content   string
+	expiresAt time.Time
+}
+
+// cacheKey generates a cache key for a subscription
+func cacheKey(userID uint, format string) string {
+	return fmt.Sprintf("sub:%d:%s", userID, format)
 }
 
 // NewSubscriptionService creates a new subscription service
@@ -29,37 +43,9 @@ func NewSubscriptionService(db *gorm.DB, panelURL string) *SubscriptionService {
 	return &SubscriptionService{
 		db:       db,
 		panelURL: panelURL,
+		cache:    &sync.Map{},
+		cacheTTL: 5 * time.Minute,
 	}
-}
-
-// SubscriptionShortURL model for short URLs
-type SubscriptionShortURL struct {
-	ID        uint      `gorm:"primaryKey" json:"id"`
-	UserID    uint      `gorm:"not null" json:"user_id"`
-	ShortCode string    `gorm:"uniqueIndex;not null" json:"short_code"`
-	FullURL   string    `gorm:"not null" json:"full_url"`
-	CreatedAt time.Time `json:"created_at"`
-}
-
-func (SubscriptionShortURL) TableName() string {
-	return "subscription_short_urls"
-}
-
-// SubscriptionAccess model for access logging
-type SubscriptionAccess struct {
-	ID             uint      `gorm:"primaryKey" json:"id"`
-	UserID         uint      `gorm:"not null" json:"user_id"`
-	IPAddress      string    `gorm:"not null" json:"ip_address"`
-	UserAgent      string    `json:"user_agent"`
-	Country        string    `json:"country"`
-	Format         string    `json:"format"`
-	IsSuspicious   bool      `gorm:"default:false" json:"is_suspicious"`
-	ResponseTimeMs int       `gorm:"default:0" json:"response_time_ms"`
-	AccessedAt     time.Time `json:"accessed_at"`
-}
-
-func (SubscriptionAccess) TableName() string {
-	return "subscription_accesses"
 }
 
 // UserSubscriptionData holds the data needed to generate a subscription
@@ -115,6 +101,11 @@ func (s *SubscriptionService) GetUserSubscriptionData(token string) (*UserSubscr
 
 // GenerateV2Ray generates V2Ray subscription format (base64-encoded link list)
 func (s *SubscriptionService) GenerateV2Ray(data *UserSubscriptionData) (string, error) {
+	// Try cache first
+	if cached, ok := s.GetCachedSubscription(data.User.ID, "v2ray"); ok {
+		return cached, nil
+	}
+
 	var links []string
 
 	for _, inbound := range data.Inbounds {
@@ -126,11 +117,20 @@ func (s *SubscriptionService) GenerateV2Ray(data *UserSubscriptionData) (string,
 
 	result := strings.Join(links, "\n")
 	encoded := base64.StdEncoding.EncodeToString([]byte(result))
+
+	// Cache the result
+	s.SetCachedSubscription(data.User.ID, "v2ray", encoded)
+
 	return encoded, nil
 }
 
 // GenerateClash generates Clash subscription format (YAML)
 func (s *SubscriptionService) GenerateClash(data *UserSubscriptionData) (string, error) {
+	// Try cache first
+	if cached, ok := s.GetCachedSubscription(data.User.ID, "clash"); ok {
+		return cached, nil
+	}
+
 	var proxies []string
 	var proxyNames []string
 
@@ -166,11 +166,21 @@ func (s *SubscriptionService) GenerateClash(data *UserSubscriptionData) (string,
 	sb.WriteString("\nrules:\n")
 	sb.WriteString("  - MATCH,PROXY\n")
 
-	return sb.String(), nil
+	result := sb.String()
+
+	// Cache the result
+	s.SetCachedSubscription(data.User.ID, "clash", result)
+
+	return result, nil
 }
 
 // GenerateSingbox generates Sing-box subscription format (JSON)
 func (s *SubscriptionService) GenerateSingbox(data *UserSubscriptionData) (string, error) {
+	// Try cache first
+	if cached, ok := s.GetCachedSubscription(data.User.ID, "singbox"); ok {
+		return cached, nil
+	}
+
 	outbounds := []map[string]interface{}{}
 
 	for _, inbound := range data.Inbounds {
@@ -211,12 +221,48 @@ func (s *SubscriptionService) GenerateSingbox(data *UserSubscriptionData) (strin
 		return "", fmt.Errorf("failed to marshal sing-box config: %w", err)
 	}
 
-	return string(jsonData), nil
+	result := string(jsonData)
+
+	// Cache the result
+	s.SetCachedSubscription(data.User.ID, "singbox", result)
+
+	return result, nil
+}
+
+// GetCachedSubscription gets cached subscription content
+func (s *SubscriptionService) GetCachedSubscription(userID uint, format string) (string, bool) {
+	key := cacheKey(userID, format)
+	if entry, ok := s.cache.Load(key); ok {
+		e := entry.(cacheEntry)
+		if time.Now().Before(e.expiresAt) {
+			return e.content, true
+		}
+		s.cache.Delete(key)
+	}
+	return "", false
+}
+
+// SetCachedSubscription sets cached subscription content
+func (s *SubscriptionService) SetCachedSubscription(userID uint, format string, content string) {
+	key := cacheKey(userID, format)
+	s.cache.Store(key, cacheEntry{
+		content:   content,
+		expiresAt: time.Now().Add(s.cacheTTL),
+	})
+}
+
+// InvalidateUserCache invalidates all cached subscriptions for a user
+func (s *SubscriptionService) InvalidateUserCache(userID uint) {
+	formats := []string{"v2ray", "clash", "singbox"}
+	for _, format := range formats {
+		key := cacheKey(userID, format)
+		s.cache.Delete(key)
+	}
 }
 
 // LogAccess logs a subscription access
 func (s *SubscriptionService) LogAccess(userID uint, ip, userAgent, format string, responseTimeMs int, isSuspicious bool) {
-	access := &SubscriptionAccess{
+	access := &models.SubscriptionAccess{
 		UserID:         userID,
 		IPAddress:      ip,
 		UserAgent:      userAgent,
@@ -229,8 +275,8 @@ func (s *SubscriptionService) LogAccess(userID uint, ip, userAgent, format strin
 }
 
 // GetOrCreateShortURL gets or creates a short URL for a user
-func (s *SubscriptionService) GetOrCreateShortURL(userID uint, subscriptionToken string) (*SubscriptionShortURL, error) {
-	var existing SubscriptionShortURL
+func (s *SubscriptionService) GetOrCreateShortURL(userID uint, subscriptionToken string) (*models.SubscriptionShortURL, error) {
+	var existing models.SubscriptionShortURL
 	err := s.db.Where("user_id = ?", userID).First(&existing).Error
 	if err == nil {
 		return &existing, nil
@@ -242,7 +288,7 @@ func (s *SubscriptionService) GetOrCreateShortURL(userID uint, subscriptionToken
 		return nil, fmt.Errorf("failed to generate short code: %w", err)
 	}
 
-	shortURL := &SubscriptionShortURL{
+	shortURL := &models.SubscriptionShortURL{
 		UserID:    userID,
 		ShortCode: code,
 		FullURL:   fmt.Sprintf("/sub/%s", subscriptionToken),
@@ -256,12 +302,85 @@ func (s *SubscriptionService) GetOrCreateShortURL(userID uint, subscriptionToken
 }
 
 // ResolveShortURL resolves a short code to the full subscription URL
-func (s *SubscriptionService) ResolveShortURL(shortCode string) (*SubscriptionShortURL, error) {
-	var shortURL SubscriptionShortURL
+func (s *SubscriptionService) ResolveShortURL(shortCode string) (*models.SubscriptionShortURL, error) {
+	var shortURL models.SubscriptionShortURL
 	if err := s.db.Where("short_code = ?", shortCode).First(&shortURL).Error; err != nil {
 		return nil, fmt.Errorf("short URL not found")
 	}
 	return &shortURL, nil
+}
+
+// SubscriptionStats holds subscription access statistics
+type SubscriptionStats struct {
+	TotalAccesses int            `json:"total_accesses"`
+	ByFormat      map[string]int `json:"by_format"`
+	ByDay         map[string]int `json:"by_day"`
+	UniqueIPs     int            `json:"unique_ips"`
+	LastAccess    *time.Time     `json:"last_access"`
+}
+
+// GetAccessStats retrieves subscription access statistics for a user
+func (s *SubscriptionService) GetAccessStats(userID uint, days int) (*SubscriptionStats, error) {
+	var accesses []models.SubscriptionAccess
+	since := time.Now().AddDate(0, 0, -days)
+
+	err := s.db.Where("user_id = ? AND accessed_at > ?", userID, since).
+		Order("accessed_at DESC").
+		Find(&accesses).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	stats := &SubscriptionStats{
+		TotalAccesses: len(accesses),
+		ByFormat:      make(map[string]int),
+		ByDay:         make(map[string]int),
+	}
+
+	uniqueIPs := make(map[string]bool)
+
+	for _, access := range accesses {
+		stats.ByFormat[access.Format]++
+		day := access.AccessedAt.Format("2006-01-02")
+		stats.ByDay[day]++
+		uniqueIPs[access.IPAddress] = true
+
+		if stats.LastAccess == nil || access.AccessedAt.After(*stats.LastAccess) {
+			t := access.AccessedAt
+			stats.LastAccess = &t
+		}
+	}
+
+	stats.UniqueIPs = len(uniqueIPs)
+
+	return stats, nil
+}
+
+// RegenerateToken generates a new subscription token for a user
+func (s *SubscriptionService) RegenerateToken(userID uint) (string, error) {
+	// Generate new token
+	newToken := generateSubscriptionToken()
+
+	// Update user
+	var user models.User
+	if err := s.db.First(&user, userID).Error; err != nil {
+		return "", fmt.Errorf("user not found: %w", err)
+	}
+
+	user.SubscriptionToken = newToken
+
+	if err := s.db.Save(&user).Error; err != nil {
+		return "", fmt.Errorf("failed to update user token: %w", err)
+	}
+
+	// Delete old short URLs
+	s.db.Where("user_id = ?", userID).Delete(&models.SubscriptionShortURL{})
+
+	// Invalidate cache
+	s.InvalidateUserCache(userID)
+
+	return newToken, nil
 }
 
 // generateProxyLink generates a proxy link for V2Ray format
@@ -503,4 +622,10 @@ func generateShortCode(length int) (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(bytes)[:length], nil
+}
+
+func generateSubscriptionToken() string {
+	bytes := make([]byte, 32)
+	rand.Read(bytes)
+	return base64.URLEncoding.EncodeToString(bytes)
 }

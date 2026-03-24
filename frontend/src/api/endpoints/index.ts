@@ -104,6 +104,12 @@ export const protocolApi = {
 export const subscriptionApi = {
   getShortURL: (userId: number, token: string) =>
     apiClient.get(`/subscriptions/${userId}/short-url`, { params: { token } }),
+
+  getStats: (userId: number, days?: number) =>
+    apiClient.get(`/users/${userId}/subscription/stats`, { params: days ? { days } : {} }),
+
+  regenerateToken: (userId: number) =>
+    apiClient.post(`/users/${userId}/subscription/regenerate`),
 }
 
 // System endpoints

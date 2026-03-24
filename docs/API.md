@@ -970,6 +970,67 @@ Short URL redirect to full subscription URL.
 
 ---
 
+### GET /sub/:token/qr
+
+Generate QR code for subscription URL.
+
+**Authentication:** Token from user's `subscription_token` field
+
+**Response (200):**
+```
+Content-Type: image/png
+[PNG image data]
+```
+
+---
+
+### GET /api/users/:id/subscription/stats
+
+(Admin, requires JWT) Get subscription access statistics.
+
+**Query Parameters:**
+- `days` (optional): Number of days to retrieve stats for (default: 7, range: 1-365)
+
+**Response (200):**
+```json
+{
+  "total_accesses": 150,
+  "by_format": {
+    "v2ray": 80,
+    "clash": 50,
+    "singbox": 20
+  },
+  "by_day": {
+    "2026-03-20": 45,
+    "2026-03-21": 55,
+    "2026-03-22": 50
+  },
+  "unique_ips": 3,
+  "last_access": "2026-03-22T10:30:00Z"
+}
+```
+
+---
+
+### POST /api/users/:id/subscription/regenerate
+
+(Admin, requires JWT) Regenerate a user's subscription token.
+
+**Response (200):**
+```json
+{
+  "subscription_token": "new_token_here",
+  "subscription_url": "https://panel.example.com/sub/new_token_here",
+  "clash_url": "https://panel.example.com/sub/new_token_here/clash",
+  "singbox_url": "https://panel.example.com/sub/new_token_here/singbox",
+  "qr_code_url": "https://panel.example.com/sub/new_token_here/qr"
+}
+```
+
+**Note:** This invalidates the old subscription token and all associated short URLs. Cached subscriptions are also cleared.
+
+---
+
 ## Error Responses
 
 All endpoints may return the following error responses:
@@ -1024,11 +1085,20 @@ Configuration files are automatically regenerated when:
 
 ### Rate Limiting
 - Login endpoint: 5 attempts per minute per IP
+- Subscription endpoints: 10 requests/hour per token, 30 requests/hour per IP
 - Other endpoints: No rate limiting (protected by authentication)
+
+### Caching
+- Subscription configs are cached for 5 minutes per user per format
+- Cache is invalidated when:
+  - User is updated
+  - Inbound is created/updated/deleted
+  - User-inbound mapping is changed
+  - Subscription token is regenerated
 
 ---
 
-## Total Endpoints: 46
+## Total Endpoints: 49
 
 - **Auth:** 4 endpoints
 - **Admin:** 1 endpoint
@@ -1038,7 +1108,7 @@ Configuration files are automatically regenerated when:
 - **Protocols:** 3 endpoints (Phase 3)
 - **Outbounds:** 5 endpoints (Phase 3)
 - **Inbound Users:** 2 endpoints (Phase 3)
-- **Subscriptions:** 5 endpoints (Phase 3)
+- **Subscriptions:** 8 endpoints (5 from Phase 3 + 3 from Phase 4)
 - **Health:** 1 endpoint
 - **API Info:** 1 endpoint
 - **Docs:** 1 endpoint (this page)

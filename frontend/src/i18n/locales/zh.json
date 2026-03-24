@@ -24,8 +24,9 @@
     "no": "否",
     "all": "全部",
     "active": "活跃",
-    "inactive": "未激活",
-    "clearFilters": "清除筛选"
+    "inactive": "不活跃",
+    "clearFilters": "清除筛选",
+    "days": "天"
   },
   "nav": {
     "dashboard": "仪表板",
@@ -287,7 +288,19 @@
     "shortUrlGenerated": "短链接已生成",
     "noToken": "此用户没有订阅令牌。",
     "openInBrowser": "在浏览器中打开",
-    "qrCode": "二维码"
+    "qrCode": "二维码",
+    "showQR": "二维码",
+    "qrDescription": "扫描此二维码以快速将订阅添加到您的设备",
+    "viewStats": "统计",
+    "regenerate": "重新生成",
+    "regenerated": "订阅令牌已重新生成",
+    "confirmRegenerate": "您确定要重新生成订阅令牌吗？旧令牌和短链接将停止工作。",
+    "stats": "订阅统计",
+    "totalAccesses": "总访问次数",
+    "uniqueIPs": "唯一 IP",
+    "byFormat": "按格式",
+    "byDay": "按日期",
+    "lastAccess": "最后访问"
   },
   "inboundDetail": {
     "title": "入站详情",

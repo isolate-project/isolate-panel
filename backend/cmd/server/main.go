@@ -224,12 +224,16 @@ func main() {
 
 	// Subscription short URL management (protected, admin)
 	protectedGroup.Get("/subscriptions/:user_id/short-url", subscriptionsHandler.GetUserShortURL)
+	protectedGroup.Get("/users/:id/subscription/stats", subscriptionsHandler.GetAccessStats)
+	protectedGroup.Post("/users/:id/subscription/regenerate", subscriptionsHandler.RegenerateToken)
 
-	// Subscription routes (public, token-based auth)
-	app.Get("/sub/:token", subscriptionsHandler.GetV2RaySubscription)
-	app.Get("/sub/:token/clash", subscriptionsHandler.GetClashSubscription)
-	app.Get("/sub/:token/singbox", subscriptionsHandler.GetSingboxSubscription)
-	app.Get("/s/:code", subscriptionsHandler.RedirectShortURL)
+	// Subscription routes (public, token-based auth, rate limited)
+	subscriptionRoutes := app.Group("", middleware.SubscriptionRateLimiter())
+	subscriptionRoutes.Get("/sub/:token", subscriptionsHandler.GetV2RaySubscription)
+	subscriptionRoutes.Get("/sub/:token/clash", subscriptionsHandler.GetClashSubscription)
+	subscriptionRoutes.Get("/sub/:token/singbox", subscriptionsHandler.GetSingboxSubscription)
+	subscriptionRoutes.Get("/sub/:token/qr", subscriptionsHandler.GetQRCode)
+	subscriptionRoutes.Get("/s/:code", subscriptionsHandler.RedirectShortURL)
 
 	// Log startup information
 	log.Info().
