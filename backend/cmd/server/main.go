@@ -154,6 +154,18 @@ func main() {
 	dataRetention := services.NewDataRetentionService(db.DB, 0)
 	dataRetention.Start()
 
+	// Initialize WARP service
+	warpService := services.NewWARPService(db.DB, "/app/data/warp")
+	if err := warpService.Initialize(); err != nil {
+		log.Warn().Err(err).Msg("Failed to initialize WARP service")
+	}
+
+	// Initialize Geo service
+	geoService := services.NewGeoService(db.DB, "/app/data/geo")
+	if err := geoService.Initialize(); err != nil {
+		log.Warn().Err(err).Msg("Failed to initialize Geo service")
+	}
+
 	// Start quota enforcement loop (check every 5 minutes)
 	go func() {
 		ticker := time.NewTicker(5 * time.Minute)
@@ -188,6 +200,7 @@ func main() {
 	subscriptionsHandler := api.NewSubscriptionsHandler(subscriptionService)
 	certificatesHandler := api.NewCertificatesHandler(certService, db.DB)
 	statsHandler := api.NewStatsHandler(db.DB, trafficCollector, connectionTracker)
+	warpHandler := api.NewWarpHandler(warpService, geoService)
 
 	// Initialize rate limiter for login (5 attempts per minute per IP)
 	loginLimiter := middleware.NewRateLimiter(5, 1*time.Minute)
@@ -306,6 +319,9 @@ func main() {
 	statsGroup.Get("/user/:user_id/traffic", statsHandler.GetUserTrafficStats)
 	statsGroup.Get("/connections", statsHandler.GetActiveConnections)
 	statsGroup.Post("/user/:user_id/disconnect", statsHandler.DisconnectUser)
+
+	// WARP and Geo routes (protected)
+	warpHandler.RegisterRoutes(protectedGroup)
 
 	// Subscription routes (public, token-based auth, rate limited)
 	subscriptionRoutes := app.Group("", middleware.SubscriptionRateLimiter())

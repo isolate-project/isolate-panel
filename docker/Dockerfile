@@ -61,6 +61,10 @@ RUN wget -q https://github.com/SagerNet/sing-box/releases/download/v1.11.2/sing-
     rm -rf /tmp/singbox.tar.gz /tmp/sing-box-1.11.2-linux-amd64 && \
     sing-box version
 
+# Download and install wgcf (WARP client)
+RUN wget -q https://github.com/ViRb3/wgcf/releases/download/v2.2.23/wgcf_2.2.23_linux_amd64 -O /usr/local/bin/wgcf && \
+    chmod +x /usr/local/bin/wgcf
+
 # Copy Go toolchain from go-builder
 COPY --from=go-builder /usr/local/go /usr/local/go
 COPY --from=go-builder /go/bin/air /usr/local/bin/air
