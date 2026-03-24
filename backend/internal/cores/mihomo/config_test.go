@@ -128,10 +128,12 @@ func TestGenerateConfig_MultipleProtocols(t *testing.T) {
 		"trojan",
 		"hysteria2",
 		"tuic",
-		"mieru",  // Mihomo exclusive
-		"sudoku", // Mihomo exclusive
-		"ssr",    // Mihomo exclusive
-		"snell",  // Mihomo exclusive
+		"mieru",       // Mihomo exclusive
+		"sudoku",      // Mihomo exclusive
+		"ssr",         // Mihomo exclusive
+		"snell",       // Mihomo exclusive
+		"trusttunnel", // Mihomo exclusive
+		"masque",      // Mihomo exclusive
 	}
 
 	for i, protocol := range protocols {
@@ -159,7 +161,7 @@ func TestGenerateConfig_MultipleProtocols(t *testing.T) {
 		t.Fatalf("GenerateConfig failed: %v", err)
 	}
 
-	// Should have 10 proxies
+	// Should have 12 proxies
 	if len(config.Proxies) != len(protocols) {
 		t.Errorf("expected %d proxies, got %d", len(protocols), len(config.Proxies))
 	}
@@ -281,6 +283,8 @@ func TestMapMihomoProtocol(t *testing.T) {
 		{"mieru", "mieru"},
 		{"sudoku", "sudoku"},
 		{"snell", "snell"},
+		{"trusttunnel", "trusttunnel"},
+		{"masque", "masque"},
 		{"direct", "direct"},
 		{"block", "block"},
 		{"dns", "dns"},
@@ -307,8 +311,8 @@ func TestMihomoExclusiveProtocols(t *testing.T) {
 	user := models.User{Username: "test", UUID: "test-uuid", IsActive: true}
 	db.Create(&user)
 
-	// Test Mihomo-exclusive protocols
-	exclusiveProtocols := []string{"mieru", "sudoku", "ssr", "snell"}
+	// Test Mihomo-exclusive protocols (including TrustTunnel and MASQUE)
+	exclusiveProtocols := []string{"mieru", "sudoku", "ssr", "snell", "trusttunnel", "masque"}
 
 	for _, protocol := range exclusiveProtocols {
 		inbound := models.Inbound{
@@ -337,10 +341,12 @@ func TestMihomoExclusiveProtocols(t *testing.T) {
 
 	// Verify proxy types
 	expectedTypes := map[string]string{
-		"mieru":  "mieru",
-		"sudoku": "sudoku",
-		"ssr":    "ssr",
-		"snell":  "snell",
+		"mieru":       "mieru",
+		"sudoku":      "sudoku",
+		"ssr":         "ssr",
+		"snell":       "snell",
+		"trusttunnel": "trusttunnel",
+		"masque":      "masque",
 	}
 
 	for _, proxy := range config.Proxies {

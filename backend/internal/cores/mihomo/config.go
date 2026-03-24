@@ -249,6 +249,23 @@ func convertInboundToProxy(db *gorm.DB, inbound models.Inbound) (*Proxy, error) 
 				}
 			}
 		}
+	case "trusttunnel":
+		// TrustTunnel protocol (Mihomo exclusive)
+		proxy.Type = "trusttunnel"
+		if len(users) > 0 {
+			proxy.Users = make([]ProxyUser, len(users))
+			for i, user := range users {
+				proxy.Users[i] = ProxyUser{
+					Name:     fmt.Sprintf("user_%d", user.ID),
+					Password: user.UUID,
+				}
+			}
+		}
+	case "masque":
+		// MASQUE HTTP/3 proxy (Mihomo exclusive, outbound only)
+		proxy.Type = "masque"
+		// MASQUE typically uses URL-based configuration
+		// Extra settings from ConfigJSON will be applied
 	}
 
 	return proxy, nil
@@ -303,6 +320,10 @@ func mapMihomoProtocol(protocol string) string {
 		return "sudoku"
 	case "snell":
 		return "snell"
+	case "trusttunnel":
+		return "trusttunnel"
+	case "masque":
+		return "masque"
 	case "direct":
 		return "direct"
 	case "block":
