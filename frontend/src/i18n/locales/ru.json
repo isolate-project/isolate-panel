@@ -39,7 +39,9 @@
     "statistics": "Статистика",
     "connections": "Подключения",
     "logs": "Логи",
-    "settings": "Настройки"
+    "settings": "Настройки",
+    "warp": "WARP маршруты",
+    "geo": "GeoIP/GeoSite"
   },
   "auth": {
     "login": "Вход",

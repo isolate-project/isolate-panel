@@ -39,7 +39,9 @@
     "statistics": "统计",
     "connections": "连接",
     "logs": "日志",
-    "settings": "设置"
+    "settings": "设置",
+    "warp": "WARP 路由",
+    "geo": "GeoIP/GeoSite"
   },
   "auth": {
     "login": "登录",

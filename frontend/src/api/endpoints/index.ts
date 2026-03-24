@@ -151,3 +151,68 @@ export const systemApi = {
 
   connections: () => apiClient.get('/system/connections'),
 }
+
+// WARP endpoints
+export const warpApi = {
+  // WARP Routes
+  getRoutes: (coreId: number) => apiClient.get('/warp/routes', { params: { core_id: coreId } }),
+
+  createRoute: (data: {
+    core_id: number
+    resource_type: string
+    resource_value: string
+    description?: string
+    priority?: number
+  }) => apiClient.post('/warp/routes', data),
+
+  updateRoute: (id: number, data: Record<string, unknown>) =>
+    apiClient.put(`/warp/routes/${id}`, data),
+
+  deleteRoute: (id: number) => apiClient.delete(`/warp/routes/${id}`),
+
+  toggleRoute: (id: number) => apiClient.post(`/warp/routes/${id}/toggle`),
+
+  sync: () => apiClient.post('/warp/sync'),
+
+  // WARP Status & Registration
+  getStatus: () => apiClient.get('/warp/status'),
+
+  register: () => apiClient.post('/warp/register'),
+
+  // WARP Presets
+  getPresets: () => apiClient.get('/warp/presets'),
+
+  applyPreset: (presetName: string, coreId: number) =>
+    apiClient.post(`/warp/presets/${presetName}/apply`, null, { params: { core_id: coreId } }),
+
+  // Geo Rules
+  getGeoRules: (coreId: number) =>
+    apiClient.get('/geo/rules', { params: { core_id: coreId } }),
+
+  createGeoRule: (data: {
+    core_id: number
+    type: string
+    code: string
+    action: string
+    description?: string
+    priority?: number
+  }) => apiClient.post('/geo/rules', data),
+
+  updateGeoRule: (id: number, data: Record<string, unknown>) =>
+    apiClient.put(`/geo/rules/${id}`, data),
+
+  deleteGeoRule: (id: number, coreId: number) =>
+    apiClient.delete(`/geo/rules/${id}`, { params: { core_id: coreId } }),
+
+  toggleGeoRule: (id: number, coreId: number) =>
+    apiClient.post(`/geo/rules/${id}/toggle`, null, { params: { core_id: coreId } }),
+
+  // Geo Data
+  getCountries: () => apiClient.get('/geo/countries'),
+
+  getCategories: () => apiClient.get('/geo/categories'),
+
+  getDatabases: () => apiClient.get('/geo/databases'),
+
+  updateDatabases: () => apiClient.post('/geo/update'),
+}

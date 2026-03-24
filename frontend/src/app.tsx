@@ -13,6 +13,8 @@ import { Outbounds } from './pages/Outbounds'
 import { Certificates } from './pages/Certificates'
 import { ActiveConnections } from './pages/ActiveConnections'
 import { Settings } from './pages/Settings'
+import { WarpRoutes } from './pages/WarpRoutes'
+import { GeoRules } from './pages/GeoRules'
 import { NotFound } from './pages/NotFound'
 import { useSessionExpired } from './hooks/useSessionExpired'
 import './i18n'
@@ -106,6 +108,22 @@ function ProtectedSettings() {
   )
 }
 
+function ProtectedWarpRoutes() {
+  return (
+    <ProtectedRoute>
+      <WarpRoutes />
+    </ProtectedRoute>
+  )
+}
+
+function ProtectedGeoRules() {
+  return (
+    <ProtectedRoute>
+      <GeoRules />
+    </ProtectedRoute>
+  )
+}
+
 export function App() {
   // Monitor for session expiration
   useSessionExpired()
@@ -125,6 +143,8 @@ export function App() {
         <Route path="/certificates" component={ProtectedCertificates} />
         <Route path="/connections" component={ProtectedActiveConnections} />
         <Route path="/settings" component={ProtectedSettings} />
+        <Route path="/warp" component={ProtectedWarpRoutes} />
+        <Route path="/geo" component={ProtectedGeoRules} />
         <Route default component={NotFound} />
       </Router>
       <ToastContainer />
