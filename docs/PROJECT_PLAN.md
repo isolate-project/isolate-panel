@@ -5994,10 +5994,20 @@ POST /api/users/:id/subscription/regenerate
 **Задачи:**
 - [ ] Модель Certificate в БД
 - [ ] Интеграция с Lego (Let's Encrypt)
-- [ ] **DNS-01 challenge (РЕКОМЕНДУЕТСЯ для localhost-only панели)**
-- [ ] HTTP-01 challenge (с особыми требованиями)
-- [ ] Автоматическое обновление сертификатов
-- [ ] Поддержка основных DNS провайдеров (Cloudflare, Route53, etc.)
+- [ ] **DNS-01 challenge (Cloudflare - MVP, остальные в Future)**
+- [ ] ~~HTTP-01 challenge без HAProxy~~ (ОТМЕНЕНО - требует root, нарушает stealth)
+- [ ] HTTP-01 challenge с HAProxy (Future, опционально)
+- [ ] Автоматическое обновление сертификатов (30 дней до истечения)
+- [ ] Поддержка wildcard сертификатов (*.domain.com)
+
+**РЕШЕНИЯ ПО АРХИТЕКТУРЕ (зафиксировано):**
+
+1. **DNS провайдеры:** Только **Cloudflare** для MVP. Остальные (Route53, DigitalOcean) - в Future.
+2. **HTTP-01 без HAProxy:** **ОТМЕНЕНО** - требует root прав для iptables, временно открывает порт 80 (нарушает stealth архитектуру).
+3. **HTTP-01 с HAProxy:** Опционально в Future, если пользователь явно включит HAProxy.
+4. **Wildcard сертификаты:** **ПОДДЕРЖИВАЮТСЯ** через DNS-01.
+5. **Автообновление:** **30 дней** до истечения.
+6. **Хранение:** **Файлы** (`/etc/isolate-panel/certs/`) + метаданные в БД.
 
 **КРИТИЧНО: ACME Challenge и изоляция панели**
 

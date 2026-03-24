@@ -1,5 +1,5 @@
 import { clsx } from 'clsx'
-import { Home, Users, ArrowDownToLine, ArrowUpFromLine, Box, Settings } from 'lucide-preact'
+import { Home, Users, ArrowDownToLine, ArrowUpFromLine, Box, Shield, Settings } from 'lucide-preact'
 import { useTranslation } from 'react-i18next'
 
 interface SidebarProps {
@@ -16,6 +16,7 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
     { name: t('nav.inbounds'), href: '/inbounds', icon: ArrowDownToLine },
     { name: t('nav.outbounds'), href: '/outbounds', icon: ArrowUpFromLine },
     { name: t('nav.cores'), href: '/cores', icon: Box },
+    { name: t('nav.certificates'), href: '/certificates', icon: Shield },
     { name: t('nav.settings'), href: '/settings', icon: Settings },
   ]
 

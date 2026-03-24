@@ -224,7 +224,8 @@
     "accessTTLRange": "Должно быть от 60 до 86400 секунд",
     "refreshTTLRange": "Должно быть от 3600 до 2592000 секунд",
     "loginAttemptsRange": "Должно быть от 1 до 100",
-    "listenAddressRequired": "Адрес прослушивания обязателен"
+    "listenAddressRequired": "Адрес прослушивания обязателен",
+    "domainRequired": "Домен обязателен"
   },
   "outbounds": {
     "title": "Исходящие",
@@ -301,6 +302,41 @@
     "byFormat": "По форматам",
     "byDay": "По дням",
     "lastAccess": "Последнее обращение"
+  },
+  "certificates": {
+    "description": "Управление TLS сертификатами для ваших доменов",
+    "request": "Запросить сертификат",
+    "upload": "Загрузить сертификат",
+    "domain": "Домен",
+    "issuer": "Издатель",
+    "validity": "Срок действия",
+    "wildcard": "Wildcard сертификат",
+    "certificatePem": "Сертификат (PEM)",
+    "privateKeyPem": "Закрытый ключ (PEM)",
+    "issuerPem": "Сертификат издателя (PEM)",
+    "noCertificates": "Нет сертификатов",
+    "noCertificatesDesc": "Запросите сертификат через ACME или загрузите вручную",
+    "requestFirst": "Запросить первый сертификат",
+    "requested": "Сертификат запрошен успешно",
+    "renewed": "Сертификат обновлён успешно",
+    "revoked": "Сертификат отозван успешно",
+    "deleted": "Сертификат удалён успешно",
+    "confirmRevoke": "Вы уверены, что хотите отозвать этот сертификат? Это действие необратимо.",
+    "confirmDelete": "Вы уверены, что хотите удалить этот сертификат? Это удалит файлы сертификата.",
+    "expired": "Истёк",
+    "expiresToday": "Истекает сегодня",
+    "expiresTomorrow": "Истекает завтра",
+    "expiresInDays": "Истекает через {{days}} дн.",
+    "validForDays": "Действует {{days}} дн.",
+    "dns01Notice": "Требуется DNS-01 Challenge",
+    "dns01Desc": "Эта панель использует DNS-01 challenge (Cloudflare). Убедитесь, что учётные данные DNS провайдера настроены.",
+    "status": {
+      "active": "Активен",
+      "expiring": "Истекает скоро",
+      "expired": "Истёк",
+      "revoked": "Отозван",
+      "pending": "Ожидание"
+    }
   },
   "inboundDetail": {
     "title": "Детали входящего",

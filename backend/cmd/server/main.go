@@ -118,6 +118,21 @@ func main() {
 	outboundService := services.NewOutboundService(db.DB, configService)
 	subscriptionService := services.NewSubscriptionService(db.DB, "")
 
+	// Initialize certificate service (with Cloudflare DNS-01 challenge)
+	certService, err := services.NewCertificateService(db.DB, services.CertificateServiceConfig{
+		CertDir:     "/etc/isolate-panel/certs",
+		Email:       cfg.App.AdminEmail, // From config
+		DNSProvider: "cloudflare",
+		Credentials: map[string]string{
+			"api_key": os.Getenv("CLOUDFLARE_API_KEY"),
+			"email":   os.Getenv("CLOUDFLARE_EMAIL"),
+		},
+		Staging: cfg.App.Env == "development", // Use staging in dev
+	})
+	if err != nil {
+		log.Warn().Err(err).Msg("Failed to initialize certificate service - ACME features disabled")
+	}
+
 	// Initialize handlers
 	authHandler := api.NewAuthHandler(db.DB, tokenService)
 	coresHandler := api.NewCoresHandler(coreManager)
@@ -126,6 +141,7 @@ func main() {
 	outboundsHandler := api.NewOutboundsHandler(outboundService)
 	protocolsHandler := api.NewProtocolsHandler()
 	subscriptionsHandler := api.NewSubscriptionsHandler(subscriptionService)
+	certificatesHandler := api.NewCertificatesHandler(certService, db.DB)
 
 	// Initialize rate limiter for login (5 attempts per minute per IP)
 	loginLimiter := middleware.NewRateLimiter(5, 1*time.Minute)
@@ -226,6 +242,16 @@ func main() {
 	protectedGroup.Get("/subscriptions/:user_id/short-url", subscriptionsHandler.GetUserShortURL)
 	protectedGroup.Get("/users/:id/subscription/stats", subscriptionsHandler.GetAccessStats)
 	protectedGroup.Post("/users/:id/subscription/regenerate", subscriptionsHandler.RegenerateToken)
+
+	// Certificate management routes (protected)
+	certsGroup := protectedGroup.Group("/certificates")
+	certsGroup.Get("/", certificatesHandler.ListCertificates)
+	certsGroup.Post("/", certificatesHandler.RequestCertificate)
+	certsGroup.Post("/upload", certificatesHandler.UploadCertificate)
+	certsGroup.Get("/:id", certificatesHandler.GetCertificate)
+	certsGroup.Post("/:id/renew", certificatesHandler.RenewCertificate)
+	certsGroup.Post("/:id/revoke", certificatesHandler.RevokeCertificate)
+	certsGroup.Delete("/:id", certificatesHandler.DeleteCertificate)
 
 	// Subscription routes (public, token-based auth, rate limited)
 	subscriptionRoutes := app.Group("", middleware.SubscriptionRateLimiter())

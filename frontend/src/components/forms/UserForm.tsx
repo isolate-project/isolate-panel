@@ -34,7 +34,7 @@ export function UserForm({ user, onSuccess, onCancel }: UserFormProps) {
           username: user.username,
           email: user.email || '',
           traffic_limit_bytes: user.traffic_limit_bytes || undefined,
-          expiry_date: user.expire_at || '',
+          expiry_date: user.expiry_date || '',
           is_active: user.is_active ?? true,
         }
       : {

@@ -10,6 +10,7 @@ import { InboundCreate } from './pages/InboundCreate'
 import { InboundDetail } from './pages/InboundDetail'
 import { InboundEdit } from './pages/InboundEdit'
 import { Outbounds } from './pages/Outbounds'
+import { Certificates } from './pages/Certificates'
 import { Settings } from './pages/Settings'
 import { NotFound } from './pages/NotFound'
 import { useSessionExpired } from './hooks/useSessionExpired'
@@ -80,6 +81,14 @@ function ProtectedOutbounds() {
   )
 }
 
+function ProtectedCertificates() {
+  return (
+    <ProtectedRoute>
+      <Certificates />
+    </ProtectedRoute>
+  )
+}
+
 function ProtectedSettings() {
   return (
     <ProtectedRoute>
@@ -104,6 +113,7 @@ export function App() {
         <Route path="/inbounds/:id/edit" component={ProtectedInboundEdit} />
         <Route path="/inbounds/:id" component={ProtectedInboundDetail} />
         <Route path="/outbounds" component={ProtectedOutbounds} />
+        <Route path="/certificates" component={ProtectedCertificates} />
         <Route path="/settings" component={ProtectedSettings} />
         <Route default component={NotFound} />
       </Router>

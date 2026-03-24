@@ -224,7 +224,8 @@
     "accessTTLRange": "Must be between 60 and 86400 seconds",
     "refreshTTLRange": "Must be between 3600 and 2592000 seconds",
     "loginAttemptsRange": "Must be between 1 and 100",
-    "listenAddressRequired": "Listen address is required"
+    "listenAddressRequired": "Listen address is required",
+    "domainRequired": "Domain is required"
   },
   "outbounds": {
     "title": "Outbounds",
@@ -301,6 +302,41 @@
     "byFormat": "By Format",
     "byDay": "By Day",
     "lastAccess": "Last Access"
+  },
+  "certificates": {
+    "description": "Manage TLS certificates for your domains",
+    "request": "Request Certificate",
+    "upload": "Upload Certificate",
+    "domain": "Domain",
+    "issuer": "Issuer",
+    "validity": "Validity",
+    "wildcard": "Wildcard certificate",
+    "certificatePem": "Certificate (PEM)",
+    "privateKeyPem": "Private Key (PEM)",
+    "issuerPem": "Issuer Certificate (PEM)",
+    "noCertificates": "No certificates",
+    "noCertificatesDesc": "Request a certificate via ACME or upload manually",
+    "requestFirst": "Request First Certificate",
+    "requested": "Certificate requested successfully",
+    "renewed": "Certificate renewed successfully",
+    "revoked": "Certificate revoked successfully",
+    "deleted": "Certificate deleted successfully",
+    "confirmRevoke": "Are you sure you want to revoke this certificate? This action cannot be undone.",
+    "confirmDelete": "Are you sure you want to delete this certificate? This will remove the certificate files.",
+    "expired": "Expired",
+    "expiresToday": "Expires today",
+    "expiresTomorrow": "Expires tomorrow",
+    "expiresInDays": "Expires in {{days}} days",
+    "validForDays": "Valid for {{days}} days",
+    "dns01Notice": "DNS-01 Challenge Required",
+    "dns01Desc": "This panel uses DNS-01 challenge (Cloudflare). Make sure your DNS provider credentials are configured.",
+    "status": {
+      "active": "Active",
+      "expiring": "Expiring Soon",
+      "expired": "Expired",
+      "revoked": "Revoked",
+      "pending": "Pending"
+    }
   },
   "inboundDetail": {
     "title": "Inbound Details",

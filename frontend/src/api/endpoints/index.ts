@@ -112,6 +112,18 @@ export const subscriptionApi = {
     apiClient.post(`/users/${userId}/subscription/regenerate`),
 }
 
+// Certificate endpoints
+export const certificateApi = {
+  list: () => apiClient.get('/certificates'),
+  request: (data: { domain: string; is_wildcard: boolean }) => apiClient.post('/certificates', data),
+  upload: (data: { certificate: string; private_key: string; issuer?: string; domain: string; is_wildcard: boolean }) =>
+    apiClient.post('/certificates/upload', data),
+  get: (id: number) => apiClient.get(`/certificates/${id}`),
+  renew: (id: number) => apiClient.post(`/certificates/${id}/renew`),
+  revoke: (id: number) => apiClient.post(`/certificates/${id}/revoke`),
+  delete: (id: number) => apiClient.delete(`/certificates/${id}`),
+}
+
 // System endpoints
 export const systemApi = {
   health: () => apiClient.get('/health'),

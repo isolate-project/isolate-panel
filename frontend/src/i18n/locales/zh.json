@@ -224,7 +224,8 @@
     "accessTTLRange": "必须在 60 到 86400 秒之间",
     "refreshTTLRange": "必须在 3600 到 2592000 秒之间",
     "loginAttemptsRange": "必须在 1 到 100 之间",
-    "listenAddressRequired": "监听地址为必填项"
+    "listenAddressRequired": "监听地址为必填项",
+    "domainRequired": "域名为必填项"
   },
   "outbounds": {
     "title": "出站",
@@ -301,6 +302,41 @@
     "byFormat": "按格式",
     "byDay": "按日期",
     "lastAccess": "最后访问"
+  },
+  "certificates": {
+    "description": "管理您的域 TLS 证书",
+    "request": "申请证书",
+    "upload": "上传证书",
+    "domain": "域名",
+    "issuer": "颁发者",
+    "validity": "有效期",
+    "wildcard": "通配符证书",
+    "certificatePem": "证书（PEM）",
+    "privateKeyPem": "私钥（PEM）",
+    "issuerPem": "颁发者证书（PEM）",
+    "noCertificates": "无证书",
+    "noCertificatesDesc": "通过 ACME 申请证书或手动上传",
+    "requestFirst": "申请第一个证书",
+    "requested": "证书申请成功",
+    "renewed": "证书已更新",
+    "revoked": "证书已吊销",
+    "deleted": "证书已删除",
+    "confirmRevoke": "您确定要吊销此证书吗？此操作无法撤销。",
+    "confirmDelete": "您确定要删除此证书吗？这将删除证书文件。",
+    "expired": "已过期",
+    "expiresToday": "今天过期",
+    "expiresTomorrow": "明天过期",
+    "expiresInDays": "{{days}} 天后过期",
+    "validForDays": "有效期 {{days}} 天",
+    "dns01Notice": "需要 DNS-01 验证",
+    "dns01Desc": "此面板使用 DNS-01 验证（Cloudflare）。请确保已配置 DNS 提供商凭据。",
+    "status": {
+      "active": "有效",
+      "expiring": "即将过期",
+      "expired": "已过期",
+      "revoked": "已吊销",
+      "pending": "等待中"
+    }
   },
   "inboundDetail": {
     "title": "入站详情",

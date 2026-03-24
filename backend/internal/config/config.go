@@ -18,10 +18,11 @@ type Config struct {
 }
 
 type AppConfig struct {
-	Name string `mapstructure:"name"`
-	Env  string `mapstructure:"env"`
-	Port int    `mapstructure:"port"`
-	Host string `mapstructure:"host"`
+	Name       string `mapstructure:"name"`
+	Env        string `mapstructure:"env"`
+	Port       int    `mapstructure:"port"`
+	Host       string `mapstructure:"host"`
+	AdminEmail string `mapstructure:"admin_email"`
 }
 
 type DatabaseConfig struct {

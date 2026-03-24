@@ -2,18 +2,37 @@
 
 export interface User {
   id: number
-  uuid: string
   username: string
   email: string
-  password: string
-  token: string
+  uuid: string
   subscription_token: string
-  is_active: boolean
-  is_online: boolean
   traffic_limit_bytes: number | null
   traffic_used_bytes: number
-  expire_at: string | null
   expiry_date: string | null
+  is_active: boolean
+  is_online: boolean
+  created_at: string
+  last_connected_at: string | null
+}
+
+export interface Certificate {
+  id: number
+  domain: string
+  is_wildcard: boolean
+  cert_path: string
+  key_path: string
+  issuer_path: string | null
+  common_name: string
+  subject_alt_names: string[]
+  issuer: string
+  not_before: string
+  not_after: string
+  auto_renew: boolean
+  last_renewed_at: string | null
+  status: 'pending' | 'active' | 'expiring' | 'expired' | 'revoked'
+  status_reason: string
+  acme_provider: string
+  dns_provider: string
   created_at: string
   updated_at: string
 }
