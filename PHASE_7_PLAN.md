@@ -145,7 +145,21 @@ func WriteConfig(config *Config, path string) error
 - Policy configuration for per-user stats
 - Routing rules for inbound/outbound mapping
 
-### 7.1.3 Protocol Implementations
+### 7.1.3 Port Allocation
+
+**No range restrictions!** User can choose any port (1-65535).
+
+**Port Manager features:**
+- Global conflict detection (across all cores)
+- Reserved ports blocked: SSH (22), HTTP (80), Panel (8080), API ports
+- User can create inbounds on port 443, 8443, or any other available port
+- Auto-allocation prefers high ports (40000-65535) for compatibility
+
+**Update `internal/services/port_manager.go`:** (already updated)
+```go
+// IsPortAvailable allows any port 1-65535 except:
+// - Reserved ports (22, 80, 8080, 9090, 10085, 9091)
+// - Ports already in use by other inbounds (global check)
 
 **Inbound Settings Structures:**
 ```go
@@ -177,30 +191,16 @@ type XHTTPInboundSettings struct {
 }
 ```
 
-### 7.1.4 Port Allocation
+### 7.1.4 Protocol Implementations
 
-**Range:** 20000-29999 (1000 ports)
-
-**Update `internal/services/port_manager.go`:**
-```go
-const (
-    SingboxPortStart = 10000
-    SingboxPortEnd   = 19999
-    XrayPortStart    = 20000
-    XrayPortEnd      = 29999
-    MihomoPortStart  = 30000
-    MihomoPortEnd    = 39999
-)
-```
-
-### 7.1.5 Integration with Core Lifecycle
+**Inbound Settings Structures:**
 
 **Update `internal/services/core_lifecycle.go`:**
 - Add Xray start/stop/restart methods
 - Config regeneration on changes
 - Lazy loading (start when first inbound created)
 
-### 7.1.6 Testing
+### 7.1.5 Integration with Core Lifecycle
 
 **Unit Tests:**
 - `internal/cores/xray/config_test.go` - Config generation tests
@@ -326,15 +326,11 @@ type ShadowsocksRInbound struct {
 }
 ```
 
-### 7.2.4 Port Allocation
-
-**Range:** 30000-39999 (1000 ports)
-
-### 7.2.5 Integration with Core Lifecycle
+### 7.2.4 Integration with Core Lifecycle
 
 Similar to Xray integration.
 
-### 7.2.6 Testing
+### 7.2.5 Testing
 
 Similar to Xray testing.
 
