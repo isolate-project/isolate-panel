@@ -1,0 +1,114 @@
+/**
+ * Design Tokens
+ * 
+ * CSS custom properties for consistent theming across the application.
+ * Values are in RGB format for use with Tailwind's opacity utilities.
+ */
+
+:root {
+  /* Colors - Primary */
+  --color-primary: 59 130 246; /* Blue-500 */
+  --color-primary-hover: 37 99 235; /* Blue-600 */
+  --color-primary-light: 96 165 250; /* Blue-400 */
+  
+  /* Colors - Semantic */
+  --color-success: 16 185 129; /* Green-500 */
+  --color-warning: 245 158 11; /* Yellow-500 */
+  --color-danger: 239 68 68; /* Red-500 */
+  --color-info: 59 130 246; /* Blue-500 */
+  
+  /* Backgrounds */
+  --bg-primary: 255 255 255; /* White */
+  --bg-secondary: 249 250 251; /* Gray-50 */
+  --bg-tertiary: 243 244 246; /* Gray-100 */
+  --bg-hover: 243 244 246; /* Gray-100 */
+  
+  /* Text Colors */
+  --text-primary: 17 24 39; /* Gray-900 */
+  --text-secondary: 75 85 99; /* Gray-600 */
+  --text-tertiary: 156 163 175; /* Gray-400 */
+  --text-inverse: 255 255 255; /* White */
+  
+  /* Borders */
+  --border-primary: 229 231 235; /* Gray-200 */
+  --border-secondary: 209 213 219; /* Gray-300 */
+  --border-focus: 59 130 246; /* Blue-500 */
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  
+  /* Spacing (in rem) */
+  --spacing-xs: 0.25rem; /* 4px */
+  --spacing-sm: 0.5rem; /* 8px */
+  --spacing-md: 1rem; /* 16px */
+  --spacing-lg: 1.5rem; /* 24px */
+  --spacing-xl: 2rem; /* 32px */
+  --spacing-2xl: 3rem; /* 48px */
+  
+  /* Border Radius */
+  --radius-sm: 0.25rem; /* 4px */
+  --radius-md: 0.375rem; /* 6px */
+  --radius-lg: 0.5rem; /* 8px */
+  --radius-xl: 0.75rem; /* 12px */
+  --radius-full: 9999px;
+  
+  /* Transitions */
+  --transition-fast: 150ms;
+  --transition-base: 200ms;
+  --transition-slow: 300ms;
+  
+  /* Z-index Scale */
+  --z-dropdown: 1000;
+  --z-sticky: 1020;
+  --z-fixed: 1030;
+  --z-modal-backdrop: 1040;
+  --z-modal: 1050;
+  --z-popover: 1060;
+  --z-tooltip: 1070;
+}
+
+/* Dark Theme */
+[data-theme="dark"] {
+  /* Backgrounds */
+  --bg-primary: 17 24 39; /* Gray-900 */
+  --bg-secondary: 31 41 55; /* Gray-800 */
+  --bg-tertiary: 55 65 81; /* Gray-700 */
+  --bg-hover: 55 65 81; /* Gray-700 */
+  
+  /* Text Colors */
+  --text-primary: 243 244 246; /* Gray-100 */
+  --text-secondary: 209 213 219; /* Gray-300 */
+  --text-tertiary: 156 163 175; /* Gray-400 */
+  --text-inverse: 17 24 39; /* Gray-900 */
+  
+  /* Borders */
+  --border-primary: 55 65 81; /* Gray-700 */
+  --border-secondary: 75 85 99; /* Gray-600 */
+  
+  /* Colors - Primary (slightly lighter for dark mode) */
+  --color-primary: 96 165 250; /* Blue-400 */
+  --color-primary-hover: 59 130 246; /* Blue-500 */
+  
+  /* Colors - Semantic (adjusted for dark mode) */
+  --color-success: 52 211 153; /* Green-400 */
+  --color-warning: 251 191 36; /* Yellow-400 */
+  --color-danger: 248 113 113; /* Red-400 */
+}
+
+/* Utility Classes */
+.transition-base {
+  transition-duration: var(--transition-base);
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.transition-fast {
+  transition-duration: var(--transition-fast);
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.transition-slow {
+  transition-duration: var(--transition-slow);
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}

@@ -1,39 +1,73 @@
-import { useState, useEffect } from 'preact/hooks'
+import { Router, Route } from 'preact-router'
+import { ProtectedRoute } from './router/ProtectedRoute'
+import { ToastContainer } from './components/ui/ToastContainer'
+import { Login } from './pages/Login'
+import { Dashboard } from './pages/Dashboard'
+import { Users } from './pages/Users'
+import { Cores } from './pages/Cores'
+import { Inbounds } from './pages/Inbounds'
+import { Settings } from './pages/Settings'
+import { NotFound } from './pages/NotFound'
+import { useSessionExpired } from './hooks/useSessionExpired'
+import './i18n'
+
+// Wrapper components for protected routes
+function ProtectedDashboard() {
+  return (
+    <ProtectedRoute>
+      <Dashboard />
+    </ProtectedRoute>
+  )
+}
+
+function ProtectedUsers() {
+  return (
+    <ProtectedRoute>
+      <Users />
+    </ProtectedRoute>
+  )
+}
+
+function ProtectedCores() {
+  return (
+    <ProtectedRoute>
+      <Cores />
+    </ProtectedRoute>
+  )
+}
+
+function ProtectedInbounds() {
+  return (
+    <ProtectedRoute>
+      <Inbounds />
+    </ProtectedRoute>
+  )
+}
+
+function ProtectedSettings() {
+  return (
+    <ProtectedRoute>
+      <Settings />
+    </ProtectedRoute>
+  )
+}
 
 export function App() {
-  const [apiStatus, setApiStatus] = useState<string>('Checking...')
-
-  useEffect(() => {
-    fetch('/api/')
-      .then((res) => res.json())
-      .then((data) => {
-        setApiStatus(`Connected: ${data.message} v${data.version}`)
-      })
-      .catch(() => {
-        setApiStatus('API connection failed')
-      })
-  }, [])
+  // Monitor for session expiration
+  useSessionExpired()
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-      <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full">
-        <h1 className="text-3xl font-bold text-gray-800 mb-4">Isolate Panel</h1>
-        <p className="text-gray-600 mb-4">
-          Lightweight proxy core management panel
-        </p>
-        <div className="bg-blue-50 border border-blue-200 rounded p-4">
-          <p className="text-sm text-blue-800">
-            <strong>API Status:</strong> {apiStatus}
-          </p>
-        </div>
-        <div className="mt-6 text-sm text-gray-500">
-          <p>Phase 0: Setup Complete ✓</p>
-          <p className="mt-2">
-            Frontend: Preact + Vite + TypeScript + Tailwind CSS
-          </p>
-          <p>Backend: Go + Fiber + GORM + SQLite</p>
-        </div>
-      </div>
-    </div>
+    <>
+      <Router>
+        <Route path="/login" component={Login} />
+        <Route path="/" component={ProtectedDashboard} />
+        <Route path="/users" component={ProtectedUsers} />
+        <Route path="/cores" component={ProtectedCores} />
+        <Route path="/inbounds" component={ProtectedInbounds} />
+        <Route path="/settings" component={ProtectedSettings} />
+        <Route default component={NotFound} />
+      </Router>
+      <ToastContainer />
+    </>
   )
 }
