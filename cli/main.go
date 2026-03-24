@@ -5,10 +5,12 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+
+	"github.com/vovk4morkovk4/isolate-panel/cli/cmd"
 )
 
 var (
-	version = "0.2.0"
+	version = "0.3.0"
 	rootCmd = &cobra.Command{
 		Use:     "isolate-panel",
 		Short:   "Isolate Panel CLI",
@@ -32,7 +34,10 @@ func init() {
 
 	// Add subcommands
 	rootCmd.AddCommand(versionCmd)
-	// backupCmd is defined in backup.go
+	rootCmd.AddCommand(cmd.LoginCmd())
+	rootCmd.AddCommand(cmd.LogoutCmd())
+	rootCmd.AddCommand(cmd.ProfileCmd())
+	// rootCmd.AddCommand(cmd.BackupCmd()) // Temporarily disabled
 }
 
 var versionCmd = &cobra.Command{
