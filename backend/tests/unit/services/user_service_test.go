@@ -79,7 +79,7 @@ func TestUserService_CreateUser(t *testing.T) {
 			defer testutil.TeardownTestDB(t, db)
 			testutil.SeedTestData(t, db)
 
-			notificationService := services.NewNotificationService(nil, "", "", "", "")
+			notificationService := services.NewNotificationService(db, "", "", "", "")
 			service := services.NewUserService(db, notificationService)
 
 			// Execute
@@ -110,7 +110,7 @@ func TestUserService_GetUser(t *testing.T) {
 	defer testutil.TeardownTestDB(t, db)
 	testutil.SeedTestData(t, db)
 
-	notificationService := services.NewNotificationService(nil, "", "", "", "")
+	notificationService := services.NewNotificationService(db, "", "", "", "")
 	service := services.NewUserService(db, notificationService)
 
 	t.Run("get existing user", func(t *testing.T) {
@@ -132,7 +132,7 @@ func TestUserService_UpdateUser(t *testing.T) {
 	defer testutil.TeardownTestDB(t, db)
 	testutil.SeedTestData(t, db)
 
-	notificationService := services.NewNotificationService(nil, "", "", "", "")
+	notificationService := services.NewNotificationService(db, "", "", "", "")
 	service := services.NewUserService(db, notificationService)
 
 	t.Run("update username", func(t *testing.T) {
@@ -175,7 +175,7 @@ func TestUserService_DeleteUser(t *testing.T) {
 	defer testutil.TeardownTestDB(t, db)
 	testutil.SeedTestData(t, db)
 
-	notificationService := services.NewNotificationService(nil, "", "", "", "")
+	notificationService := services.NewNotificationService(db, "", "", "", "")
 	service := services.NewUserService(db, notificationService)
 
 	t.Run("delete existing user", func(t *testing.T) {
@@ -199,7 +199,7 @@ func TestUserService_CheckExpiringUsers(t *testing.T) {
 	defer testutil.TeardownTestDB(t, db)
 	testutil.SeedTestData(t, db)
 
-	notificationService := services.NewNotificationService(nil, "", "", "", "")
+	notificationService := services.NewNotificationService(db, "", "", "", "")
 	service := services.NewUserService(db, notificationService)
 
 	// This should not panic
@@ -211,7 +211,7 @@ func TestUserService_RegenerateCredentials(t *testing.T) {
 	defer testutil.TeardownTestDB(t, db)
 	testutil.SeedTestData(t, db)
 
-	notificationService := services.NewNotificationService(nil, "", "", "", "")
+	notificationService := services.NewNotificationService(db, "", "", "", "")
 	service := services.NewUserService(db, notificationService)
 
 	t.Run("regenerate existing user", func(t *testing.T) {

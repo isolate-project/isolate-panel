@@ -40,9 +40,19 @@ func (s *SettingsService) GetSettingValue(key string) (string, error) {
 
 // UpdateSetting updates a setting value
 func (s *SettingsService) UpdateSetting(key string, value string) error {
-	return s.db.Model(&models.Setting{}).
-		Where("key = ?", key).
-		Update("value", value).Error
+	var setting models.Setting
+	if err := s.db.Where("key = ?", key).First(&setting).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			// Create new setting if it doesn't exist
+			newSetting := models.Setting{
+				Key:   key,
+				Value: value,
+			}
+			return s.db.Create(&newSetting).Error
+		}
+		return err
+	}
+	return s.db.Model(&setting).Update("value", value).Error
 }
 
 // GetMonitoringMode returns the current monitoring mode (lite or full)

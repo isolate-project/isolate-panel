@@ -2,9 +2,7 @@ package testutil
 
 import (
 	"fmt"
-	"math/rand"
 	"testing"
-	"time"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -12,13 +10,14 @@ import (
 	"github.com/vovk4morkovk4/isolate-panel/internal/models"
 )
 
-// SetupTestDB creates an in-memory SQLite database for testing
+// SetupTestDB creates a true in-memory SQLite database for testing
+// Each call creates a new isolated in-memory database
 func SetupTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 
-	// Create unique in-memory database for each test
-	dbName := fmt.Sprintf("file:testdb_%d_%d?cache=shared&_foreign_keys=on", time.Now().UnixNano(), rand.Intn(10000))
-	db, err := gorm.Open(sqlite.Open(dbName), &gorm.Config{
+	// Use true in-memory database (no file created)
+	// Without cache=shared, each connection gets its own isolated DB
+	db, err := gorm.Open(sqlite.Open("file::memory:?_foreign_keys=on"), &gorm.Config{
 		DisableForeignKeyConstraintWhenMigrating: false,
 	})
 	if err != nil {

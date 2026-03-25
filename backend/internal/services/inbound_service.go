@@ -124,8 +124,10 @@ func (s *InboundService) UpdateInbound(id uint, updates map[string]interface{}) 
 	}
 
 	// Trigger config regeneration and core lifecycle check
-	if err := s.lifecycleManager.OnInboundUpdated(&inbound, wasEnabled); err != nil {
-		fmt.Printf("Warning: failed to update core lifecycle: %v\n", err)
+	if s.lifecycleManager != nil {
+		if err := s.lifecycleManager.OnInboundUpdated(&inbound, wasEnabled); err != nil {
+			fmt.Printf("Warning: failed to update core lifecycle: %v\n", err)
+		}
 	}
 
 	return &inbound, nil
@@ -144,8 +146,10 @@ func (s *InboundService) DeleteInbound(id uint) error {
 	}
 
 	// Trigger core lifecycle check (auto-stop if no more inbounds)
-	if err := s.lifecycleManager.OnInboundDeleted(&inbound); err != nil {
-		fmt.Printf("Warning: failed to update core lifecycle: %v\n", err)
+	if s.lifecycleManager != nil {
+		if err := s.lifecycleManager.OnInboundDeleted(&inbound); err != nil {
+			fmt.Printf("Warning: failed to update core lifecycle: %v\n", err)
+		}
 	}
 
 	return nil

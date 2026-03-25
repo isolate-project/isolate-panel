@@ -66,6 +66,7 @@ func (h *UsersHandler) ListUsers(c fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
+		"success":   true,
 		"users":     userResponses,
 		"total":     total,
 		"page":      page,

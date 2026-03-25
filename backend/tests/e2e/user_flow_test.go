@@ -20,7 +20,7 @@ func TestCompleteUserFlow(t *testing.T) {
 	testutil.SeedTestData(t, db)
 
 	// Initialize services
-	notificationService := services.NewNotificationService(nil, "", "", "", "")
+	notificationService := services.NewNotificationService(db, "", "", "", "")
 	userService := services.NewUserService(db, notificationService)
 	settingsService := services.NewSettingsService(db)
 
@@ -102,7 +102,7 @@ func TestQuotaEnforcement(t *testing.T) {
 	defer testutil.TeardownTestDB(t, db)
 	testutil.SeedTestData(t, db)
 
-	notificationService := services.NewNotificationService(nil, "", "", "", "")
+	notificationService := services.NewNotificationService(db, "", "", "", "")
 	userService := services.NewUserService(db, notificationService)
 
 	t.Run("User with traffic limit", func(t *testing.T) {

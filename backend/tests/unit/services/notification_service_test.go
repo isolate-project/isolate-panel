@@ -6,21 +6,28 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/vovk4morkovk4/isolate-panel/internal/models"
 	"github.com/vovk4morkovk4/isolate-panel/internal/services"
+	"github.com/vovk4morkovk4/isolate-panel/tests/testutil"
 )
 
 func TestNotificationService(t *testing.T) {
 	t.Run("creates notification service", func(t *testing.T) {
-		service := services.NewNotificationService(nil, "", "", "", "")
+		db := testutil.SetupTestDB(t)
+		defer testutil.TeardownTestDB(t, db)
+		service := services.NewNotificationService(db, "", "", "", "")
 		assert.NotNil(t, service)
 	})
 
 	t.Run("sends webhook notification", func(t *testing.T) {
-		service := services.NewNotificationService(nil, "http://example.com/webhook", "secret", "", "")
+		db := testutil.SetupTestDB(t)
+		defer testutil.TeardownTestDB(t, db)
+		service := services.NewNotificationService(db, "http://example.com/webhook", "secret", "", "")
 		assert.NotNil(t, service)
 	})
 
 	t.Run("sends telegram notification", func(t *testing.T) {
-		service := services.NewNotificationService(nil, "", "", "telegram-token", "chat-id")
+		db := testutil.SetupTestDB(t)
+		defer testutil.TeardownTestDB(t, db)
+		service := services.NewNotificationService(db, "", "", "telegram-token", "chat-id")
 		assert.NotNil(t, service)
 	})
 }

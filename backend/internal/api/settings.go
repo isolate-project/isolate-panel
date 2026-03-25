@@ -47,16 +47,25 @@ func (h *SettingsHandler) UpdateMonitoring(c fiber.Ctx) error {
 	}
 
 	if err := c.Bind().JSON(&req); err != nil {
-		return fiber.ErrBadRequest
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"error":   "Invalid request body",
+		})
 	}
 
 	if req.Mode != "lite" && req.Mode != "full" {
-		return fiber.ErrBadRequest
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"error":   "Invalid monitoring mode. Must be 'lite' or 'full'",
+		})
 	}
 
 	err := h.settingsService.UpdateMonitoringMode(req.Mode)
 	if err != nil {
-		return err
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"error":   err.Error(),
+		})
 	}
 
 	// Notify traffic collector to reload interval

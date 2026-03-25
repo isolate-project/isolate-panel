@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/google/uuid"
@@ -11,6 +12,12 @@ import (
 
 	"github.com/vovk4morkovk4/isolate-panel/internal/models"
 )
+
+var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
+
+func isValidEmail(email string) bool {
+	return emailRegex.MatchString(email)
+}
 
 type UserService struct {
 	db                  *gorm.DB
@@ -61,6 +68,22 @@ type UserResponse struct {
 
 // CreateUser creates a new user with auto-generated credentials
 func (us *UserService) CreateUser(req *CreateUserRequest, adminID uint) (*models.User, error) {
+	// Validate input
+	if len(req.Username) < 3 {
+		return nil, fmt.Errorf("validation error: username must be at least 3 characters")
+	}
+	if len(req.Username) > 50 {
+		return nil, fmt.Errorf("validation error: username must be less than 50 characters")
+	}
+	if req.Email != "" {
+		if !isValidEmail(req.Email) {
+			return nil, fmt.Errorf("validation error: invalid email format")
+		}
+	}
+	if req.Password != "" && len(req.Password) < 6 {
+		return nil, fmt.Errorf("validation error: password must be at least 6 characters")
+	}
+
 	// Check if username already exists
 	var existing models.User
 	if err := us.db.Where("username = ?", req.Username).First(&existing).Error; err == nil {
