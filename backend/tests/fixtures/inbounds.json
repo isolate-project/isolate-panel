@@ -1,0 +1,35 @@
+[
+  {
+    "name": "VMess-443",
+    "protocol": "vmess",
+    "core_id": 1,
+    "listen_address": "0.0.0.0",
+    "port": 443,
+    "config_json": "{\"clients\":[]}",
+    "tls_enabled": false,
+    "reality_enabled": false,
+    "is_enabled": true
+  },
+  {
+    "name": "VLESS-8443",
+    "protocol": "vless",
+    "core_id": 1,
+    "listen_address": "0.0.0.0",
+    "port": 8443,
+    "config_json": "{\"clients\":[]}",
+    "tls_enabled": true,
+    "reality_enabled": false,
+    "is_enabled": true
+  },
+  {
+    "name": "Trojan-9000",
+    "protocol": "trojan",
+    "core_id": 2,
+    "listen_address": "0.0.0.0",
+    "port": 9000,
+    "config_json": "{\"passwords\":[]}",
+    "tls_enabled": true,
+    "reality_enabled": false,
+    "is_enabled": true
+  }
+]

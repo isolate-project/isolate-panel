@@ -1,0 +1,26 @@
+[
+  {
+    "name": "Direct",
+    "protocol": "freedom",
+    "core_id": 1,
+    "config_json": "{\"tag\":\"direct\"}",
+    "priority": 0,
+    "is_enabled": true
+  },
+  {
+    "name": "Block",
+    "protocol": "blackhole",
+    "core_id": 1,
+    "config_json": "{\"tag\":\"block\"}",
+    "priority": 999,
+    "is_enabled": true
+  },
+  {
+    "name": "DNS",
+    "protocol": "dns",
+    "core_id": 1,
+    "config_json": "{\"tag\":\"dns\"}",
+    "priority": 1000,
+    "is_enabled": true
+  }
+]

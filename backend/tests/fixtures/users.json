@@ -1,0 +1,29 @@
+[
+  {
+    "uuid": "fixture-uuid-1",
+    "username": "fixtureuser1",
+    "email": "fixture1@example.com",
+    "subscription_token": "fixture-token-1",
+    "is_active": true,
+    "traffic_limit_bytes": 107374182400,
+    "traffic_used_bytes": 0
+  },
+  {
+    "uuid": "fixture-uuid-2",
+    "username": "fixtureuser2",
+    "email": "fixture2@example.com",
+    "subscription_token": "fixture-token-2",
+    "is_active": true,
+    "traffic_limit_bytes": 53687091200,
+    "traffic_used_bytes": 5368709120
+  },
+  {
+    "uuid": "fixture-uuid-3",
+    "username": "fixtureuser3",
+    "email": "fixture3@example.com",
+    "subscription_token": "fixture-token-3",
+    "is_active": false,
+    "traffic_limit_bytes": null,
+    "traffic_used_bytes": 0
+  }
+]
