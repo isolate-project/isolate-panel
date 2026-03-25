@@ -39,6 +39,7 @@ yarn-error.log*
 /frontend/dist/
 /frontend/build/
 .vite/
+playwright-report/
 
 # Environment variables
 .env
