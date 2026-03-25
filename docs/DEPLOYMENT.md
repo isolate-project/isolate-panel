@@ -8,11 +8,12 @@ Complete guide for deploying Isolate Panel to production using Docker.
 
 1. [Prerequisites](#prerequisites)
 2. [Quick Start](#quick-start)
-3. [Configuration](#configuration)
-4. [Production Deployment](#production-deployment)
-5. [Security Hardening](#security-hardening)
-6. [Monitoring & Maintenance](#monitoring--maintenance)
-7. [Troubleshooting](#troubleshooting)
+3. [Installation Script](#installation-script)
+4. [Configuration](#configuration)
+5. [Production Deployment](#production-deployment)
+6. [Security Hardening](#security-hardening)
+7. [Monitoring & Maintenance](#monitoring--maintenance)
+8. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -36,7 +37,27 @@ Complete guide for deploying Isolate Panel to production using Docker.
 
 ## Quick Start
 
-### 1. Install Docker
+### Option 1: Automated Installation (Recommended)
+
+```bash
+# Download installation script
+curl -fsSL https://raw.githubusercontent.com/your-org/isolate-panel/main/docker/install.sh -o install.sh
+
+# Make executable and run
+chmod +x install.sh
+sudo ./install.sh
+```
+
+The script will:
+- Install Docker and Docker Compose if not present
+- Create installation directory (`/opt/isolate-panel`)
+- Generate secure JWT secret and admin password
+- Start Isolate Panel container
+- Display access credentials
+
+### Option 2: Manual Installation
+
+#### 1. Install Docker
 
 ```bash
 # Ubuntu/Debian
@@ -49,6 +70,34 @@ sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/dock
 sudo yum install docker-ce docker-ce-cli containerd.io
 sudo systemctl start docker
 sudo usermod -aG docker $USER
+```
+
+#### 2. Clone and configure
+
+```bash
+# Clone repository
+git clone https://github.com/your-org/isolate-panel.git
+cd isolate-panel/docker
+
+# Copy environment template
+cp .env.example .env
+
+# Generate JWT secret
+JWT_SECRET=$(openssl rand -base64 64)
+sed -i "s/change-this-in-production.*/$JWT_SECRET/" .env
+```
+
+#### 3. Start the Panel
+
+```bash
+# Build and start
+docker compose up -d
+
+# Check status
+docker compose ps
+
+# View logs
+docker compose logs -f
 ```
 
 ### 2. Clone and Configure
@@ -92,6 +141,69 @@ http://localhost:8080
 **Default credentials:**
 - Username: `admin`
 - Password: Set during first login
+
+---
+
+## Installation Script
+
+The automated installation script (`install.sh`) simplifies deployment to production servers.
+
+### Features
+
+- ✅ Automatic Docker and Docker Compose installation
+- ✅ OS detection (Ubuntu, Debian, CentOS, RHEL, Fedora)
+- ✅ Secure JWT secret generation
+- ✅ Random admin password generation
+- ✅ Directory structure creation
+- ✅ Service startup and health check
+
+### Usage
+
+```bash
+# Download script
+curl -fsSL https://raw.githubusercontent.com/your-org/isolate-panel/main/docker/install.sh -o install.sh
+
+# Make executable
+chmod +x install.sh
+
+# Run installation
+sudo ./install.sh
+```
+
+### What the Script Does
+
+1. **Pre-installation checks:**
+   - Verifies root privileges
+   - Checks if Docker is installed
+   - Checks if Docker Compose is installed
+   - Installs missing dependencies
+
+2. **Installation:**
+   - Creates `/opt/isolate-panel` directory
+   - Downloads `docker-compose.yml` and `.env.example`
+   - Generates `.env` with secure secrets
+   - Sets file permissions (600 for .env)
+
+3. **Post-installation:**
+   - Starts Docker containers
+   - Displays access credentials
+   - Shows management commands
+
+### Generated Credentials
+
+The script generates and displays:
+- **JWT Secret**: 64-character base64 random string
+- **Admin Password**: 16-character alphanumeric random string
+
+**Important:** Save these credentials immediately! The password is shown only once during installation.
+
+### Manual Installation Directory
+
+If you prefer manual setup, the script uses:
+- **Install directory:** `/opt/isolate-panel`
+- **Data directory:** `/opt/isolate-panel/data`
+- **Logs directory:** `/opt/isolate-panel/logs`
+- **Environment file:** `/opt/isolate-panel/.env` (permissions: 600)
 
 ---
 
