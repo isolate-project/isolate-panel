@@ -221,7 +221,15 @@
     "refreshTokenTTLHint": "刷新令牌有效期（秒）（默认：604800 = 7天）",
     "maxLoginAttempts": "最大登录尝试次数",
     "languageChanged": "语言已更新",
-    "backendNote": "主题和语言设置保存在本地。其他设置将在连接后与服务器同步。"
+    "backendNote": "主题和语言设置保存在本地。其他设置将在连接后与服务器同步。",
+    "monitoringMode": "监控模式",
+    "monitoringModeLabel": "流量收集模式",
+    "monitoringModeLite": "精简模式（60 秒间隔，低内存）",
+    "monitoringModeFull": "完整模式（10 秒间隔，高内存）",
+    "monitoringModeLiteDesc": "精简模式每 60 秒收集一次流量统计。使用约 30MB 内存。适用于低资源服务器。",
+    "monitoringModeFullDesc": "完整模式每 10 秒收集一次流量统计。使用约 100MB 内存。提供更准确的实时统计。",
+    "monitoringModeUpdated": "监控模式已更新",
+    "currentInterval": "当前收集间隔"
   },
   "errors": {
     "networkError": "网络错误。请检查您的连接。",

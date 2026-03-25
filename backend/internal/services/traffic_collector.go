@@ -16,32 +16,41 @@ import (
 
 // TrafficCollector collects traffic statistics from all cores
 type TrafficCollector struct {
-	db            *gorm.DB
-	interval      time.Duration
-	stopChan      chan struct{}
-	wg            sync.WaitGroup
-	xrayClient    *xray.StatsClient
-	singboxClient *singbox.StatsClient
-	mihomoClient  *mihomo.StatsClient
-	mu            sync.RWMutex
+	db                 *gorm.DB
+	settings           *SettingsService
+	interval           time.Duration
+	stopChan           chan struct{}
+	wg                 sync.WaitGroup
+	xrayClient         *xray.StatsClient
+	singboxClient      *singbox.StatsClient
+	mihomoClient       *mihomo.StatsClient
+	mu                 sync.RWMutex
+	reloadIntervalChan chan struct{}
 }
 
 // NewTrafficCollector creates a new traffic collector
 func NewTrafficCollector(
 	db *gorm.DB,
+	settings *SettingsService,
 	interval time.Duration,
 	xrayAddr, singboxAddr, mihomoAddr string,
 	singboxAPIKey, mihomoAPIKey string,
 ) *TrafficCollector {
-	// Auto-detect interval based on system load (simplified)
+	// Auto-detect interval based on monitoring_mode setting
 	if interval == 0 {
-		interval = 30 * time.Second // Default: 30 seconds
+		if settings != nil {
+			interval, _ = settings.GetMonitoringInterval()
+		} else {
+			interval = 60 * time.Second // Default: 60 seconds (lite mode)
+		}
 	}
 
 	tc := &TrafficCollector{
-		db:       db,
-		interval: interval,
-		stopChan: make(chan struct{}),
+		db:                 db,
+		settings:           settings,
+		interval:           interval,
+		stopChan:           make(chan struct{}),
+		reloadIntervalChan: make(chan struct{}, 1),
 	}
 
 	// Initialize Xray client
@@ -79,6 +88,17 @@ func (tc *TrafficCollector) Start() {
 			select {
 			case <-ticker.C:
 				tc.collectStats()
+			case <-tc.reloadIntervalChan:
+				// Reload interval from settings
+				if tc.settings != nil {
+					newInterval, err := tc.settings.GetMonitoringInterval()
+					if err == nil && newInterval != tc.interval {
+						tc.mu.Lock()
+						tc.interval = newInterval
+						tc.mu.Unlock()
+						ticker.Reset(newInterval)
+					}
+				}
 			case <-tc.stopChan:
 				return
 			}
@@ -96,6 +116,16 @@ func (tc *TrafficCollector) Stop() {
 	defer tc.mu.Unlock()
 	if tc.xrayClient != nil {
 		tc.xrayClient.Close()
+	}
+}
+
+// ReloadInterval triggers a reload of the monitoring interval from settings
+func (tc *TrafficCollector) ReloadInterval() {
+	select {
+	case tc.reloadIntervalChan <- struct{}{}:
+		// Signal sent successfully
+	default:
+		// Reload already pending
 	}
 }
 

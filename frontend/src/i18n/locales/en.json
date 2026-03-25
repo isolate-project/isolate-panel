@@ -198,7 +198,15 @@
     "refreshTokenTTLHint": "Refresh token lifetime in seconds (default: 604800 = 7 days)",
     "maxLoginAttempts": "Max Login Attempts",
     "languageChanged": "Language updated",
-    "backendNote": "Theme and language settings are saved locally. Other settings will sync with the backend when connected."
+    "backendNote": "Theme and language settings are saved locally. Other settings will sync with the backend when connected.",
+    "monitoringMode": "Monitoring Mode",
+    "monitoringModeLabel": "Traffic Collection Mode",
+    "monitoringModeLite": "Lite (60s interval, low RAM)",
+    "monitoringModeFull": "Full (10s interval, high RAM)",
+    "monitoringModeLiteDesc": "Lite mode collects traffic statistics every 60 seconds. Uses ~30MB RAM. Suitable for low-resource servers.",
+    "monitoringModeFullDesc": "Full mode collects traffic statistics every 10 seconds. Uses ~100MB RAM. Provides more accurate real-time stats.",
+    "monitoringModeUpdated": "Monitoring mode updated successfully",
+    "currentInterval": "Current Collection Interval"
   },
   "errors": {
     "networkError": "Network error. Please check your connection.",

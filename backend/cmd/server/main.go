@@ -120,16 +120,20 @@ func main() {
 		log.Warn().Err(err).Msg("Failed to initialize Notification service")
 	}
 
+	// Initialize settings service
+	settingsService := services.NewSettingsService(db.DB)
+
 	// Initialize services
 	userService := services.NewUserService(db.DB, notificationService)
 	inboundService := services.NewInboundService(db.DB, lifecycleManager)
 	outboundService := services.NewOutboundService(db.DB, configService)
 	subscriptionService := services.NewSubscriptionService(db.DB, "")
 
-	// Initialize traffic collector (auto-detects interval, default 30s)
+	// Initialize traffic collector (interval based on monitoring_mode setting)
 	trafficCollector := services.NewTrafficCollector(
 		db.DB,
-		0, // auto-detect interval
+		settingsService,
+		0, // auto-detect interval from settings
 		cfg.Cores.XrayAPIAddr,
 		cfg.Cores.SingboxAPIAddr,
 		cfg.Cores.MihomoAPIAddr,
@@ -228,6 +232,7 @@ func main() {
 	warpHandler := api.NewWarpHandler(warpService, geoService)
 	backupHandler := api.NewBackupHandler(backupService, backupScheduler)
 	notificationHandler := api.NewNotificationHandler(notificationService)
+	settingsHandler := api.NewSettingsHandler(settingsService, trafficCollector)
 
 	// Initialize rate limiter for login (5 attempts per minute per IP)
 	loginLimiter := middleware.NewRateLimiter(5, 1*time.Minute)
@@ -246,14 +251,41 @@ func main() {
 	// 404 handler
 	app.Use(middleware.NotFoundHandler)
 
-	// Health check endpoint
+	// Health check endpoint with detailed status
+	var startTime = time.Now()
 	app.Get("/health", func(c fiber.Ctx) error {
-		return c.JSON(fiber.Map{
-			"status":   "ok",
-			"message":  "Isolate Panel is running",
-			"database": "connected",
-			"version":  "0.1.0",
-		})
+		type HealthResponse struct {
+			Status    string `json:"status"` // healthy, unhealthy
+			Version   string `json:"version"`
+			Uptime    string `json:"uptime"`
+			Database  string `json:"database"` // connected, disconnected
+			Timestamp string `json:"timestamp"`
+		}
+
+		response := HealthResponse{
+			Status:    "healthy",
+			Version:   "0.1.0",
+			Uptime:    time.Since(startTime).String(),
+			Timestamp: time.Now().Format(time.RFC3339),
+			Database:  "connected",
+		}
+
+		// Check database connection
+		sqlDB, err := db.DB.DB()
+		if err != nil {
+			response.Database = "disconnected"
+			response.Status = "unhealthy"
+		} else if err := sqlDB.Ping(); err != nil {
+			response.Database = "disconnected"
+			response.Status = "unhealthy"
+		}
+
+		statusCode := fiber.StatusOK
+		if response.Status == "unhealthy" {
+			statusCode = fiber.StatusServiceUnavailable
+		}
+
+		return c.Status(statusCode).JSON(response)
 	})
 
 	// API routes
@@ -356,6 +388,13 @@ func main() {
 	// Notification routes (protected)
 	notificationHandler.RegisterRoutes(protectedGroup)
 
+	// Settings routes (protected)
+	settingsGroup := protectedGroup.Group("/settings")
+	settingsGroup.Get("/monitoring", settingsHandler.GetMonitoring)
+	settingsGroup.Put("/monitoring", settingsHandler.UpdateMonitoring)
+	settingsGroup.Get("/", settingsHandler.GetAllSettings)
+	settingsGroup.Put("/", settingsHandler.UpdateSettings)
+
 	// Subscription routes (public, token-based auth, rate limited)
 	subscriptionRoutes := app.Group("", middleware.SubscriptionRateLimiter())
 	subscriptionRoutes.Get("/sub/:token", subscriptionsHandler.GetV2RaySubscription)
@@ -379,6 +418,7 @@ func main() {
 	log.Info().Msg("✓ Subscription service enabled")
 	log.Info().Msg("✓ Structured logging enabled")
 	log.Info().Msg("✓ Configuration management enabled")
+	log.Info().Msg("✓ Settings management enabled")
 	log.Info().Msg("✓ Backup system enabled")
 
 	// Start server

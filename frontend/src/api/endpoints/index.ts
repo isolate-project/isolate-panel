@@ -149,6 +149,10 @@ export const systemApi = {
 
   updateSettings: (data: Record<string, unknown>) => apiClient.put('/settings', data),
 
+  getMonitoring: () => apiClient.get('/settings/monitoring'),
+
+  updateMonitoring: (data: { mode: 'lite' | 'full' }) => apiClient.put('/settings/monitoring', data),
+
   connections: () => apiClient.get('/system/connections'),
 }
 

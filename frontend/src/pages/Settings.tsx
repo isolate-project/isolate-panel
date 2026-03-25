@@ -10,6 +10,7 @@ import { Alert } from '../components/ui/Alert'
 import { useThemeStore } from '../stores/themeStore'
 import { useToastStore } from '../stores/toastStore'
 import { systemApi } from '../api/endpoints'
+import { Alert as AlertBanner } from '../components/ui/Alert'
 import { useTranslation } from 'react-i18next'
 import { Moon, Sun, Globe, Save } from 'lucide-preact'
 
@@ -19,6 +20,11 @@ interface SettingsState {
   jwt_refresh_token_ttl: string
   max_login_attempts: string
   log_level: string
+}
+
+interface MonitoringState {
+  mode: 'lite' | 'full'
+  interval: number
 }
 
 export function Settings() {
@@ -34,6 +40,11 @@ export function Settings() {
     log_level: 'info',
   })
 
+  const [monitoring, setMonitoring] = useState<MonitoringState>({
+    mode: 'lite',
+    interval: 60,
+  })
+
   const [isSaving, setIsSaving] = useState(false)
   const [isLoadingSettings, setIsLoadingSettings] = useState(true)
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -42,15 +53,26 @@ export function Settings() {
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const response = await systemApi.getSettings()
-        const data = response.data
-        if (data) {
+        const [settingsRes, monitoringRes] = await Promise.all([
+          systemApi.getSettings(),
+          systemApi.getMonitoring(),
+        ])
+        
+        if (settingsRes.data) {
+          const data = settingsRes.data
           setSettings({
             panel_name: data.panel_name || 'Isolate Panel',
             jwt_access_token_ttl: String(data.jwt_access_token_ttl || 900),
             jwt_refresh_token_ttl: String(data.jwt_refresh_token_ttl || 604800),
             max_login_attempts: String(data.max_login_attempts || 5),
             log_level: data.log_level || 'info',
+          })
+        }
+        
+        if (monitoringRes.data && monitoringRes.data.success) {
+          setMonitoring({
+            mode: monitoringRes.data.mode as 'lite' | 'full',
+            interval: monitoringRes.data.interval || 60,
           })
         }
       } catch {
@@ -120,6 +142,22 @@ export function Settings() {
       addToast({ type: 'error', message: t('errors.serverError') })
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  const handleMonitoringChange = async (e: Event) => {
+    const target = e.target as HTMLSelectElement
+    const newMode = target.value as 'lite' | 'full'
+    
+    try {
+      await systemApi.updateMonitoring({ mode: newMode })
+      setMonitoring({
+        mode: newMode,
+        interval: newMode === 'full' ? 10 : 60,
+      })
+      addToast({ type: 'success', message: t('settings.monitoringModeUpdated') })
+    } catch {
+      addToast({ type: 'error', message: t('errors.serverError') })
     }
   }
 
@@ -208,6 +246,48 @@ export function Settings() {
                   error={errors.panel_name}
                   fullWidth
                 />
+              </div>
+            </div>
+          </Card>
+
+          {/* Monitoring Mode Settings */}
+          <Card>
+            <h3 className="text-lg font-semibold text-primary mb-4">
+              {t('settings.monitoringMode')}
+            </h3>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-primary mb-2">
+                  {t('settings.monitoringModeLabel')}
+                </label>
+                <Select
+                  name="monitoring_mode"
+                  value={monitoring.mode}
+                  onChange={handleMonitoringChange}
+                  options={[
+                    { value: 'lite', label: t('settings.monitoringModeLite') },
+                    { value: 'full', label: t('settings.monitoringModeFull') },
+                  ]}
+                  fullWidth
+                />
+                <div className="mt-3 p-3 bg-secondary/50 rounded-lg">
+                  <AlertBanner variant="info" className="text-sm">
+                    {monitoring.mode === 'lite' 
+                      ? t('settings.monitoringModeLiteDesc')
+                      : t('settings.monitoringModeFullDesc')
+                    }
+                  </AlertBanner>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-tertiary">{t('settings.currentInterval')}</span>
+                  <span className="font-medium text-primary">
+                    {monitoring.interval} {t('settings.seconds')}
+                  </span>
+                </div>
               </div>
             </div>
           </Card>

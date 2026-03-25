@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  isolate-panel:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.dev
+    container_name: isolate-panel-dev
+    ports:
+      - "8080:8080"  # Backend API
+      - "5173:5173"  # Vite dev server (if needed)
+    volumes:
+      # Mount source code for hot reload
+      - ../backend:/app/backend
+      - ../frontend:/app/frontend
+      - ../data:/app/data
+      - ../logs:/var/log/supervisor
+    environment:
+      - APP_ENV=development
+      - PORT=8080
+      - DATABASE_PATH=/app/data/isolate-panel.db
+      - LOG_LEVEL=debug
+      - MONITORING_MODE=lite
+      - TZ=UTC
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+    networks:
+      - isolate-network
+
+networks:
+  isolate-network:
+    driver: bridge

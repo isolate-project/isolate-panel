@@ -115,6 +115,9 @@ func Load(configPath string) (*Config, error) {
 	if appEnv := v.GetString("APP_ENV"); appEnv != "" {
 		config.App.Env = appEnv
 	}
+	if logLevel := v.GetString("LOG_LEVEL"); logLevel != "" {
+		config.Logging.Level = logLevel
+	}
 
 	return &config, nil
 }
@@ -136,6 +139,13 @@ func (c *Config) Validate() error {
 	if c.JWT.RefreshTokenTTL <= 0 {
 		return fmt.Errorf("invalid refresh token TTL: %d", c.JWT.RefreshTokenTTL)
 	}
+
+	// Validate log level
+	validLogLevels := map[string]bool{"debug": true, "info": true, "warn": true, "error": true}
+	if !validLogLevels[c.Logging.Level] {
+		return fmt.Errorf("invalid log level: %s (must be debug, info, warn, or error)", c.Logging.Level)
+	}
+
 	return nil
 }
 
