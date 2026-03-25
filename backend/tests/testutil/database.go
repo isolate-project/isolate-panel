@@ -2,7 +2,9 @@ package testutil
 
 import (
 	"fmt"
+	"math/rand"
 	"testing"
+	"time"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -14,8 +16,9 @@ import (
 func SetupTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 
-	// Create in-memory database with foreign keys enabled
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared&_foreign_keys=on"), &gorm.Config{
+	// Create unique in-memory database for each test
+	dbName := fmt.Sprintf("file:testdb_%d_%d?cache=shared&_foreign_keys=on", time.Now().UnixNano(), rand.Intn(10000))
+	db, err := gorm.Open(sqlite.Open(dbName), &gorm.Config{
 		DisableForeignKeyConstraintWhenMigrating: false,
 	})
 	if err != nil {
@@ -140,6 +143,20 @@ func SeedTestData(t *testing.T, db *gorm.DB) {
 	for _, core := range cores {
 		if err := db.Create(&core).Error; err != nil {
 			t.Fatalf("Failed to seed core: %v", err)
+		}
+	}
+
+	// Seed default settings
+	settings := []models.Setting{
+		{Key: "monitoring_mode", Value: "lite", ValueType: "string", Description: "Monitoring mode: lite or full"},
+		{Key: "backup_enabled", Value: "false", ValueType: "bool", Description: "Automatic backups enabled"},
+		{Key: "backup_schedule", Value: "0 2 * * *", ValueType: "string", Description: "Backup schedule (cron)"},
+		{Key: "backup_retention", Value: "7", ValueType: "int", Description: "Number of backups to retain"},
+	}
+
+	for _, setting := range settings {
+		if err := db.Create(&setting).Error; err != nil {
+			t.Fatalf("Failed to seed setting: %v", err)
 		}
 	}
 }
