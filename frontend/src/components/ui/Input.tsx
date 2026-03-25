@@ -47,13 +47,14 @@ export function Input({
   return (
     <div className={fullWidth ? 'w-full' : ''}>
       {label && (
-        <label className="block text-sm font-medium text-primary mb-1">
+        <label htmlFor={name} className="block text-sm font-medium text-primary mb-1">
           {label}
           {required && <span className="text-danger ml-1">*</span>}
         </label>
       )}
       <input
         type={type}
+        id={name}
         name={name}
         value={value}
         placeholder={placeholder}

@@ -56,10 +56,10 @@ describe('Button', () => {
   })
 
   it('renders icon when provided', () => {
-    const TestIcon = () => <svg data-testid="icon" />
+    const TestIcon = () => <svg data-testid="test-icon" />
     render(<Button icon={<TestIcon />}>With Icon</Button>)
     
-    const icon = screen.getByTestId('icon')
+    const icon = screen.getByTestId('test-icon')
     expect(icon).toBeInTheDocument()
   })
 })

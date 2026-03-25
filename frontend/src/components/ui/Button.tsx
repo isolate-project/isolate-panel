@@ -14,6 +14,7 @@ interface ButtonProps {
   onClick?: (e: MouseEvent) => void
   children: ComponentChildren
   className?: string
+  icon?: ComponentChildren
 }
 
 export function Button({
@@ -26,6 +27,7 @@ export function Button({
   onClick,
   children,
   className,
+  icon,
 }: ButtonProps) {
   const baseStyles =
     'inline-flex items-center justify-center font-medium rounded-lg transition-base focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed'
@@ -84,6 +86,7 @@ export function Button({
           />
         </svg>
       )}
+      {icon && <span data-testid="icon" className="mr-2">{icon}</span>}
       {children}
     </button>
   )

@@ -5,14 +5,14 @@ interface CardProps {
   children: ComponentChildren
   className?: string
   padding?: 'none' | 'sm' | 'md' | 'lg'
-  hover?: boolean
+  interactive?: boolean
 }
 
 export function Card({
   children,
   className,
-  padding = 'md',
-  hover = false,
+  padding = 'lg',
+  interactive = false,
 }: CardProps) {
   const paddingStyles = {
     none: '',
@@ -26,7 +26,7 @@ export function Card({
       className={clsx(
         'bg-primary border border-primary rounded-lg shadow-sm',
         paddingStyles[padding],
-        hover && 'hover:shadow-md transition-base cursor-pointer',
+        interactive && 'hover:shadow-lg transition-base cursor-pointer',
         className
       )}
     >

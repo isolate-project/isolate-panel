@@ -38,7 +38,7 @@ describe('Input', () => {
   })
 
   it('renders password input', () => {
-    render(<Input type="password" name="password" />)
+    render(<Input type="password" name="password" label="Password" />)
     
     const input = screen.getByLabelText(/password/i) as HTMLInputElement
     expect(input.type).toBe('password')
