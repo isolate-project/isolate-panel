@@ -20,6 +20,10 @@ vendor/
 /data/*.db
 /data/*.db-*
 
+# Test databases (should be in-memory, but just in case)
+**/testdb_*
+**/test_*.db
+
 # Logs
 *.log
 logs/
