@@ -1,14 +1,17 @@
 package services
 
 import (
+	"bytes"
 	"crypto/rand"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"gorm.io/gorm"
 
 	"github.com/vovk4morkovk4/isolate-panel/internal/models"
@@ -52,24 +55,20 @@ func (s *WARPService) Initialize() error {
 	return os.MkdirAll(s.warpDir, 0755)
 }
 
-// GenerateKeyPair generates a WireGuard key pair
+// GenerateKeyPair generates a proper WireGuard key pair using curve25519
 func (s *WARPService) GenerateKeyPair() (privateKey, publicKey string, err error) {
-	// Generate private key (32 bytes)
-	private := make([]byte, 32)
-	if _, err := rand.Read(private); err != nil {
+	// Generate private key using wireguard-go library
+	private, err := wgtypes.GeneratePrivateKey()
+	if err != nil {
 		return "", "", fmt.Errorf("failed to generate private key: %w", err)
 	}
 
-	// For MVP, we'll use a simplified approach
-	// In production, this should use proper WireGuard key derivation
-	privateKey = base64.StdEncoding.EncodeToString(private)
+	// Get public key from private key
+	public := private.PublicKey()
 
-	// Generate public key from private (simplified - in production use proper curve25519)
-	public := make([]byte, 32)
-	if _, err := rand.Read(public); err != nil {
-		return "", "", fmt.Errorf("failed to generate public key: %w", err)
-	}
-	publicKey = base64.StdEncoding.EncodeToString(public)
+	// Encode to base64
+	privateKey = private.String()
+	publicKey = public.String()
 
 	return privateKey, publicKey, nil
 }
@@ -116,15 +115,18 @@ func (s *WARPService) generateDeviceID() (string, error) {
 }
 
 // registerWithCloudflare registers with Cloudflare WARP API
+// Reference: https://github.com/cloudflare/warp-client
 func (s *WARPService) registerWithCloudflare(deviceID, publicKey string) (*WARPAccount, error) {
 	// WARP registration payload
 	registrationData := map[string]interface{}{
-		"key":        publicKey,
-		"install_id": "",
-		"fcm_token":  "",
-		"tos":        "2024-01-01T00:00:00.000Z",
-		"model":      "Linux",
-		"serial":     deviceID,
+		"key":          publicKey,
+		"install_id":   "",
+		"fcm_token":    "",
+		"tos":          time.Now().Format(time.RFC3339),
+		"model":        "Linux",
+		"serial":       deviceID,
+		"locale":       "en_US",
+		"warp_enabled": true,
 	}
 
 	jsonData, err := json.Marshal(registrationData)
@@ -132,33 +134,60 @@ func (s *WARPService) registerWithCloudflare(deviceID, publicKey string) (*WARPA
 		return nil, err
 	}
 
-	// Create HTTP client
-	client := &http.Client{}
+	// Create HTTP client with timeout
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
 
-	// First request: create identity
-	req, err := http.NewRequest("POST", "https://api.cloudflareclient.com/v0a4005/reg", nil)
+	// Create request
+	req, err := http.NewRequest("POST", "https://api.cloudflareclient.com/v0a4005/reg", bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, err
 	}
 
 	req.Header.Set("CF-Client-Version", "a-6.10-4005")
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", "okhttp/3.12.1")
 
-	// For MVP, we'll create a local account without actual API call
-	// In production, this would make the actual API call
-	account := &WARPAccount{
-		AccountID: deviceID,
-		DeviceID:  deviceID,
-		Token:     "warp-token-" + deviceID,
+	// Execute request
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register with Cloudflare: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Read response
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
 	}
 
-	// Note: Full WARP registration requires actual API calls to Cloudflare
-	// This is a simplified MVP implementation
-	_ = jsonData
-	_ = client
-	_ = req
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		return nil, fmt.Errorf("Cloudflare API error: %s (status: %d)", string(body), resp.StatusCode)
+	}
 
-	return account, nil
+	// Parse response
+	var apiResp map[string]interface{}
+	if err := json.Unmarshal(body, &apiResp); err != nil {
+		return nil, err
+	}
+
+	// Extract account ID and token
+	accountID, ok := apiResp["account_id"].(string)
+	if !ok {
+		return nil, fmt.Errorf("account_id not found in response")
+	}
+
+	token, ok := apiResp["token"].(string)
+	if !ok {
+		return nil, fmt.Errorf("token not found in response")
+	}
+
+	return &WARPAccount{
+		AccountID: accountID,
+		DeviceID:  deviceID,
+		Token:     token,
+	}, nil
 }
 
 // saveAccount saves WARP account to file
