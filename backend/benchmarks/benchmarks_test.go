@@ -1,7 +1,9 @@
 package benchmarks_test
 
 import (
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/vovk4morkovk4/isolate-panel/internal/models"
 	"github.com/vovk4morkovk4/isolate-panel/internal/services"
@@ -12,6 +14,10 @@ import (
 func BenchmarkUserService_CreateUser(b *testing.B) {
 	db := testutil.SetupTestDB(b)
 	defer testutil.TeardownTestDB(b, db)
+
+	// Seed test data (use testing.T wrapper if needed)
+	t := &testing.T{}
+	testutil.SeedTestData(t, db)
 
 	notificationService := services.NewNotificationService(db, "", "", "", "")
 	userService := services.NewUserService(db, notificationService)
@@ -182,10 +188,15 @@ func BenchmarkDatabase_Insert(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+		// Create unique UUID for each user
 		user := &models.User{
 			Username: "insert_user_" + string(rune(i)),
 			Email:    "insert" + string(rune(i)) + "@example.com",
+			UUID:     fmt.Sprintf("bench-uuid-%d-%d", time.Now().UnixNano(), i),
 		}
+		b.StartTimer()
+
 		err := db.Create(user).Error
 		if err != nil {
 			b.Fatalf("Insert failed: %v", err)
