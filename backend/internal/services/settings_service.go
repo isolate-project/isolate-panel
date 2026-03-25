@@ -4,37 +4,74 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/vovk4morkovk4/isolate-panel/internal/cache"
 	"github.com/vovk4morkovk4/isolate-panel/internal/models"
 	"gorm.io/gorm"
 )
 
 // SettingsService manages application settings
 type SettingsService struct {
-	db *gorm.DB
+	db    *gorm.DB
+	cache *cache.Cache
 }
 
 // NewSettingsService creates a new settings service
-func NewSettingsService(db *gorm.DB) *SettingsService {
+// cacheManager is optional - if nil, caching will be disabled
+func NewSettingsService(db *gorm.DB, cacheManager ...*cache.CacheManager) *SettingsService {
+	var settingsCache *cache.Cache
+	if len(cacheManager) > 0 && cacheManager[0] != nil {
+		settingsCache = cacheManager[0].GetSettingsCache()
+	}
 	return &SettingsService{
-		db: db,
+		db:    db,
+		cache: settingsCache,
 	}
 }
 
 // GetSetting retrieves a setting by key
 func (s *SettingsService) GetSetting(key string) (*models.Setting, error) {
+	// Try cache first
+	if s.cache != nil {
+		if cached, found := s.cache.Get("setting:" + key); found {
+			if setting, ok := cached.(*models.Setting); ok {
+				return setting, nil
+			}
+		}
+	}
+
+	// Query database
 	var setting models.Setting
 	if err := s.db.Where("key = ?", key).First(&setting).Error; err != nil {
 		return nil, err
 	}
+
+	// Cache the result
+	if s.cache != nil {
+		s.cache.Set("setting:"+key, &setting)
+	}
+
 	return &setting, nil
 }
 
 // GetSettingValue retrieves a setting value by key
 func (s *SettingsService) GetSettingValue(key string) (string, error) {
+	// Try cache first for simple string lookup
+	if s.cache != nil {
+		if cached, found := s.cache.GetString("setting_value:" + key); found {
+			return cached, nil
+		}
+	}
+
 	setting, err := s.GetSetting(key)
 	if err != nil {
 		return "", err
 	}
+
+	// Cache the value
+	if s.cache != nil {
+		s.cache.Set("setting_value:"+key, setting.Value)
+	}
+
 	return setting.Value, nil
 }
 
@@ -48,11 +85,30 @@ func (s *SettingsService) UpdateSetting(key string, value string) error {
 				Key:   key,
 				Value: value,
 			}
-			return s.db.Create(&newSetting).Error
+			if err := s.db.Create(&newSetting).Error; err != nil {
+				return err
+			}
+			// Cache the new setting
+			if s.cache != nil {
+				s.cache.Set("setting:"+key, &newSetting)
+				s.cache.Set("setting_value:"+key, value)
+			}
+			return nil
 		}
 		return err
 	}
-	return s.db.Model(&setting).Update("value", value).Error
+
+	if err := s.db.Model(&setting).Update("value", value).Error; err != nil {
+		return err
+	}
+
+	// Invalidate cache
+	if s.cache != nil {
+		s.cache.Delete("setting:" + key)
+		s.cache.Delete("setting_value:" + key)
+	}
+
+	return nil
 }
 
 // GetMonitoringMode returns the current monitoring mode (lite or full)
