@@ -1,277 +1,165 @@
-# API Documentation
+# Isolate Panel API Reference
 
-## Overview
+Complete API documentation for Isolate Panel v0.1.0
 
-Isolate Panel API v0.1.0 - RESTful API for managing proxy cores (Xray, Sing-box, Mihomo).
+---
 
-**Base URL:** `http://localhost:8080/api`
+## Base URL
 
-**Authentication:** JWT Bearer token (except auth endpoints)
+```
+Production: http://localhost:8080/api
+Development: http://localhost:8080/api
+```
 
 ---
 
 ## Authentication
 
-### POST /api/auth/login
+Most API endpoints require authentication using JWT Bearer tokens.
 
-Login with admin credentials.
+### Login
+
+**POST** `/api/auth/login`
+
+Authenticate and receive access/refresh tokens.
 
 **Request:**
 ```json
 {
   "username": "admin",
-  "password": "admin"
+  "password": "password123"
 }
 ```
 
-**Response (200):**
+**Response (200 OK):**
 ```json
 {
-  "access_token": "eyJhbGc...",
-  "refresh_token": "eyJhbGc...",
-  "expires_at": "2024-03-24T15:30:00Z",
-  "admin": {
-    "id": 1,
-    "username": "admin",
-    "is_super_admin": true
-  }
+  "success": true,
+  "access_token": "eyJhbGciOiJIUzI1NiIs...",
+  "refresh_token": "eyJhbGciOiJIUzI1NiIs...",
+  "expires_in": 900
 }
 ```
 
-**Rate Limit:** 5 requests per minute per IP
-
----
-
-### POST /api/auth/refresh
-
-Refresh access token using refresh token.
-
-**Request:**
+**Response (401 Unauthorized):**
 ```json
 {
-  "refresh_token": "eyJhbGc..."
-}
-```
-
-**Response (200):**
-```json
-{
-  "access_token": "eyJhbGc...",
-  "refresh_token": "eyJhbGc...",
-  "expires_at": "2024-03-24T15:45:00Z"
+  "success": false,
+  "error": "Invalid credentials"
 }
 ```
 
 ---
 
-### POST /api/auth/logout
+### Refresh Token
 
-Revoke refresh token.
+**POST** `/api/auth/refresh`
+
+Refresh an expired access token.
 
 **Request:**
 ```json
 {
-  "refresh_token": "eyJhbGc..."
+  "refresh_token": "eyJhbGciOiJIUzI1NiIs..."
 }
 ```
 
-**Response (200):**
+**Response (200 OK):**
 ```json
 {
+  "success": true,
+  "access_token": "eyJhbGciOiJIUzI1NiIs...",
+  "expires_in": 900
+}
+```
+
+---
+
+### Logout
+
+**POST** `/api/auth/logout`
+
+Invalidate the current session.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
   "message": "Logged out successfully"
 }
 ```
 
 ---
 
-### GET /api/me
+### Get Current User
 
-Get current admin information.
+**GET** `/api/me`
 
-**Headers:** `Authorization: Bearer <access_token>`
+Get information about the currently authenticated admin.
 
-**Response (200):**
-```json
-{
-  "id": 1,
-  "username": "admin",
-  "is_super_admin": true,
-  "created_at": "2024-03-24T10:00:00Z"
-}
+**Headers:**
+```
+Authorization: Bearer <access_token>
 ```
 
----
-
-## Core Management
-
-### GET /api/cores
-
-List all proxy cores.
-
-**Headers:** `Authorization: Bearer <access_token>`
-
-**Response (200):**
+**Response (200 OK):**
 ```json
-[
-  {
+{
+  "success": true,
+  "user": {
     "id": 1,
-    "name": "singbox",
-    "type": "sing-box",
-    "version": "1.13.3",
-    "is_enabled": true,
-    "is_running": false,
-    "pid": null,
-    "uptime_seconds": 0,
-    "restart_count": 0,
-    "last_error": ""
-  },
-  {
-    "id": 2,
-    "name": "xray",
-    "type": "xray",
-    "version": "26.2.6",
-    "is_enabled": true,
-    "is_running": false,
-    "pid": null,
-    "uptime_seconds": 0,
-    "restart_count": 0,
-    "last_error": ""
-  },
-  {
-    "id": 3,
-    "name": "mihomo",
-    "type": "mihomo",
-    "version": "1.19.21",
-    "is_enabled": true,
-    "is_running": false,
-    "pid": null,
-    "uptime_seconds": 0,
-    "restart_count": 0,
-    "last_error": ""
+    "username": "admin",
+    "email": "admin@example.com",
+    "is_super_admin": true,
+    "created_at": "2026-03-25T10:00:00Z",
+    "last_login_at": "2026-03-25T12:00:00Z"
   }
-]
-```
-
----
-
-### GET /api/cores/:name
-
-Get specific core information.
-
-**Parameters:**
-- `name` (path): Core name (singbox, xray, mihomo)
-
-**Response (200):**
-```json
-{
-  "id": 1,
-  "name": "singbox",
-  "type": "sing-box",
-  "version": "1.13.3",
-  "is_enabled": true,
-  "is_running": true,
-  "pid": 12345,
-  "uptime_seconds": 3600,
-  "restart_count": 2,
-  "last_error": ""
 }
 ```
 
 ---
 
-### POST /api/cores/:name/start
+## Users
 
-Start a core.
+### List Users
 
-**Parameters:**
-- `name` (path): Core name
+**GET** `/api/users`
 
-**Response (200):**
-```json
-{
-  "message": "Core started successfully",
-  "core": "singbox"
-}
+Get a list of all users with pagination.
+
+**Headers:**
 ```
-
----
-
-### POST /api/cores/:name/stop
-
-Stop a core.
-
-**Response (200):**
-```json
-{
-  "message": "Core stopped successfully",
-  "core": "singbox"
-}
+Authorization: Bearer <access_token>
 ```
-
----
-
-### POST /api/cores/:name/restart
-
-Restart a core.
-
-**Response (200):**
-```json
-{
-  "message": "Core restarted successfully",
-  "core": "singbox"
-}
-```
-
----
-
-### GET /api/cores/:name/status
-
-Get core status.
-
-**Response (200):**
-```json
-{
-  "name": "singbox",
-  "is_running": true,
-  "is_enabled": true,
-  "pid": 12345,
-  "uptime": 3600,
-  "restarts": 2,
-  "last_error": ""
-}
-```
-
----
-
-## User Management
-
-### GET /api/users
-
-List all users with pagination.
 
 **Query Parameters:**
 - `page` (optional): Page number (default: 1)
 - `limit` (optional): Items per page (default: 20)
+- `search` (optional): Search by username or email
 
-**Response (200):**
+**Response (200 OK):**
 ```json
 {
+  "success": true,
   "users": [
     {
       "id": 1,
-      "uuid": "550e8400-e29b-41d4-a716-446655440000",
       "username": "user1",
       "email": "user1@example.com",
-      "token": "abc123def456",
-      "subscription_token": "sub_token_123",
+      "uuid": "550e8400-e29b-41d4-a716-446655440000",
       "is_active": true,
       "traffic_limit_bytes": 107374182400,
-      "traffic_used_bytes": 1073741824,
-      "expire_at": "2024-12-31T23:59:59Z",
-      "created_at": "2024-03-24T10:00:00Z"
+      "traffic_used_bytes": 10737418240,
+      "expiry_date": "2026-12-31T23:59:59Z",
+      "created_at": "2026-01-01T00:00:00Z"
     }
   ],
-  "total": 1,
+  "total": 50,
   "page": 1,
   "limit": 20
 }
@@ -279,665 +167,207 @@ List all users with pagination.
 
 ---
 
-### POST /api/users
+### Create User
 
-Create a new user.
+**POST** `/api/users`
+
+Create a new user with auto-generated credentials.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
 
 **Request:**
 ```json
 {
   "username": "newuser",
   "email": "newuser@example.com",
+  "password": "securepassword123",
   "traffic_limit_bytes": 107374182400,
-  "expire_at": "2024-12-31T23:59:59Z",
-  "is_active": true
+  "expiry_days": 30,
+  "inbound_ids": [1, 2, 3]
 }
 ```
 
-**Response (201):**
+**Response (201 Created):**
 ```json
 {
-  "id": 2,
-  "uuid": "generated-uuid",
-  "username": "newuser",
-  "email": "newuser@example.com",
-  "token": "generated-token",
-  "subscription_token": "generated-sub-token",
-  "is_active": true,
-  "traffic_limit_bytes": 107374182400,
-  "traffic_used_bytes": 0,
-  "expire_at": "2024-12-31T23:59:59Z",
-  "created_at": "2024-03-24T11:00:00Z"
+  "success": true,
+  "user": {
+    "id": 2,
+    "username": "newuser",
+    "email": "newuser@example.com",
+    "uuid": "550e8400-e29b-41d4-a716-446655440001",
+    "password": "securepassword123",
+    "subscription_token": "sub_token_xyz123",
+    "is_active": true,
+    "traffic_limit_bytes": 107374182400,
+    "traffic_used_bytes": 0,
+    "expiry_date": "2026-04-24T23:59:59Z",
+    "created_at": "2026-03-25T12:00:00Z",
+    "inbound_ids": [1, 2, 3]
+  }
 }
 ```
 
 ---
 
-### GET /api/users/:id
+### Get User
 
-Get user details.
+**GET** `/api/users/:id`
 
-**Response (200):**
+Get details of a specific user.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Response (200 OK):**
 ```json
 {
-  "id": 1,
-  "uuid": "550e8400-e29b-41d4-a716-446655440000",
-  "username": "user1",
-  "email": "user1@example.com",
-  "token": "abc123def456",
-  "subscription_token": "sub_token_123",
-  "is_active": true,
-  "traffic_limit_bytes": 107374182400,
-  "traffic_used_bytes": 1073741824,
-  "expire_at": "2024-12-31T23:59:59Z",
-  "created_at": "2024-03-24T10:00:00Z",
-  "updated_at": "2024-03-24T10:00:00Z"
+  "success": true,
+  "user": {
+    "id": 1,
+    "username": "user1",
+    "email": "user1@example.com",
+    "uuid": "550e8400-e29b-41d4-a716-446655440000",
+    "subscription_token": "sub_token_abc123",
+    "is_active": true,
+    "is_online": false,
+    "traffic_limit_bytes": 107374182400,
+    "traffic_used_bytes": 10737418240,
+    "expiry_date": "2026-12-31T23:59:59Z",
+    "last_connected_at": "2026-03-24T18:00:00Z",
+    "created_at": "2026-01-01T00:00:00Z",
+    "inbound_ids": [1, 2]
+  }
 }
 ```
 
 ---
 
-### PUT /api/users/:id
+### Update User
 
-Update user.
+**PUT** `/api/users/:id`
+
+Update user information.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
 
 **Request:**
 ```json
 {
-  "username": "updated_user",
+  "username": "updateduser",
   "email": "updated@example.com",
-  "is_active": false,
-  "traffic_limit_bytes": 53687091200
+  "traffic_limit_bytes": 214748364800,
+  "is_active": true,
+  "inbound_ids": [1, 3]
 }
 ```
 
-**Response (200):**
+**Response (200 OK):**
 ```json
 {
-  "id": 1,
-  "username": "updated_user",
-  "email": "updated@example.com",
-  "is_active": false,
-  "traffic_limit_bytes": 53687091200,
-  "updated_at": "2024-03-24T12:00:00Z"
-}
-```
-
----
-
-### DELETE /api/users/:id
-
-Delete user.
-
-**Response (200):**
-```json
-{
-  "message": "User deleted successfully"
-}
-```
-
----
-
-### POST /api/users/:id/regenerate
-
-Regenerate user credentials (UUID, Token, Subscription Token).
-
-**Response (200):**
-```json
-{
-  "id": 1,
-  "uuid": "new-generated-uuid",
-  "token": "new-generated-token",
-  "subscription_token": "new-generated-sub-token",
-  "message": "Credentials regenerated successfully"
-}
-```
-
----
-
-### GET /api/users/:id/inbounds
-
-Get inbounds assigned to user.
-
-**Response (200):**
-```json
-[
-  {
+  "success": true,
+  "user": {
     "id": 1,
-    "name": "VLESS Inbound",
-    "protocol": "vless",
-    "port": 443,
-    "is_enabled": true
+    "username": "updateduser",
+    "email": "updated@example.com",
+    "is_active": true,
+    "traffic_limit_bytes": 214748364800,
+    "updated_at": "2026-03-25T12:30:00Z"
   }
-]
+}
 ```
 
 ---
 
-## Inbound Management
+### Delete User
 
-### GET /api/inbounds
+**DELETE** `/api/users/:id`
 
-List all inbounds.
+Delete a user and all associated data.
 
-**Query Parameters:**
-- `core_id` (optional): Filter by core ID
-- `is_enabled` (optional): Filter by enabled status (true/false)
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
 
-**Response (200):**
+**Response (204 No Content):**
+```
+No content
+```
+
+---
+
+### Regenerate User Credentials
+
+**POST** `/api/users/:id/regenerate`
+
+Regenerate user's UUID and subscription token.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Response (200 OK):**
 ```json
-[
-  {
+{
+  "success": true,
+  "user": {
     "id": 1,
-    "name": "VLESS Inbound",
-    "protocol": "vless",
-    "core_id": 1,
-    "listen_address": "0.0.0.0",
-    "port": 443,
-    "config_json": "{}",
-    "tls_enabled": true,
-    "tls_cert_id": null,
-    "reality_enabled": false,
-    "is_enabled": true,
-    "created_at": "2024-03-24T10:00:00Z",
-    "core": {
-      "id": 1,
-      "name": "singbox",
-      "type": "sing-box"
-    }
-  }
-]
-```
-
----
-
-### POST /api/inbounds
-
-Create a new inbound.
-
-**Request:**
-```json
-{
-  "name": "VLESS Inbound",
-  "protocol": "vless",
-  "core_id": 1,
-  "listen_address": "0.0.0.0",
-  "port": 443,
-  "config_json": "{}",
-  "tls_enabled": true,
-  "is_enabled": true
-}
-```
-
-**Response (201):**
-```json
-{
-  "id": 1,
-  "name": "VLESS Inbound",
-  "protocol": "vless",
-  "core_id": 1,
-  "port": 443,
-  "is_enabled": true,
-  "created_at": "2024-03-24T10:00:00Z"
-}
-```
-
-**Note:** Creating an inbound automatically starts the associated core if not running.
-
----
-
-### GET /api/inbounds/:id
-
-Get inbound details.
-
-**Response (200):**
-```json
-{
-  "id": 1,
-  "name": "VLESS Inbound",
-  "protocol": "vless",
-  "core_id": 1,
-  "listen_address": "0.0.0.0",
-  "port": 443,
-  "config_json": "{}",
-  "tls_enabled": true,
-  "is_enabled": true,
-  "created_at": "2024-03-24T10:00:00Z",
-  "updated_at": "2024-03-24T10:00:00Z"
-}
-```
-
----
-
-### PUT /api/inbounds/:id
-
-Update inbound.
-
-**Request:**
-```json
-{
-  "name": "Updated VLESS",
-  "port": 8443,
-  "is_enabled": false
-}
-```
-
-**Response (200):**
-```json
-{
-  "id": 1,
-  "name": "Updated VLESS",
-  "port": 8443,
-  "is_enabled": false,
-  "updated_at": "2024-03-24T12:00:00Z"
-}
-```
-
-**Note:** Updating an inbound triggers config regeneration and core reload.
-
----
-
-### DELETE /api/inbounds/:id
-
-Delete inbound.
-
-**Response (200):**
-```json
-{
-  "message": "Inbound deleted successfully"
-}
-```
-
-**Note:** Deleting the last inbound automatically stops the associated core.
-
----
-
-### GET /api/inbounds/core/:core_id
-
-Get all inbounds for a specific core.
-
-**Response (200):**
-```json
-[
-  {
-    "id": 1,
-    "name": "VLESS Inbound",
-    "protocol": "vless",
-    "port": 443,
-    "is_enabled": true
-  }
-]
-```
-
----
-
-### POST /api/inbounds/assign
-
-Assign inbound to user.
-
-**Request:**
-```json
-{
-  "user_id": 1,
-  "inbound_id": 1
-}
-```
-
-**Response (200):**
-```json
-{
-  "message": "Inbound assigned to user successfully"
-}
-```
-
----
-
-### POST /api/inbounds/unassign
-
-Unassign inbound from user.
-
-**Request:**
-```json
-{
-  "user_id": 1,
-  "inbound_id": 1
-}
-```
-
-**Response (200):**
-```json
-{
-  "message": "Inbound unassigned from user successfully"
-}
-```
-
----
-
-## Protocols (Phase 3)
-
-Protocol Schema Registry - dynamic protocol-aware forms.
-
-### GET /api/protocols
-
-List all available protocols.
-
-**Query Parameters:**
-- `core` (optional): Filter by core name (singbox, xray, mihomo)
-- `direction` (optional): Filter by direction (inbound, outbound)
-
-**Response (200):**
-```json
-{
-  "protocols": [
-    {
-      "protocol": "vless",
-      "label": "VLESS",
-      "description": "Next-generation V2Ray protocol",
-      "core": ["xray"],
-      "direction": "inbound",
-      "requires_tls": true,
-      "category": "shadow"
-    }
-  ],
-  "total": 25
-}
-```
-
----
-
-### GET /api/protocols/:name
-
-Get full schema for a specific protocol.
-
-**Response (200):**
-```json
-{
-  "protocol": "vless",
-  "label": "VLESS",
-  "description": "Next-generation V2Ray protocol",
-  "core": ["xray"],
-  "direction": "inbound",
-  "requires_tls": true,
-  "parameters": {
-    "uuid": {
-      "name": "uuid",
-      "label": "UUID",
-      "type": "uuid",
-      "required": true,
-      "auto_generate": true,
-      "auto_gen_func": "GenerateUUIDv4"
-    }
-  },
-  "transport": ["tcp", "ws", "grpc"],
-  "category": "shadow"
-}
-```
-
----
-
-### GET /api/protocols/:name/defaults
-
-Get auto-generated default values for a protocol.
-
-**Response (200):**
-```json
-{
-  "protocol": "vless",
-  "defaults": {
-    "uuid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-    "flow": "",
-    "encryption": "none"
+    "uuid": "new-uuid-550e8400-e29b-41d4-a716-446655440099",
+    "subscription_token": "new_sub_token_xyz789",
+    "updated_at": "2026-03-25T12:45:00Z"
   }
 }
 ```
 
 ---
 
-## Outbounds (Phase 3)
+## Inbounds
 
-CRUD operations for outbound connections.
+### List Inbounds
 
-### GET /api/outbounds
+**GET** `/api/inbounds`
 
-List all outbounds.
+Get a list of all inbounds.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
 
 **Query Parameters:**
 - `core_id` (optional): Filter by core ID
 - `protocol` (optional): Filter by protocol
+- `is_enabled` (optional): Filter by enabled status
 
-**Response (200):**
-```json
-[
-  {
-    "id": 1,
-    "name": "Direct Outbound",
-    "protocol": "direct",
-    "core_id": 1,
-    "config_json": "{}",
-    "priority": 1,
-    "is_enabled": true,
-    "created_at": "2024-03-24T10:00:00Z",
-    "updated_at": "2024-03-24T10:00:00Z",
-    "core": {
-      "id": 1,
-      "name": "singbox",
-      "type": "singbox"
-    }
-  }
-]
-```
-
----
-
-### POST /api/outbounds
-
-Create a new outbound.
-
-**Request:**
+**Response (200 OK):**
 ```json
 {
-  "name": "Direct Outbound",
-  "protocol": "direct",
-  "core_id": 1,
-  "config_json": "{}",
-  "priority": 1,
-  "is_enabled": true
-}
-```
-
-**Response (201):**
-```json
-{
-  "id": 1,
-  "name": "Direct Outbound",
-  "protocol": "direct",
-  "core_id": 1,
-  "config_json": "{}",
-  "priority": 1,
-  "is_enabled": true,
-  "created_at": "2024-03-24T10:00:00Z",
-  "updated_at": "2024-03-24T10:00:00Z"
-}
-```
-
-**Behavior:** Auto-regenerates core config on success.
-
----
-
-### GET /api/outbounds/:id
-
-Get a specific outbound by ID.
-
-**Response (200):**
-```json
-{
-  "id": 1,
-  "name": "Direct Outbound",
-  "protocol": "direct",
-  "core_id": 1,
-  "config_json": "{}",
-  "priority": 1,
-  "is_enabled": true,
-  "created_at": "2024-03-24T10:00:00Z",
-  "updated_at": "2024-03-24T10:00:00Z"
-}
-```
-
----
-
-### PUT /api/outbounds/:id
-
-Update an existing outbound.
-
-**Request:**
-```json
-{
-  "name": "Direct Outbound Updated",
-  "priority": 2,
-  "is_enabled": false
-}
-```
-
-**Response (200):**
-```json
-{
-  "id": 1,
-  "name": "Direct Outbound Updated",
-  "protocol": "direct",
-  "core_id": 1,
-  "config_json": "{}",
-  "priority": 2,
-  "is_enabled": false,
-  "updated_at": "2024-03-24T11:00:00Z"
-}
-```
-
-**Behavior:** Auto-regenerates core config on success.
-
----
-
-### DELETE /api/outbounds/:id
-
-Delete an outbound.
-
-**Response (200):**
-```json
-{
-  "message": "Outbound deleted successfully"
-}
-```
-
-**Behavior:** Auto-regenerates core config on success.
-
----
-
-## Inbound User Management (Phase 3)
-
-Bulk user assignment operations.
-
-### GET /api/inbounds/:id/users
-
-List users assigned to a specific inbound.
-
-**Response (200):**
-```json
-{
-  "users": [
+  "success": true,
+  "inbounds": [
     {
       "id": 1,
-      "username": "user1",
-      "uuid": "a1b2c3d4-...",
-      "is_active": true
-    }
-  ],
-  "total": 1
-}
-```
-
----
-
-### POST /api/inbounds/:id/users/bulk
-
-Bulk add/remove users from an inbound.
-
-**Request:**
-```json
-{
-  "add_user_ids": [2, 3],
-  "remove_user_ids": [1]
-}
-```
-
-**Response (200):**
-```json
-{
-  "message": "Users updated successfully",
-  "added": 2,
-  "removed": 1
-}
-```
-
----
-
-## Subscriptions (Phase 3)
-
-Public subscription endpoints (no JWT auth, token-based).
-
-### GET /sub/:token
-
-V2Ray subscription format (base64-encoded links).
-
-**Authentication:** Token from user's `subscription_token` field
-
-**Response (200):**
-```
-Content-Type: text/plain
-vmess://ey...
-vless://abc...
-trojan://xyz...
-```
-
-**Rate Limit:** 10 requests/hour per token, 30 requests/hour per IP
-
----
-
-### GET /sub/:token/clash
-
-Clash subscription format (YAML).
-
-**Response (200):**
-```yaml
-Content-Type: text/yaml
-proxies:
-  - name: "VLESS-443"
-    type: vless
-    server: example.com
-    port: 443
-    uuid: "..."
-proxy-groups:
-  - name: "Proxy"
-    type: select
-    proxies:
-      - "VLESS-443"
-```
-
----
-
-### GET /sub/:token/singbox
-
-Sing-box subscription format (JSON).
-
-**Response (200):**
-```json
-Content-Type: application/json
-{
-  "outbounds": [
-    {
-      "type": "vless",
-      "tag": "VLESS-443",
-      "server": "example.com",
-      "server_port": 443,
-      "uuid": "..."
+      "name": "VMess-443",
+      "protocol": "vmess",
+      "core_id": 1,
+      "listen_address": "0.0.0.0",
+      "port": 443,
+      "is_enabled": true,
+      "tls_enabled": true,
+      "config_json": "{\"clients\":[]}",
+      "created_at": "2026-01-01T00:00:00Z",
+      "updated_at": "2026-03-25T10:00:00Z"
     }
   ]
 }
@@ -945,89 +375,422 @@ Content-Type: application/json
 
 ---
 
-### GET /s/:short_code
+### Create Inbound
 
-Short URL redirect to full subscription URL.
+**POST** `/api/inbounds`
 
-**Response (302):** Redirects to `/sub/:token`
+Create a new inbound.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+**Request:**
+```json
+{
+  "name": "VLESS-8443",
+  "protocol": "vless",
+  "core_id": 1,
+  "listen_address": "0.0.0.0",
+  "port": 8443,
+  "config_json": "{\"clients\":[]}",
+  "tls_enabled": true,
+  "is_enabled": true
+}
+```
+
+**Response (201 Created):**
+```json
+{
+  "success": true,
+  "inbound": {
+    "id": 2,
+    "name": "VLESS-8443",
+    "protocol": "vless",
+    "core_id": 1,
+    "port": 8443,
+    "is_enabled": true,
+    "created_at": "2026-03-25T12:00:00Z"
+  }
+}
+```
 
 ---
 
-### GET /api/subscriptions/:user_id/short-url
+### Get Inbound
 
-(Admin, requires JWT) Generate or retrieve short URL for a user.
+**GET** `/api/inbounds/:id`
+
+Get details of a specific inbound.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "inbound": {
+    "id": 1,
+    "name": "VMess-443",
+    "protocol": "vmess",
+    "core_id": 1,
+    "listen_address": "0.0.0.0",
+    "port": 443,
+    "config_json": "{\"clients\":[]}",
+    "tls_enabled": true,
+    "is_enabled": true,
+    "created_at": "2026-01-01T00:00:00Z",
+    "updated_at": "2026-03-25T10:00:00Z"
+  }
+}
+```
+
+---
+
+### Update Inbound
+
+**PUT** `/api/inbounds/:id`
+
+Update an inbound configuration.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+**Request:**
+```json
+{
+  "name": "VMess-443-Updated",
+  "port": 10443,
+  "is_enabled": false
+}
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "inbound": {
+    "id": 1,
+    "name": "VMess-443-Updated",
+    "port": 10443,
+    "is_enabled": false,
+    "updated_at": "2026-03-25T13:00:00Z"
+  }
+}
+```
+
+---
+
+### Delete Inbound
+
+**DELETE** `/api/inbounds/:id`
+
+Delete an inbound.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Response (204 No Content):**
+```
+No content
+```
+
+---
+
+## Settings
+
+### Get Monitoring Settings
+
+**GET** `/api/settings/monitoring`
+
+Get current monitoring mode configuration.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "mode": "lite",
+  "interval": 60
+}
+```
+
+---
+
+### Update Monitoring Settings
+
+**PUT** `/api/settings/monitoring`
+
+Update monitoring mode (lite or full).
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+**Request:**
+```json
+{
+  "mode": "full"
+}
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "mode": "full",
+  "message": "Monitoring mode updated successfully"
+}
+```
+
+---
+
+## Cores
+
+### List Cores
+
+**GET** `/api/cores`
+
+Get a list of all proxy cores.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "cores": [
+    {
+      "id": 1,
+      "name": "singbox",
+      "version": "1.13.3",
+      "is_enabled": true,
+      "is_running": false,
+      "uptime_seconds": 0,
+      "restart_count": 0
+    },
+    {
+      "id": 2,
+      "name": "xray",
+      "version": "26.2.6",
+      "is_enabled": true,
+      "is_running": true,
+      "uptime_seconds": 3600,
+      "restart_count": 2
+    },
+    {
+      "id": 3,
+      "name": "mihomo",
+      "version": "1.19.21",
+      "is_enabled": true,
+      "is_running": false,
+      "uptime_seconds": 0,
+      "restart_count": 0
+    }
+  ]
+}
+```
+
+---
+
+### Get Core Status
+
+**GET** `/api/cores/:name/status`
+
+Get detailed status of a specific core.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "core": {
+    "name": "singbox",
+    "version": "1.13.3",
+    "is_running": false,
+    "pid": null,
+    "uptime_seconds": 0,
+    "memory_usage_bytes": 0,
+    "cpu_usage_percent": 0.0
+  }
+}
+```
+
+---
+
+### Start Core
+
+**POST** `/api/cores/:name/start`
+
+Start a proxy core.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Core singbox started successfully"
+}
+```
+
+---
+
+### Stop Core
+
+**POST** `/api/cores/:name/stop`
+
+Stop a proxy core.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Core singbox stopped successfully"
+}
+```
+
+---
+
+### Restart Core
+
+**POST** `/api/cores/:name/restart`
+
+Restart a proxy core.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Core singbox restarted successfully"
+}
+```
+
+---
+
+## Stats
+
+### Get Dashboard Stats
+
+**GET** `/api/stats/dashboard`
+
+Get aggregated statistics for the dashboard.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "stats": {
+    "total_users": 150,
+    "active_users": 120,
+    "online_users": 45,
+    "total_inbounds": 25,
+    "total_traffic_used_bytes": 1099511627776,
+    "total_traffic_limit_bytes": 10995116277760,
+    "cores_running": 2,
+    "cores_total": 3
+  }
+}
+```
+
+---
+
+### Get Active Connections
+
+**GET** `/api/stats/connections`
+
+Get list of active connections.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
 
 **Query Parameters:**
-- `token` (required): User's subscription token
+- `user_id` (optional): Filter by user ID
 
-**Response (200):**
+**Response (200 OK):**
 ```json
 {
-  "short_url": "http://localhost:8080/s/abc12345",
-  "short_code": "abc12345"
+  "success": true,
+  "connections": [
+    {
+      "user_id": 1,
+      "username": "user1",
+      "inbound_id": 1,
+      "inbound_name": "VMess-443",
+      "protocol": "vmess",
+      "ip_address": "192.168.1.100",
+      "connected_at": "2026-03-25T11:00:00Z",
+      "traffic_upload_bytes": 1048576,
+      "traffic_download_bytes": 10485760
+    }
+  ]
 }
 ```
 
 ---
 
-### GET /sub/:token/qr
+### Disconnect User
 
-Generate QR code for subscription URL.
+**POST** `/api/stats/user/:user_id/disconnect`
 
-**Authentication:** Token from user's `subscription_token` field
+Force disconnect a user from all active connections.
 
-**Response (200):**
+**Headers:**
 ```
-Content-Type: image/png
-[PNG image data]
+Authorization: Bearer <access_token>
 ```
 
----
-
-### GET /api/users/:id/subscription/stats
-
-(Admin, requires JWT) Get subscription access statistics.
-
-**Query Parameters:**
-- `days` (optional): Number of days to retrieve stats for (default: 7, range: 1-365)
-
-**Response (200):**
+**Response (200 OK):**
 ```json
 {
-  "total_accesses": 150,
-  "by_format": {
-    "v2ray": 80,
-    "clash": 50,
-    "singbox": 20
-  },
-  "by_day": {
-    "2026-03-20": 45,
-    "2026-03-21": 55,
-    "2026-03-22": 50
-  },
-  "unique_ips": 3,
-  "last_access": "2026-03-22T10:30:00Z"
+  "success": true,
+  "message": "User disconnected successfully",
+  "disconnected_count": 3
 }
 ```
-
----
-
-### POST /api/users/:id/subscription/regenerate
-
-(Admin, requires JWT) Regenerate a user's subscription token.
-
-**Response (200):**
-```json
-{
-  "subscription_token": "new_token_here",
-  "subscription_url": "https://panel.example.com/sub/new_token_here",
-  "clash_url": "https://panel.example.com/sub/new_token_here/clash",
-  "singbox_url": "https://panel.example.com/sub/new_token_here/singbox",
-  "qr_code_url": "https://panel.example.com/sub/new_token_here/qr"
-}
-```
-
-**Note:** This invalidates the old subscription token and all associated short URLs. Cached subscriptions are also cleared.
 
 ---
 
@@ -1038,77 +801,188 @@ All endpoints may return the following error responses:
 ### 400 Bad Request
 ```json
 {
-  "error": "Invalid request body"
+  "success": false,
+  "error": "Validation failed",
+  "details": {
+    "username": "Username is required",
+    "email": "Invalid email format"
+  }
 }
 ```
 
 ### 401 Unauthorized
 ```json
 {
-  "error": "Missing authorization header"
+  "success": false,
+  "error": "Unauthorized",
+  "message": "Invalid or expired token"
+}
+```
+
+### 403 Forbidden
+```json
+{
+  "success": false,
+  "error": "Forbidden",
+  "message": "Insufficient permissions"
 }
 ```
 
 ### 404 Not Found
 ```json
 {
-  "error": "Resource not found"
+  "success": false,
+  "error": "Not found",
+  "message": "Resource not found"
 }
 ```
 
 ### 500 Internal Server Error
 ```json
 {
-  "error": "Internal server error"
+  "success": false,
+  "error": "Internal server error",
+  "message": "An unexpected error occurred"
 }
 ```
 
 ---
 
-## Features
+## Rate Limiting
 
-### Lazy Loading
-Cores are not started automatically at system startup. They start only when:
-- First inbound is created for that core
-- Manual start command is issued
+API endpoints are rate limited to prevent abuse:
 
-Cores stop automatically when:
-- Last inbound is deleted
-- Manual stop command is issued
+- **Login endpoint**: 5 requests per minute per IP
+- **Subscription endpoints**: 30 requests per minute per token
+- **All other endpoints**: 100 requests per minute per user
 
-This saves 80-100MB RAM when cores are not in use.
+**Rate Limit Headers:**
+```
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 95
+X-RateLimit-Reset: 1648234567
+```
 
-### Config Regeneration
-Configuration files are automatically regenerated when:
-- Inbound is created/updated/deleted
-- User is assigned/unassigned to inbound
-
-### Rate Limiting
-- Login endpoint: 5 attempts per minute per IP
-- Subscription endpoints: 10 requests/hour per token, 30 requests/hour per IP
-- Other endpoints: No rate limiting (protected by authentication)
-
-### Caching
-- Subscription configs are cached for 5 minutes per user per format
-- Cache is invalidated when:
-  - User is updated
-  - Inbound is created/updated/deleted
-  - User-inbound mapping is changed
-  - Subscription token is regenerated
+**429 Too Many Requests:**
+```json
+{
+  "success": false,
+  "error": "Rate limit exceeded",
+  "retry_after": 60
+}
+```
 
 ---
 
-## Total Endpoints: 49
+## Health Check
 
-- **Auth:** 4 endpoints
-- **Admin:** 1 endpoint
-- **Cores:** 6 endpoints
-- **Users:** 7 endpoints
-- **Inbounds:** 8 endpoints
-- **Protocols:** 3 endpoints (Phase 3)
-- **Outbounds:** 5 endpoints (Phase 3)
-- **Inbound Users:** 2 endpoints (Phase 3)
-- **Subscriptions:** 8 endpoints (5 from Phase 3 + 3 from Phase 4)
-- **Health:** 1 endpoint
-- **API Info:** 1 endpoint
-- **Docs:** 1 endpoint (this page)
+**GET** `/health`
+
+Public health check endpoint (no authentication required).
+
+**Response (200 OK):**
+```json
+{
+  "status": "healthy",
+  "version": "0.1.0",
+  "uptime": "2h30m15s",
+  "database": "connected",
+  "timestamp": "2026-03-25T12:00:00Z"
+}
+```
+
+**Response (503 Service Unavailable):**
+```json
+{
+  "status": "unhealthy",
+  "version": "0.1.0",
+  "uptime": "2h30m15s",
+  "database": "disconnected",
+  "timestamp": "2026-03-25T12:00:00Z"
+}
+```
+
+---
+
+## Subscriptions (Public)
+
+These endpoints use token-based authentication instead of JWT.
+
+### Get V2Ray Subscription
+
+**GET** `/sub/:token`
+
+**Response (200 OK):**
+```
+vmess://eyJhZGQiOiJleGFtcGxlLmNvbSIsInBvcnQiOiI0NDMiLC...
+```
+
+---
+
+### Get Clash Subscription
+
+**GET** `/sub/:token/clash`
+
+**Response (200 OK):**
+```yaml
+port: 7890
+socks-port: 7891
+allow-lan: false
+mode: rule
+proxies:
+  - name: "VMess-443"
+    type: vmess
+    server: example.com
+    port: 443
+    ...
+proxy-groups:
+  - name: "PROXY"
+    type: select
+    proxies:
+      - "VMess-443"
+rules:
+  - MATCH,PROXY
+```
+
+---
+
+### Get Sing-box Subscription
+
+**GET** `/sub/:token/singbox`
+
+**Response (200 OK):**
+```json
+{
+  "log": {
+    "level": "info"
+  },
+  "inbounds": [],
+  "outbounds": [
+    {
+      "type": "vmess",
+      "tag": "VMess-443",
+      "server": "example.com",
+      "server_port": 443,
+      ...
+    }
+  ]
+}
+```
+
+---
+
+### Get QR Code
+
+**GET** `/sub/:token/qr`
+
+Get QR code for subscription URL.
+
+**Response (200 OK):**
+```
+PNG image data
+```
+
+---
+
+**API Version:** 0.1.0  
+**Last Updated:** March 2026
