@@ -1,0 +1,77 @@
+{
+  "scenarios": {
+    "api_baseline": {
+      "executor": "ramping-vus",
+      "startVUs": 0,
+      "stages": [
+        { "duration": "5m", "target": 50 },
+        { "duration": "10m", "target": 100 },
+        { "duration": "30m", "target": 100 },
+        { "duration": "5m", "target": 0 }
+      ],
+      "gracefulStop": "30s"
+    },
+    "subscription_export": {
+      "executor": "ramping-vus",
+      "startVUs": 0,
+      "stages": [
+        { "duration": "2m", "target": 25 },
+        { "duration": "5m", "target": 50 },
+        { "duration": "10m", "target": 50 },
+        { "duration": "3m", "target": 0 }
+      ],
+      "gracefulStop": "30s"
+    },
+    "concurrent_writes": {
+      "executor": "ramping-vus",
+      "startVUs": 0,
+      "stages": [
+        { "duration": "2m", "target": 10 },
+        { "duration": "5m", "target": 20 },
+        { "duration": "10m", "target": 20 },
+        { "duration": "3m", "target": 0 }
+      ],
+      "gracefulStop": "30s"
+    },
+    "config_generation": {
+      "executor": "ramping-vus",
+      "startVUs": 0,
+      "stages": [
+        { "duration": "2m", "target": 5 },
+        { "duration": "5m", "target": 10 },
+        { "duration": "10m", "target": 10 },
+        { "duration": "3m", "target": 0 }
+      ],
+      "gracefulStop": "30s"
+    },
+    "stress_test": {
+      "executor": "ramping-vus",
+      "startVUs": 0,
+      "stages": [
+        { "duration": "5m", "target": 50 },
+        { "duration": "5m", "target": 100 },
+        { "duration": "5m", "target": 200 },
+        { "duration": "5m", "target": 500 },
+        { "duration": "10m", "target": 500 },
+        { "duration": "5m", "target": 0 }
+      ],
+      "gracefulStop": "30s"
+    },
+    "endurance_test": {
+      "executor": "constant-vus",
+      "vus": 100,
+      "duration": "24h",
+      "gracefulStop": "5m"
+    }
+  },
+  "thresholds": {
+    "http_req_duration": ["p(95)<200"],
+    "http_req_failed": ["rate<0.01"],
+    "http_reqs": ["count>1000"]
+  },
+  "options": {
+    "summaryTrendStats": ["avg", "min", "med", "max", "p(90)", "p(95)", "p(99)"],
+    "noConnectionReuse": false,
+    "userAgent": "k6-load-test/1.0"
+  }
+}

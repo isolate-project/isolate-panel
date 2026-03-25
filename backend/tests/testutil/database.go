@@ -12,7 +12,7 @@ import (
 
 // SetupTestDB creates a true in-memory SQLite database for testing
 // Each call creates a new isolated in-memory database
-func SetupTestDB(t *testing.T) *gorm.DB {
+func SetupTestDB(t testing.TB) *gorm.DB {
 	t.Helper()
 
 	// Use true in-memory database (no file created)
@@ -41,7 +41,7 @@ func SetupTestDB(t *testing.T) *gorm.DB {
 }
 
 // TeardownTestDB closes the test database
-func TeardownTestDB(t *testing.T, db *gorm.DB) {
+func TeardownTestDB(t testing.TB, db *gorm.DB) {
 	t.Helper()
 	sqlDB, err := db.DB()
 	if err != nil {
@@ -161,7 +161,7 @@ func SeedTestData(t *testing.T, db *gorm.DB) {
 }
 
 // CreateTestUser creates a test user and returns it
-func CreateTestUser(t *testing.T, db *gorm.DB, username, email string) *models.User {
+func CreateTestUser(t testing.TB, db *gorm.DB, username, email string) *models.User {
 	t.Helper()
 
 	trafficLimit := int64(107374182400)
@@ -183,7 +183,7 @@ func CreateTestUser(t *testing.T, db *gorm.DB, username, email string) *models.U
 }
 
 // CreateTestInbound creates a test inbound and returns it
-func CreateTestInbound(t *testing.T, db *gorm.DB, name string, coreID uint) *models.Inbound {
+func CreateTestInbound(t testing.TB, db *gorm.DB, name string, coreID uint) *models.Inbound {
 	t.Helper()
 
 	inbound := &models.Inbound{
