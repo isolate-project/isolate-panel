@@ -1,0 +1,44 @@
+# Isolate Panel Configuration
+app:
+  name: "Isolate Panel"
+  env: "production"
+  port: 8080
+  host: "0.0.0.0"
+  admin_email: "admin@example.com"
+
+database:
+  path: /app/data/isolate-panel.db
+  max_open_conns: 100
+  max_idle_conns: 10
+
+jwt:
+  secret: x7K9mN2pQ5vR8wY3zA6bC0dE1fG4hJ7kL9nM2sT5uV8xA3yB6cD9eF2gH5jK8mN1pQ4r
+  access_token_ttl: 2592000
+  refresh_token_ttl: 7776000
+
+logging:
+  level: "info"
+  format: "json"
+  output: "stdout"
+  file_path: "/app/logs/isolate-panel.log"
+  max_size: 100
+  max_backups: 3
+  max_age: 30
+  compress: true
+
+security:
+  argon2:
+    time: 1
+    memory: 65536
+    threads: 4
+    key_length: 32
+    salt_length: 16
+
+cores:
+  config_dir: /app/data/cores
+  supervisor_url: "http://localhost:9001"
+  xray_api_addr: "127.0.0.1:10085"
+  singbox_api_addr: "127.0.0.1:9090"
+  mihomo_api_addr: "127.0.0.1:9091"
+  singbox_api_key: "isolate-singbox-key"
+  mihomo_api_key: "isolate-mihomo-key"
