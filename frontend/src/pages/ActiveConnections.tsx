@@ -1,7 +1,7 @@
 import { useState } from 'preact/hooks'
 import { PageLayout } from '../components/layout/PageLayout'
 import { PageHeader } from '../components/layout/PageHeader'
-import { Card } from '../components/ui/Card'
+import { Card, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { Spinner } from '../components/ui/Spinner'
@@ -36,7 +36,7 @@ export function ActiveConnections() {
   const [autoRefresh, setAutoRefresh] = useState(true)
 
   const { data, isLoading, refetch } = useQuery<{ connections: Connection[]; total: number }>(
-    'active-connections',
+    `active-connections-${userIdFilter}`,
     () => {
       const params = userIdFilter ? { user_id: userIdFilter } : {}
       return apiClient.get('/stats/connections', { params }).then((res: any) => res.data)
@@ -100,14 +100,14 @@ export function ActiveConnections() {
         actions={
           <div className="flex items-center gap-2">
             <Button
-              variant={autoRefresh ? 'primary' : 'secondary'}
+              variant={autoRefresh ? 'default' : 'secondary'}
               size="sm"
               onClick={() => setAutoRefresh(!autoRefresh)}
             >
               <RefreshCw className={`w-4 h-4 mr-1 ${autoRefresh ? 'animate-spin' : ''}`} />
               {autoRefresh ? t('connections.autoRefreshOn') : t('connections.autoRefreshOff')}
             </Button>
-            <Button variant="secondary" size="sm" onClick={() => refetch()}>
+            <Button variant="outline" size="sm" onClick={() => refetch()}>
               <RefreshCw className="w-4 h-4 mr-1" />
               {t('common.refresh')}
             </Button>
@@ -116,6 +116,7 @@ export function ActiveConnections() {
       />
 
       <Card className="mb-6">
+      <CardContent className="p-6">
         <div className="flex items-center gap-4 mb-4">
           <div className="flex-1">
             <Input
@@ -160,7 +161,7 @@ export function ActiveConnections() {
                       <span className="font-medium text-primary">User #{conn.user_id}</span>
                     </td>
                     <td className="py-3 px-4">
-                      <Badge variant="info">{conn.core_name}</Badge>
+                      <Badge variant="outline">{conn.core_name}</Badge>
                     </td>
                     <td className="py-3 px-4">
                       <div className="text-sm text-primary">{conn.source_ip}</div>
@@ -183,7 +184,7 @@ export function ActiveConnections() {
                     </td>
                     <td className="py-3 px-4">
                       <Button
-                        variant="danger"
+                        variant="destructive"
                         size="sm"
                         onClick={() => handleDisconnect(conn.user_id)}
                         disabled={disconnectMutation.isLoading}
@@ -198,7 +199,8 @@ export function ActiveConnections() {
             </table>
           </div>
         )}
-      </Card>
+            </CardContent>
+    </Card>
     </PageLayout>
   )
 }

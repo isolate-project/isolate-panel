@@ -1,4 +1,4 @@
-import { useEffect } from 'preact/hooks'
+import { useEffect, useRef } from 'preact/hooks'
 import { useToastStore } from '../stores/toastStore'
 import i18n from '../i18n'
 
@@ -6,6 +6,8 @@ let hasShownSessionExpired = false
 
 export function useSessionExpired() {
   const { addToast } = useToastStore()
+
+  const timeoutRef = useRef<number | null>(null)
 
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
@@ -18,14 +20,21 @@ export function useSessionExpired() {
             message: i18n.t('auth.sessionExpired'),
             duration: 5000,
           })
-          setTimeout(() => {
+          
+          if (timeoutRef.current) window.clearTimeout(timeoutRef.current)
+          
+          timeoutRef.current = window.setTimeout(() => {
             hasShownSessionExpired = false
+            timeoutRef.current = null
           }, 6000)
         }
       }
     }
 
     window.addEventListener('storage', handleStorageChange)
-    return () => window.removeEventListener('storage', handleStorageChange)
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      if (timeoutRef.current) window.clearTimeout(timeoutRef.current)
+    }
   }, [addToast])
 }

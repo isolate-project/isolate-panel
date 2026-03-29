@@ -11,14 +11,16 @@ export interface Toast {
 
 interface ToastState {
   toasts: Toast[]
+  timeouts: Map<string, number>
   addToast: (toast: Omit<Toast, 'id'>) => void
   removeToast: (id: string) => void
   clearAll: () => void
 }
 
-export const useToastStore = create<ToastState>((set) => ({
+export const useToastStore = create<ToastState>((set, get) => ({
   toasts: [],
-
+  timeouts: new Map(),
+  
   addToast: (toast) => {
     const id = Math.random().toString(36).substring(2, 9)
     const newToast: Toast = {
@@ -33,18 +35,27 @@ export const useToastStore = create<ToastState>((set) => ({
 
     // Auto-remove after duration
     if (newToast.duration && newToast.duration > 0) {
-      setTimeout(() => {
-        set((state) => ({
-          toasts: state.toasts.filter((t) => t.id !== id),
-        }))
+      const timeoutId = window.setTimeout(() => {
+        get().removeToast(id)
       }, newToast.duration)
+      get().timeouts.set(id, timeoutId)
     }
   },
 
-  removeToast: (id) =>
+  removeToast: (id) => {
+    const timeoutId = get().timeouts.get(id)
+    if (timeoutId) {
+      window.clearTimeout(timeoutId)
+      get().timeouts.delete(id)
+    }
     set((state) => ({
       toasts: state.toasts.filter((t) => t.id !== id),
-    })),
+    }))
+  },
 
-  clearAll: () => set({ toasts: [] }),
+  clearAll: () => {
+    get().timeouts.forEach((id) => window.clearTimeout(id))
+    get().timeouts.clear()
+    set({ toasts: [] })
+  },
 }))

@@ -1,31 +1,30 @@
 import { useState, useMemo } from 'preact/hooks'
 import { PageLayout } from '../components/layout/PageLayout'
 import { PageHeader } from '../components/layout/PageHeader'
-import { Card } from '../components/ui/Card'
+import { Card, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
-import { Spinner } from '../components/ui/Spinner'
+import { Progress } from '../components/ui/Progress'
+import { Skeleton } from '../components/ui/Skeleton'
 import { Modal } from '../components/ui/Modal'
 import { Alert } from '../components/ui/Alert'
 import { Input } from '../components/ui/Input'
 import { Select } from '../components/ui/Select'
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '../components/ui/DropdownMenu'
 import { useUsers, useDeleteUser, useRegenerateCredentials, useUserInbounds } from '../hooks/useUsers'
 import { UserForm } from '../components/forms/UserForm'
 import { SubscriptionLinks } from '../components/features/SubscriptionLinks'
 import type { User, Inbound } from '../types'
-import { Plus, Edit, Trash2, RefreshCw, Copy, List, ChevronLeft, ChevronRight, Search, Link as LinkIcon } from 'lucide-preact'
+import { Plus, Edit, Trash2, RefreshCw, Copy, List, Search, Link as LinkIcon, MoreVertical, CalendarDays, ShieldAlert } from 'lucide-preact'
 import { useTranslation } from 'react-i18next'
 
 export function Users() {
   const { t } = useTranslation()
-  
-  // Pagination state
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(20)
-  
-  // Search and filter state
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
+  const [openDropdownId, setOpenDropdownId] = useState<number | null>(null)
   
   const { data: response, isLoading, refetch } = useUsers({ page, limit })
   const { mutate: deleteUser } = useDeleteUser()
@@ -41,16 +40,12 @@ export function Users() {
   const [isSubscriptionOpen, setIsSubscriptionOpen] = useState(false)
   const [userForSubscription, setUserForSubscription] = useState<User | null>(null)
 
-  // Extract users and pagination info from response
   const users = response?.users || []
   const total = response?.total || 0
   const totalPages = Math.ceil(total / limit)
 
-  // Filter users based on search and status
   const filteredUsers = useMemo(() => {
     let filtered = users
-
-    // Search filter
     if (searchTerm) {
       const term = searchTerm.toLowerCase()
       filtered = filtered.filter((user: User) =>
@@ -59,14 +54,11 @@ export function Users() {
         user.uuid?.toLowerCase().includes(term)
       )
     }
-
-    // Status filter
     if (statusFilter !== 'all') {
       filtered = filtered.filter((user: User) =>
         statusFilter === 'active' ? user.is_active : !user.is_active
       )
     }
-
     return filtered
   }, [users, searchTerm, statusFilter])
 
@@ -103,21 +95,78 @@ export function Users() {
     setIsInboundsModalOpen(true)
   }
 
-  const handleSearchChange = (e: Event) => {
-    const target = e.target as HTMLInputElement
-    setSearchTerm(target.value)
-  }
+interface UserActionMenuProps {
+  user: User;
+  openDropdownId: number | null;
+  setOpenDropdownId: (id: number | null) => void;
+  onCopyToken: (token: string) => void;
+  onViewSubscription: (user: User) => void;
+  onViewInbounds: (user: User) => void;
+  onEdit: (user: User) => void;
+  onRegenerate: (userId: number) => void;
+  onDelete: (user: User) => void;
+  t: (key: string) => string;
+}
 
-  const handleStatusFilterChange = (e: Event) => {
-    const target = e.target as HTMLSelectElement
-    setStatusFilter(target.value as 'all' | 'active' | 'inactive')
-  }
+const UserActionMenu = ({
+  user,
+  openDropdownId,
+  setOpenDropdownId,
+  onCopyToken,
+  onViewSubscription,
+  onViewInbounds,
+  onEdit,
+  onRegenerate,
+  onDelete,
+  t
+}: UserActionMenuProps) => (
+  <DropdownMenu>
+    <DropdownMenuTrigger onClick={() => setOpenDropdownId(openDropdownId === user.id ? null : user.id)}>
+      <Button variant="ghost" size="icon" className="h-8 w-8 text-text-tertiary">
+        <MoreVertical className="h-4 w-4" />
+      </Button>
+    </DropdownMenuTrigger>
+    <DropdownMenuContent isOpen={openDropdownId === user.id} onClose={() => setOpenDropdownId(null)}>
+      <DropdownMenuItem onClick={() => { setOpenDropdownId(null); onCopyToken(user.subscription_token) }}>
+        <Copy className="mr-2 h-4 w-4 text-text-secondary" /> {t('users.copyToken')}
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={() => { setOpenDropdownId(null); onViewSubscription(user); }}>
+        <LinkIcon className="mr-2 h-4 w-4 text-text-secondary" /> {t('subscriptions.title')}
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem onClick={() => { setOpenDropdownId(null); onViewInbounds(user) }}>
+        <List className="mr-2 h-4 w-4 text-text-secondary" /> {t('users.viewInbounds')}
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={() => { setOpenDropdownId(null); onEdit(user); }}>
+        <Edit className="mr-2 h-4 w-4 text-text-secondary" /> {t('users.editUser')}
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={() => { setOpenDropdownId(null); onRegenerate(user.id) }}>
+        <RefreshCw className="mr-2 h-4 w-4 text-text-secondary" /> {t('users.regenerateCredentials')}
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem onClick={() => { setOpenDropdownId(null); onDelete(user); }} variant="danger">
+        <Trash2 className="mr-2 h-4 w-4" /> {t('users.deleteUser')}
+      </DropdownMenuItem>
+    </DropdownMenuContent>
+  </DropdownMenu>
+)
 
-  const handleLimitChange = (e: Event) => {
-    const target = e.target as HTMLSelectElement
-    setLimit(Number(target.value))
-    setPage(1)
-  }
+const TrafficDisplay = ({ used, total, formatBytes }: { used: number, total: number | null, formatBytes: (b: number) => string }) => {
+  if (!total) return <span className="text-sm font-medium text-text-primary">{formatBytes(used)} <span className="text-text-tertiary text-xs font-normal ml-1">Total Limit: ∞</span></span>
+  const percent = Math.min((used / total) * 100, 100)
+  return (
+    <div className="w-full max-w-[200px]">
+      <div className="flex justify-between items-center text-xs mb-1.5">
+        <span className="font-medium text-text-primary">{formatBytes(used)}</span>
+        <span className="text-text-tertiary">{formatBytes(total)}</span>
+      </div>
+      <Progress 
+        value={percent} 
+        indicatorClassName={percent > 90 ? 'bg-color-danger' : percent > 75 ? 'bg-color-warning' : 'bg-color-success'}
+      />
+    </div>
+  )
+}
 
   return (
     <PageLayout>
@@ -125,169 +174,106 @@ export function Users() {
         title={t('users.title')}
         description={t('users.description')}
         actions={
-          <Button
-            variant="primary"
-            onClick={() => setIsCreateModalOpen(true)}
-          >
+          <Button onClick={() => setIsCreateModalOpen(true)}>
             <Plus className="w-4 h-4 mr-2" />
             {t('users.addUser')}
           </Button>
         }
       />
 
-      {/* Search and Filter Bar */}
-      <Card className="mb-4">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-tertiary" />
+      <Card className="mb-6 rounded-2xl shadow-sm border-white/5">
+        <CardContent className="p-4 sm:p-2 sm:px-4">
+          <div className="flex flex-col sm:flex-row gap-4 sm:items-center">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-tertiary" />
               <Input
                 type="text"
-                placeholder={t('users.searchPlaceholder') || 'Search by username, email, or UUID...'}
+                placeholder={t('users.searchPlaceholder') || 'Search users...'}
                 value={searchTerm}
-                onChange={handleSearchChange}
-                className="pl-10"
+                onChange={(e: any) => setSearchTerm(e.target.value)}
+                className="pl-10 h-10 bg-transparent border-none focus:ring-0 shadow-none text-base sm:text-sm placeholder:text-text-tertiary"
+              />
+            </div>
+            <div className="h-px sm:h-8 w-full sm:w-px bg-border-primary mx-2 hidden sm:block"></div>
+            <div className="flex gap-4 sm:gap-2">
+              <Select
+                value={statusFilter}
+                onChange={(e: any) => setStatusFilter(e.target.value)}
+                options={[
+                  { value: 'all', label: t('common.all') || 'All Status' },
+                  { value: 'active', label: t('common.active') || 'Active' },
+                  { value: 'inactive', label: t('common.inactive') || 'Inactive' },
+                ]}
+              />
+              <Select
+                value={limit.toString()}
+                onChange={(e: any) => { setLimit(Number(e.target.value)); setPage(1) }}
+                options={[
+                  { value: '10', label: '10 / page' }, { value: '20', label: '20 / page' }, { value: '50', label: '50 / page' }
+                ]}
               />
             </div>
           </div>
-          <div className="w-full md:w-48">
-            <Select
-              value={statusFilter}
-              onChange={handleStatusFilterChange}
-              options={[
-                { value: 'all', label: t('common.all') || 'All Status' },
-                { value: 'active', label: t('common.active') || 'Active' },
-                { value: 'inactive', label: t('common.inactive') || 'Inactive' },
-              ]}
-            />
-          </div>
-          <div className="w-full md:w-32">
-            <Select
-              value={limit.toString()}
-              onChange={handleLimitChange}
-              options={[
-                { value: '10', label: '10 / page' },
-                { value: '20', label: '20 / page' },
-                { value: '50', label: '50 / page' },
-                { value: '100', label: '100 / page' },
-              ]}
-            />
-          </div>
-        </div>
+        </CardContent>
       </Card>
 
       {isLoading ? (
-        <Card className="flex items-center justify-center py-12">
-          <Spinner size="lg" />
-        </Card>
+        <Card><CardContent className="p-6 space-y-4">{Array(5).fill(0).map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-xl" />)}</CardContent></Card>
       ) : filteredUsers && filteredUsers.length > 0 ? (
         <>
-          <Card padding="none">
+          <Card className="hidden md:block overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-secondary border-b border-primary">
+              <table className="w-full text-left text-sm whitespace-nowrap">
+                <thead className="bg-bg-tertiary/50 text-text-secondary border-b border-border-primary uppercase text-xs tracking-wider">
                   <tr>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-primary">
-                      {t('users.username')}
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-primary">
-                      {t('users.email')}
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-primary">
-                      {t('users.trafficUsed')}
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-primary">
-                      {t('common.status')}
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-primary">
-                      {t('users.createdAt')}
-                    </th>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-primary">
-                      {t('common.actions')}
-                    </th>
+                    <th className="px-6 py-4 font-semibold">User details</th>
+                    <th className="px-6 py-4 font-semibold">Status</th>
+                    <th className="px-6 py-4 font-semibold w-[250px]">Traffic</th>
+                    <th className="px-6 py-4 font-semibold">Created</th>
+                    <th className="px-6 py-4 text-right"></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-primary">
+                <tbody className="divide-y divide-border-primary/50 text-text-primary">
                   {filteredUsers.map((user: User) => (
-                    <tr key={user.id} className="hover:bg-hover transition-base">
-                      <td className="px-4 py-3">
-                        <div className="font-medium text-primary">{user.username}</div>
-                        <div className="text-xs text-tertiary">UUID: {user.uuid?.substring(0, 8)}...</div>
+                    <tr key={user.id} className="hover:bg-bg-hover/50 transition-colors group">
+                      <td className="px-6 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-color-primary/10 text-color-primary flex items-center justify-center font-bold text-lg leading-none shrink-0">
+                            {user.username.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-text-primary">{user.username}</p>
+                            <p className="text-xs text-text-tertiary">ID: {user.uuid?.substring(0, 8)}</p>
+                          </div>
+                        </div>
                       </td>
-                      <td className="px-4 py-3 text-sm text-secondary">
-                        {user.email || '-'}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-secondary">
-                        {formatBytes(user.traffic_used_bytes || 0)}
-                        {user.traffic_limit_bytes && (
-                          <span className="text-tertiary">
-                            {' / '}
-                            {formatBytes(user.traffic_limit_bytes)}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <Badge variant={user.is_active ? 'success' : 'default'}>
-                          {user.is_active ? t('common.active') : t('common.inactive')}
+                      <td className="px-6 py-3">
+                        <Badge variant={user.is_active ? 'success' : 'secondary'} showDot className="uppercase tracking-wider text-[10px]">
+                          {user.is_active ? 'Active' : 'Disabled'}
                         </Badge>
                       </td>
-                      <td className="px-4 py-3 text-sm text-secondary">
-                        {new Date(user.created_at).toLocaleDateString()}
+                      <td className="px-6 py-3">
+                        <TrafficDisplay used={user.traffic_used_bytes || 0} total={user.traffic_limit_bytes} formatBytes={formatBytes} />
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => handleViewInbounds(user)}
-                            className="p-1 hover:bg-hover rounded transition-base"
-                            title={t('users.viewInbounds')}
-                          >
-                            <List className="w-4 h-4 text-secondary" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setUserForSubscription(user)
-                              setIsSubscriptionOpen(true)
-                            }}
-                            className="p-1 hover:bg-hover rounded transition-base"
-                            title={t('subscriptions.title')}
-                          >
-                            <LinkIcon className="w-4 h-4 text-secondary" />
-                          </button>
-                          <button
-                            onClick={() => copyToClipboard(user.subscription_token)}
-                            className="p-1 hover:bg-hover rounded transition-base"
-                            title={t('users.copyToken')}
-                          >
-                            <Copy className="w-4 h-4 text-secondary" />
-                          </button>
-                          <button
-                            onClick={() => handleRegenerate(user.id)}
-                            className="p-1 hover:bg-hover rounded transition-base"
-                            title={t('users.regenerateCredentials')}
-                          >
-                            <RefreshCw className="w-4 h-4 text-secondary" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSelectedUser(user)
-                              setIsEditModalOpen(true)
-                            }}
-                            className="p-1 hover:bg-hover rounded transition-base"
-                            title={t('users.editUser')}
-                          >
-                            <Edit className="w-4 h-4 text-secondary" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setUserToDelete(user)
-                              setIsDeleteModalOpen(true)
-                            }}
-                            className="p-1 hover:bg-hover rounded transition-base"
-                            title={t('users.deleteUser')}
-                          >
-                            <Trash2 className="w-4 h-4 text-danger" />
-                          </button>
+                      <td className="px-6 py-3 text-text-secondary">
+                        <div className="flex items-center gap-2 text-sm">
+                          <CalendarDays className="w-4 h-4 text-text-tertiary" />
+                          {new Date(user.created_at).toLocaleDateString()}
                         </div>
+                      </td>
+                      <td className="px-6 py-3 text-right">
+                        <UserActionMenu 
+                          user={user} 
+                          openDropdownId={openDropdownId}
+                          setOpenDropdownId={setOpenDropdownId}
+                          onCopyToken={copyToClipboard}
+                          onViewSubscription={(u) => { setUserForSubscription(u); setIsSubscriptionOpen(true); }}
+                          onViewInbounds={handleViewInbounds}
+                          onEdit={(u) => { setSelectedUser(u); setIsEditModalOpen(true); }}
+                          onRegenerate={handleRegenerate}
+                          onDelete={(u) => { setUserToDelete(u); setIsDeleteModalOpen(true); }}
+                          t={t}
+                        />
                       </td>
                     </tr>
                   ))}
@@ -296,216 +282,121 @@ export function Users() {
             </div>
           </Card>
 
-          {/* Pagination Controls */}
-          <Card className="mt-4">
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-secondary">
-                {t('users.showingResults', {
-                  from: ((page - 1) * limit) + 1,
-                  to: Math.min(page * limit, total),
-                  total: total,
-                })}
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </Button>
-                <span className="text-sm text-secondary">
-                  {t('users.pageOf', { page, totalPages })}
-                </span>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
-              </div>
+          <div className="grid grid-cols-1 gap-4 md:hidden">
+            {filteredUsers.map((user: User) => (
+              <Card key={user.id} className="relative overflow-hidden">
+                <CardContent className="p-4 space-y-4">
+                  <div className="flex justify-between items-start">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-color-primary/10 text-color-primary flex items-center justify-center font-bold text-lg leading-none">
+                        {user.username.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-base text-text-primary">{user.username}</p>
+                        <Badge variant={user.is_active ? 'success' : 'secondary'} showDot className="mt-1 lowercase text-[10px]">
+                          {user.is_active ? 'active' : 'disabled'}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div>
+                      <UserActionMenu 
+                        user={user} 
+                        openDropdownId={openDropdownId}
+                        setOpenDropdownId={setOpenDropdownId}
+                        onCopyToken={copyToClipboard}
+                        onViewSubscription={(u) => { setUserForSubscription(u); setIsSubscriptionOpen(true); }}
+                        onViewInbounds={handleViewInbounds}
+                        onEdit={(u) => { setSelectedUser(u); setIsEditModalOpen(true); }}
+                        onRegenerate={handleRegenerate}
+                        onDelete={(u) => { setUserToDelete(u); setIsDeleteModalOpen(true); }}
+                        t={t}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="bg-bg-tertiary/30 rounded-xl p-3 border border-border-primary/50">
+                    <TrafficDisplay used={user.traffic_used_bytes || 0} total={user.traffic_limit_bytes} formatBytes={formatBytes} />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p className="text-sm text-text-secondary">
+              Showing <span className="font-medium text-text-primary">{((page - 1) * limit) + 1}</span> to <span className="font-medium text-text-primary">{Math.min(page * limit, total)}</span> of <span className="font-medium text-text-primary">{total}</span> users
+            </p>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>Previous</Button>
+              <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>Next</Button>
             </div>
-          </Card>
+          </div>
         </>
-      ) : searchTerm || statusFilter !== 'all' ? (
-        <Card className="text-center py-12">
-          <p className="text-secondary mb-4">{t('users.noUsersFiltered')}</p>
-          <Button variant="secondary" onClick={() => {
-            setSearchTerm('')
-            setStatusFilter('all')
-          }}>
-            {t('common.clearFilters')}
-          </Button>
-        </Card>
       ) : (
-        <Card className="text-center py-12">
-          <p className="text-secondary mb-4">{t('users.noUsersYet')}</p>
-          <Button variant="primary" onClick={() => setIsCreateModalOpen(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            {t('users.addUser')}
-          </Button>
+        <Card className="text-center py-16">
+          <CardContent className="flex flex-col items-center">
+            <div className="w-16 h-16 bg-bg-tertiary rounded-full flex items-center justify-center mb-4">
+              <ShieldAlert className="w-8 h-8 text-text-tertiary" />
+            </div>
+            <p className="text-lg font-medium text-text-primary">No users found</p>
+            <p className="text-text-secondary mb-6 mt-1">Create a user to give them access to the internet.</p>
+            <Button onClick={() => setIsCreateModalOpen(true)}><Plus className="w-4 h-4 mr-2" /> Add User</Button>
+          </CardContent>
         </Card>
       )}
 
-      {/* Create User Modal */}
-      <Modal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        title={t('users.addUser')}
-        size="lg"
-      >
-        <UserForm
-          onSuccess={() => {
-            setIsCreateModalOpen(false)
-            refetch()
-          }}
-          onCancel={() => setIsCreateModalOpen(false)}
-        />
+      <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} title={t('users.addUser')} size="lg">
+        <UserForm onSuccess={() => { setIsCreateModalOpen(false); refetch() }} onCancel={() => setIsCreateModalOpen(false)} />
       </Modal>
 
-      {/* Edit User Modal */}
-      <Modal
-        isOpen={isEditModalOpen}
-        onClose={() => {
-          setIsEditModalOpen(false)
-          setSelectedUser(null)
-        }}
-        title={t('users.editUser')}
-        size="lg"
-      >
-        {selectedUser && (
-          <UserForm
-            user={selectedUser}
-            onSuccess={() => {
-              setIsEditModalOpen(false)
-              setSelectedUser(null)
-              refetch()
-            }}
-            onCancel={() => {
-              setIsEditModalOpen(false)
-              setSelectedUser(null)
-            }}
-          />
-        )}
+      <Modal isOpen={isEditModalOpen} onClose={() => { setIsEditModalOpen(false); setSelectedUser(null) }} title={t('users.editUser')} size="lg">
+        {selectedUser && <UserForm user={selectedUser} onSuccess={() => { setIsEditModalOpen(false); setSelectedUser(null); refetch() }} onCancel={() => { setIsEditModalOpen(false); setSelectedUser(null) }} />}
       </Modal>
 
-      {/* Delete Confirmation Modal */}
-      <Modal
-        isOpen={isDeleteModalOpen}
-        onClose={() => {
-          setIsDeleteModalOpen(false)
-          setUserToDelete(null)
-        }}
-        title={t('users.deleteUser')}
-      >
-        <Alert variant="danger" className="mb-4">
-          {t('users.deleteConfirm')}
-        </Alert>
-        {userToDelete && (
-          <p className="text-secondary mb-4">
-            {t('users.username')}: <strong>{userToDelete.username}</strong>
-          </p>
-        )}
+      <Modal isOpen={isDeleteModalOpen} onClose={() => { setIsDeleteModalOpen(false); setUserToDelete(null) }} title={t('users.deleteUser')}>
+        <Alert variant="danger" className="mb-4">This action cannot be undone.</Alert>
+        {userToDelete && <p className="text-text-secondary mb-6">Are you sure you want to permanently delete user <strong>{userToDelete.username}</strong>?</p>}
         <div className="flex gap-3 justify-end">
-          <Button
-            variant="secondary"
-            onClick={() => {
-              setIsDeleteModalOpen(false)
-              setUserToDelete(null)
-            }}
-          >
-            {t('common.cancel')}
-          </Button>
-          <Button variant="danger" onClick={handleDelete}>
-            {t('common.delete')}
-          </Button>
+          <Button variant="outline" onClick={() => { setIsDeleteModalOpen(false); setUserToDelete(null) }}>{t('common.cancel')}</Button>
+          <Button variant="destructive" onClick={handleDelete}>{t('common.delete')}</Button>
         </div>
       </Modal>
 
-      {/* View User Inbounds Modal */}
-      <Modal
-        isOpen={isInboundsModalOpen}
-        onClose={() => {
-          setIsInboundsModalOpen(false)
-          setUserForInbounds(null)
-        }}
-        title={t('users.inboundsFor', { username: userForInbounds?.username || '' })}
-        size="lg"
-      >
+      <Modal isOpen={isInboundsModalOpen} onClose={() => { setIsInboundsModalOpen(false); setUserForInbounds(null) }} title={`Inbounds for ${userForInbounds?.username || ''}`} size="lg">
         {userForInbounds && <UserInboundsView userId={userForInbounds.id} />}
       </Modal>
 
-      {/* Subscription Links Modal */}
       {userForSubscription && (
-        <SubscriptionLinks
-          isOpen={isSubscriptionOpen}
-          onClose={() => {
-            setIsSubscriptionOpen(false)
-            setUserForSubscription(null)
-          }}
-          user={userForSubscription}
-        />
+        <SubscriptionLinks isOpen={isSubscriptionOpen} onClose={() => { setIsSubscriptionOpen(false); setUserForSubscription(null) }} user={userForSubscription} />
       )}
     </PageLayout>
   )
 }
 
-// Component to display user's inbounds
 function UserInboundsView({ userId }: { userId: number }) {
   const { t } = useTranslation()
   const { data: inbounds, isLoading } = useUserInbounds(userId)
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <Spinner size="lg" />
-      </div>
-    )
-  }
-
-  if (!inbounds || inbounds.length === 0) {
-    return (
-      <div className="text-center py-8">
-        <p className="text-secondary">{t('users.noInboundsAssigned')}</p>
-      </div>
-    )
-  }
+  if (isLoading) return <div className="flex items-center justify-center py-8"><Skeleton className="h-12 w-full" /></div>
+  if (!inbounds || inbounds.length === 0) return <div className="text-center py-8 text-text-secondary">{t('users.noInboundsAssigned')}</div>
 
   return (
     <div className="space-y-3">
       {inbounds.map((inbound: Inbound) => (
-        <Card key={inbound.id} className="p-4">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                <h4 className="font-medium text-primary">{inbound.name}</h4>
-                <Badge variant={inbound.is_enabled ? 'success' : 'default'}>
+        <Card key={inbound.id}>
+          <CardContent className="p-4 flex justify-between items-center">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <h4 className="font-medium text-text-primary text-base">{inbound.name}</h4>
+                <Badge variant={inbound.is_enabled ? 'success' : 'secondary'} className="text-[10px] uppercase">
                   {inbound.is_enabled ? t('users.enabled') : t('users.disabled')}
                 </Badge>
               </div>
-              <div className="space-y-1 text-sm text-secondary">
-                <div>
-                  <span className="text-tertiary">{t('inbounds.protocol')}:</span> {inbound.protocol?.toUpperCase()}
-                </div>
-                <div>
-                  <span className="text-tertiary">{t('inbounds.port')}:</span> {inbound.port}
-                </div>
-                {inbound.listen_address && (
-                  <div>
-                    <span className="text-tertiary">{t('inbounds.listenAddress')}:</span> {inbound.listen_address}
-                  </div>
-                )}
-                {inbound.tls_enabled && (
-                  <div>
-                    <Badge variant="info" className="text-xs">TLS</Badge>
-                  </div>
-                )}
-              </div>
+              <p className="text-xs text-text-secondary font-mono bg-bg-tertiary px-2 py-1 rounded inline-block">
+                {inbound.protocol}://{inbound.listen_address || '*'}:{inbound.port}
+              </p>
             </div>
-          </div>
+          </CardContent>
         </Card>
       ))}
     </div>
