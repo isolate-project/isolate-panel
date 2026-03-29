@@ -5,6 +5,8 @@ import { useAuthStore } from '../../stores/authStore'
 import { useSystemResources } from '../../hooks/useSystem'
 import { invalidateAuthCache } from '../../router/ProtectedRoute'
 import { useTranslation } from 'react-i18next'
+import { Button } from '../ui/Button'
+import { cn } from '../../lib/utils'
 
 interface HeaderProps {
   onMenuClick: () => void
@@ -30,37 +32,45 @@ export function Header({ onMenuClick }: HeaderProps) {
   const cpuPercent = resources?.cpu?.percent || 0
 
   return (
-    <header className="h-16 bg-primary border-b border-primary sticky top-0 z-sticky">
-      <div className="h-full px-4 flex items-center justify-between">
-        {/* Left: Mobile menu button */}
-        <button
-          onClick={onMenuClick}
-          className="lg:hidden p-2 hover:bg-hover rounded-lg transition-base"
-          aria-label="Toggle menu"
-        >
-          <Menu className="w-6 h-6" />
-        </button>
+    <header className="sticky top-0 z-sticky h-16 border-b border-border-primary bg-bg-primary/80 backdrop-blur-md">
+      <div className="flex h-full items-center justify-between px-4 sm:px-6">
+        {/* Left: Mobile menu button & Breadcrumbs placeholder */}
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onMenuClick}
+            className="lg:hidden"
+            aria-label="Toggle menu"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+        </div>
 
         {/* Center: System Metrics Widget */}
         <div className="flex-1 flex justify-center">
           {resources && (
-            <div className="hidden md:flex items-center gap-4 text-sm">
-              <div className="flex items-center gap-2">
-                <HardDrive className="w-4 h-4 text-tertiary" />
-                <span className="text-secondary">{t('dashboard.ramUsage')}</span>
-                <span className={
-                  ramPercent > 85 ? 'text-danger font-semibold' :
-                  ramPercent > 70 ? 'text-warning font-semibold' :
-                  'text-success'
-                }>
-                  {ramPercent}%
+            <div className="hidden md:flex items-center gap-6 rounded-full border border-border-primary bg-bg-secondary/50 px-4 py-1.5 shadow-sm">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <HardDrive className="h-4 w-4 text-text-tertiary" />
+                <span className={cn(
+                  "transition-colors",
+                  ramPercent > 85 ? 'text-color-danger' :
+                  ramPercent > 70 ? 'text-color-warning' :
+                  'text-text-primary'
+                )}>
+                  RAM {ramPercent}%
                 </span>
               </div>
-              <div className="flex items-center gap-2">
-                <Cpu className="w-4 h-4 text-tertiary" />
-                <span className="text-secondary">{t('dashboard.cpuUsage')}</span>
-                <span className="text-primary font-medium">
-                  {cpuPercent}%
+              <div className="h-4 w-px bg-border-primary"></div>
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Cpu className="h-4 w-4 text-text-tertiary" />
+                <span className={cn(
+                  "transition-colors",
+                  cpuPercent > 80 ? 'text-color-danger' : 
+                  'text-text-primary'
+                )}>
+                  CPU {cpuPercent}%
                 </span>
               </div>
             </div>
@@ -70,42 +80,55 @@ export function Header({ onMenuClick }: HeaderProps) {
         {/* Right: Actions */}
         <div className="flex items-center gap-2">
           {/* Theme Toggle */}
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={toggleTheme}
-            className="p-2 hover:bg-hover rounded-lg transition-base"
             aria-label="Toggle theme"
+            className="text-text-secondary hover:text-text-primary"
           >
             {theme === 'light' ? (
-              <Moon className="w-5 h-5" />
+              <Moon className="h-5 w-5" />
             ) : (
-              <Sun className="w-5 h-5" />
+              <Sun className="h-5 w-5" />
             )}
-          </button>
+          </Button>
 
           {/* Language Switcher */}
-          <div className="relative group">
-            <button
-              className="p-2 hover:bg-hover rounded-lg transition-base"
+          <div className="group relative">
+            <Button
+              variant="ghost"
+              size="icon"
               aria-label="Change language"
+              className="text-text-secondary hover:text-text-primary"
             >
-              <Globe className="w-5 h-5" />
-            </button>
-            <div className="absolute right-0 mt-2 w-32 bg-primary border border-primary rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-base">
+              <Globe className="h-5 w-5" />
+            </Button>
+            <div className="absolute right-0 mt-1 w-32 origin-top-right rounded-xl border border-border-primary bg-bg-primary p-1 shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
               <button
                 onClick={() => changeLanguage('en')}
-                className="block w-full px-4 py-2 text-left text-sm hover:bg-hover transition-base"
+                className={cn(
+                  "block w-full rounded-md px-3 py-2 text-left text-sm transition-colors",
+                  i18n.language === 'en' ? "bg-color-primary/10 text-color-primary font-medium" : "hover:bg-bg-hover text-text-secondary hover:text-text-primary"
+                )}
               >
                 English
               </button>
               <button
                 onClick={() => changeLanguage('ru')}
-                className="block w-full px-4 py-2 text-left text-sm hover:bg-hover transition-base"
+                className={cn(
+                  "block w-full rounded-md px-3 py-2 text-left text-sm transition-colors",
+                  i18n.language === 'ru' ? "bg-color-primary/10 text-color-primary font-medium" : "hover:bg-bg-hover text-text-secondary hover:text-text-primary"
+                )}
               >
                 Русский
               </button>
               <button
                 onClick={() => changeLanguage('zh')}
-                className="block w-full px-4 py-2 text-left text-sm hover:bg-hover transition-base"
+                className={cn(
+                  "block w-full rounded-md px-3 py-2 text-left text-sm transition-colors",
+                  i18n.language === 'zh' ? "bg-color-primary/10 text-color-primary font-medium" : "hover:bg-bg-hover text-text-secondary hover:text-text-primary"
+                )}
               >
                 中文
               </button>
@@ -114,29 +137,31 @@ export function Header({ onMenuClick }: HeaderProps) {
 
           {/* User Menu */}
           {user && (
-            <div className="relative group">
-              <button className="flex items-center gap-2 px-3 py-2 hover:bg-hover rounded-lg transition-base">
-                <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-sm font-medium">
+            <div className="group relative ml-2 ext-left">
+              <button className="flex items-center gap-2 rounded-full border border-border-primary bg-bg-secondary/50 p-1 pr-3 transition-colors hover:bg-bg-hover">
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-color-primary text-xs font-medium text-white shadow-sm">
                   {user.username.charAt(0).toUpperCase()}
                 </div>
-                <span className="hidden md:block text-sm font-medium">
+                <span className="hidden text-sm font-medium text-text-primary md:block">
                   {user.username}
                 </span>
               </button>
-              <div className="absolute right-0 mt-2 w-48 bg-primary border border-primary rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-base">
-                <div className="px-4 py-3 border-b border-primary">
-                  <p className="text-sm font-medium">{user.username}</p>
-                  <p className="text-xs text-secondary">
+              <div className="absolute right-0 mt-2 w-56 origin-top-right rounded-xl border border-border-primary bg-bg-primary shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                <div className="flex flex-col space-y-1 px-4 py-3 border-b border-border-primary">
+                  <p className="text-sm font-medium leading-none text-text-primary">{user.username}</p>
+                  <p className="text-xs leading-none text-text-tertiary mt-1">
                     {user.is_super_admin ? t('auth.superAdmin') : t('auth.admin')}
                   </p>
                 </div>
-                <button
-                  onClick={handleLogout}
-                  className="flex items-center gap-2 w-full px-4 py-2 text-left text-sm hover:bg-hover transition-base text-danger"
-                >
-                  <LogOut className="w-4 h-4" />
-                  {t('auth.logout')}
-                </button>
+                <div className="p-1">
+                  <button
+                    onClick={handleLogout}
+                    className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-color-danger transition-colors hover:bg-color-danger/10 font-medium"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    {t('auth.logout')}
+                  </button>
+                </div>
               </div>
             </div>
           )}

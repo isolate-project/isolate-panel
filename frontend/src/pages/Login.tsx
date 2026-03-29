@@ -1,9 +1,10 @@
 import { useState } from 'preact/hooks'
 import { route } from 'preact-router'
+
 import { useTranslation } from 'react-i18next'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
-import { Card } from '../components/ui/Card'
+import { Card, CardContent } from '../components/ui/Card'
 import { Alert } from '../components/ui/Alert'
 import { useAuthStore } from '../stores/authStore'
 import { useToastStore } from '../stores/toastStore'
@@ -27,17 +28,20 @@ export function Login() {
 
     try {
       const response = await authApi.login(username, password)
-      const { access_token, refresh_token, user } = response.data
+      const { access_token, refresh_token, admin } = response.data
 
       setTokens(access_token, refresh_token)
-      setUser(user)
+      setUser(admin)
       
       addToast({
         type: 'success',
         message: t('auth.welcome'),
       })
 
-      // SPA navigation, no full reload
+      // Wait for localStorage to be updated before redirect
+      await new Promise(resolve => setTimeout(resolve, 100))
+      
+      // SPA navigation
       route('/', true)
     } catch (err) {
       const axiosErr = err as AxiosError<{ message?: string }>
@@ -54,7 +58,8 @@ export function Login() {
 
   return (
     <div className="min-h-screen bg-secondary flex items-center justify-center p-4">
-      <Card className="w-full max-w-md" padding="lg">
+      <Card className="w-full max-w-md" >
+      <CardContent className="p-6">
         <div className="text-center mb-6">
           <h1 className="text-2xl font-bold text-primary mb-2">{t('common.appName')}</h1>
           <p className="text-sm text-secondary">
@@ -93,7 +98,7 @@ export function Login() {
 
           <Button
             type="submit"
-            variant="primary"
+            variant="default"
             fullWidth
             loading={isLoading}
             disabled={isLoading}
@@ -101,7 +106,8 @@ export function Login() {
             {t('auth.loginButton')}
           </Button>
         </form>
-      </Card>
+            </CardContent>
+    </Card>
     </div>
   )
 }

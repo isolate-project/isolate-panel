@@ -1,8 +1,8 @@
 import { useState } from 'preact/hooks'
-import { route } from 'preact-router'
+
 import { PageLayout } from '../components/layout/PageLayout'
 import { PageHeader } from '../components/layout/PageHeader'
-import { Card } from '../components/ui/Card'
+import { Card, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { Spinner } from '../components/ui/Spinner'
@@ -58,8 +58,10 @@ export function InboundDetail({ id }: { id: number }) {
     return (
       <PageLayout>
         <Card className="flex items-center justify-center py-12">
+      <CardContent className="p-6">
           <Spinner size="lg" />
-        </Card>
+              </CardContent>
+    </Card>
       </PageLayout>
     )
   }
@@ -68,11 +70,13 @@ export function InboundDetail({ id }: { id: number }) {
     return (
       <PageLayout>
         <Card className="text-center py-12">
+      <CardContent className="p-6">
           <p className="text-secondary mb-4">{t('errors.notFound')}</p>
-          <Button variant="secondary" onClick={() => route('/inbounds')}>
+          <Button variant="outline" onClick={() => route('/inbounds')}>
             {t('inboundDetail.backToInbounds')}
           </Button>
-        </Card>
+              </CardContent>
+    </Card>
       </PageLayout>
     )
   }
@@ -97,11 +101,11 @@ export function InboundDetail({ id }: { id: number }) {
         description={`${inbound.protocol.toUpperCase()} - ${t('inbounds.port')} ${inbound.port}`}
         actions={
           <div className="flex gap-2">
-            <Button variant="secondary" onClick={() => route('/inbounds')}>
+            <Button variant="outline" onClick={() => route('/inbounds')}>
               <ArrowLeft className="w-4 h-4 mr-1" />
               {t('inboundDetail.backToInbounds')}
             </Button>
-            <Button variant="secondary" onClick={() => route(`/inbounds/${id}/edit`)}>
+            <Button variant="outline" onClick={() => route(`/inbounds/${id}/edit`)}>
               <Edit className="w-4 h-4 mr-1" />
               {t('inboundDetail.editInbound')}
             </Button>
@@ -115,6 +119,7 @@ export function InboundDetail({ id }: { id: number }) {
 
       {/* Tabs */}
       <Card className="mb-6">
+      <CardContent className="p-6">
         <div className="flex border-b border-primary">
           {tabs.map((tab) => (
             <button
@@ -130,16 +135,18 @@ export function InboundDetail({ id }: { id: number }) {
             </button>
           ))}
         </div>
-      </Card>
+            </CardContent>
+    </Card>
 
       {/* Tab Content */}
       {activeTab === 'overview' && (
         <Card>
+      <CardContent className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
               <div className="flex justify-between text-sm">
                 <span className="text-secondary">{t('inboundDetail.protocol')}:</span>
-                <Badge variant="info">{inbound.protocol.toUpperCase()}</Badge>
+                <Badge variant="outline">{inbound.protocol.toUpperCase()}</Badge>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-secondary">{t('inboundDetail.port')}:</span>
@@ -187,17 +194,19 @@ export function InboundDetail({ id }: { id: number }) {
               </div>
             </div>
           </div>
-        </Card>
+              </CardContent>
+    </Card>
       )}
 
       {activeTab === 'users' && (
         <Card>
+      <CardContent className="p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-primary">
               <UsersIcon className="w-5 h-5 inline mr-2" />
               {t('inboundDetail.assignedUsers')} ({assignedUsers.length})
             </h3>
-            <Button variant="primary" size="sm" onClick={() => setIsAddUsersModalOpen(true)}>
+            <Button variant="default" size="sm" onClick={() => setIsAddUsersModalOpen(true)}>
               <UserPlus className="w-4 h-4 mr-1" />
               {t('inboundDetail.addUsers')}
             </Button>
@@ -232,16 +241,19 @@ export function InboundDetail({ id }: { id: number }) {
               ))}
             </div>
           )}
-        </Card>
+              </CardContent>
+    </Card>
       )}
 
       {activeTab === 'config' && (
         <Card>
+      <CardContent className="p-6">
           <h3 className="text-lg font-semibold text-primary mb-4">{t('inboundDetail.configPreview')}</h3>
           <pre className="p-4 bg-secondary rounded-lg text-sm text-primary overflow-x-auto">
             {JSON.stringify(configObj, null, 2)}
           </pre>
-        </Card>
+              </CardContent>
+    </Card>
       )}
 
       {/* Delete Confirmation Modal */}
@@ -257,7 +269,7 @@ export function InboundDetail({ id }: { id: number }) {
           {t('inbounds.name')}: <strong>{inbound.name}</strong>
         </p>
         <div className="flex gap-3 justify-end">
-          <Button variant="secondary" onClick={() => setIsDeleteModalOpen(false)}>
+          <Button variant="outline" onClick={() => setIsDeleteModalOpen(false)}>
             {t('common.cancel')}
           </Button>
           <Button variant="danger" onClick={handleDelete}>
@@ -286,7 +298,7 @@ export function InboundDetail({ id }: { id: number }) {
                   <div className="text-xs text-tertiary">{user.email || '-'}</div>
                 </div>
                 <Button
-                  variant="primary"
+                  variant="default"
                   size="sm"
                   onClick={() => handleAddUser(user.id)}
                 >
@@ -298,7 +310,7 @@ export function InboundDetail({ id }: { id: number }) {
           </div>
         )}
         <div className="flex justify-end pt-4">
-          <Button variant="secondary" onClick={() => setIsAddUsersModalOpen(false)}>
+          <Button variant="outline" onClick={() => setIsAddUsersModalOpen(false)}>
             {t('common.close')}
           </Button>
         </div>

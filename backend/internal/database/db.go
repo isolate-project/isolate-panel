@@ -72,7 +72,8 @@ func (d *Database) RunMigrations() error {
 	if err != nil {
 		return fmt.Errorf("failed to create migration manager: %w", err)
 	}
-	defer mm.Close()
+	// Note: Don't close migration manager - it would close the database connection
+	// defer mm.Close()
 
 	if err := mm.Up(); err != nil {
 		return fmt.Errorf("failed to run migrations: %w", err)

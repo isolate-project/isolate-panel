@@ -1,114 +1,119 @@
+import { ComponentChildren } from 'preact'
+import { cn } from '../../lib/utils'
 import { Input } from '../ui/Input'
-import { Select } from '../ui/Select'
-import { Checkbox } from '../ui/Checkbox'
 import { Switch } from '../ui/Switch'
+import { Select } from '../ui/Select'
 
 interface FormFieldProps {
   name: string
-  label?: string
-  type?: 'text' | 'email' | 'password' | 'number' | 'select' | 'checkbox' | 'switch'
-  value?: string | number | boolean
+  label: string
+  type: 'text' | 'email' | 'password' | 'number' | 'switch' | 'select'
+  value: string | number | boolean | undefined
+  onChange: (name: string, value: string | number | boolean) => void
+  onBlur?: (name: string) => void
   error?: string
   touched?: boolean
   required?: boolean
   disabled?: boolean
   placeholder?: string
   helperText?: string
-  options?: Array<{ value: string | number; label: string }>
-  onChange: (name: string, value: string | number | boolean) => void
-  onBlur?: (name: string) => void
+  className?: string
+  options?: { value: string; label: string }[]
+  children?: ComponentChildren
 }
 
 export function FormField({
   name,
   label,
-  type = 'text',
+  type,
   value,
+  onChange,
+  onBlur,
   error,
   touched,
   required,
   disabled,
   placeholder,
   helperText,
+  className,
   options,
-  onChange,
-  onBlur,
+  children,
 }: FormFieldProps) {
-  const showError = touched && error
+  const hasError = touched && !!error
 
   const handleChange = (e: Event) => {
     const target = e.target as HTMLInputElement | HTMLSelectElement
-    let newValue: string | number | boolean = target.value
+    let val: string | number | boolean = target.value
     if (type === 'number') {
-      newValue = target.value === '' ? '' : Number(target.value)
+      val = Number(target.value)
     }
-    onChange(name, newValue)
-  }
-
-  const handleCheckboxChange = (e: Event) => {
-    const target = e.target as HTMLInputElement
-    onChange(name, target.checked)
+    onChange(name, val)
   }
 
   const handleBlur = () => {
-    onBlur?.(name)
-  }
-
-  if (type === 'select' && options) {
-    return (
-      <Select
-        name={name}
-        label={label}
-        value={value as string}
-        options={options}
-        error={showError ? error : undefined}
-        required={required}
-        disabled={disabled}
-        placeholder={placeholder}
-        onChange={handleChange}
-        fullWidth
-      />
-    )
-  }
-
-  if (type === 'checkbox') {
-    return (
-      <Checkbox
-        name={name}
-        label={label}
-        checked={(value as boolean) || false}
-        disabled={disabled}
-        onChange={handleCheckboxChange}
-      />
-    )
+    if (onBlur) onBlur(name)
   }
 
   if (type === 'switch') {
     return (
-      <Switch
-        name={name}
-        label={label}
-        checked={(value as boolean) || false}
-        disabled={disabled}
-        onChange={handleCheckboxChange}
-      />
+      <div className={cn("flex flex-row items-center justify-between rounded-xl border border-border-primary bg-bg-secondary/50 p-4 shadow-sm", className)}>
+        <div className="space-y-1 pr-6">
+          <label className="text-sm font-medium text-text-primary">
+            {label}
+            {required && <span className="text-color-danger ml-1">*</span>}
+          </label>
+          {helperText && <p className="text-xs text-text-secondary leading-snug">{helperText}</p>}
+          {hasError && <p className="text-xs text-color-danger mt-1">{error}</p>}
+        </div>
+        <Switch
+          checked={Boolean(value)}
+          onChange={(checked) => onChange(name, checked)}
+          disabled={disabled}
+        />
+      </div>
     )
   }
 
   return (
-    <Input
-      type={type as 'text' | 'email' | 'password' | 'number' | 'tel' | 'url'}
-      name={name}
-      label={label}
-      value={(value as string | number) || ''}
-      error={showError ? error : undefined}
-      required={required}
-      disabled={disabled}
-      placeholder={placeholder}
-      helperText={helperText}
-      onChange={handleChange}
-      onBlur={handleBlur}
-      fullWidth
-    />
+    <div className={cn("space-y-2", className)}>
+      <label htmlFor={name} className="text-sm font-medium text-text-primary">
+        {label}
+        {required && <span className="text-color-danger ml-1">*</span>}
+      </label>
+
+      {children ? (
+        children
+      ) : type === 'select' ? (
+        <Select
+          id={name}
+          name={name}
+          value={String(value || '')}
+          disabled={disabled}
+          onChange={handleChange}
+          onBlur={handleBlur}
+          options={options || []}
+          className={hasError ? "border-color-danger ring-color-danger/20" : ""}
+        />
+      ) : (
+        <Input
+          id={name}
+          name={name}
+          type={type}
+          value={(value as string | number) || ''}
+          placeholder={placeholder}
+          disabled={disabled}
+          isInvalid={hasError}
+          onChange={handleChange}
+          onBlur={handleBlur}
+          className="bg-bg-primary text-text-primary"
+        />
+      )}
+
+      {hasError ? (
+        <p className="text-xs font-medium text-color-danger">{error}</p>
+      ) : helperText ? (
+        <p className="text-xs text-text-secondary">{helperText}</p>
+      ) : null}
+    </div>
   )
 }

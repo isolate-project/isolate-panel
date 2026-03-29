@@ -1,7 +1,7 @@
 import { useState } from 'preact/hooks'
 import { PageLayout } from '../components/layout/PageLayout'
 import { PageHeader } from '../components/layout/PageHeader'
-import { Card } from '../components/ui/Card'
+import { Card, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { Spinner } from '../components/ui/Spinner'
@@ -67,7 +67,7 @@ export function Outbounds() {
         description={t('outbounds.description')}
         actions={
           <Button
-            variant="primary"
+            variant="default"
             onClick={() => setIsCreateModalOpen(true)}
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -78,6 +78,7 @@ export function Outbounds() {
 
       {/* Search and Filter Bar */}
       <Card className="mb-4">
+      <CardContent className="p-0">
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1">
             <div className="relative">
@@ -102,14 +103,18 @@ export function Outbounds() {
             />
           </div>
         </div>
-      </Card>
+            </CardContent>
+    </Card>
 
       {isLoading ? (
         <Card className="flex items-center justify-center py-12">
+      <CardContent className="p-6">
           <Spinner size="lg" />
-        </Card>
+              </CardContent>
+    </Card>
       ) : filteredOutbounds.length > 0 ? (
-        <Card padding="none">
+        <Card >
+      <CardContent className="p-6">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-secondary border-b border-primary">
@@ -129,7 +134,7 @@ export function Outbounds() {
                       <div className="font-medium text-primary">{outbound.name}</div>
                     </td>
                     <td className="px-4 py-3">
-                      <Badge variant="info">{outbound.protocol.toUpperCase()}</Badge>
+                      <Badge variant="outline">{outbound.protocol.toUpperCase()}</Badge>
                     </td>
                     <td className="px-4 py-3 text-sm text-secondary">
                       {outbound.core?.name || '-'}
@@ -169,28 +174,31 @@ export function Outbounds() {
               </tbody>
             </table>
           </div>
-        </Card>
+              </CardContent>
+    </Card>
       ) : (
         <Card className="text-center py-12">
+      <CardContent className="p-6">
           <p className="text-secondary mb-4">
             {searchTerm || protocolFilter !== 'all'
               ? t('outbounds.noMatchingOutbounds')
               : t('outbounds.noOutbounds')}
           </p>
           {searchTerm || protocolFilter !== 'all' ? (
-            <Button variant="secondary" onClick={() => {
+            <Button variant="outline" onClick={() => {
               setSearchTerm('')
               setProtocolFilter('all')
             }}>
               {t('common.clearFilters')}
             </Button>
           ) : (
-            <Button variant="primary" onClick={() => setIsCreateModalOpen(true)}>
+            <Button variant="default" onClick={() => setIsCreateModalOpen(true)}>
               <Plus className="w-4 h-4 mr-2" />
               {t('outbounds.addOutbound')}
             </Button>
           )}
-        </Card>
+              </CardContent>
+    </Card>
       )}
 
       {/* Create Outbound Modal */}
@@ -254,7 +262,7 @@ export function Outbounds() {
         )}
         <div className="flex gap-3 justify-end">
           <Button
-            variant="secondary"
+            variant="outline"
             onClick={() => {
               setIsDeleteModalOpen(false)
               setOutboundToDelete(null)

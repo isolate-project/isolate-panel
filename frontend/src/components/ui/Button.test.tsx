@@ -28,7 +28,7 @@ describe('Button', () => {
   })
 
   it('applies secondary variant', () => {
-    render(<Button variant="secondary">Secondary</Button>)
+    render(<Button variant="outline">Secondary</Button>)
     
     const button = screen.getByRole('button')
     expect(button).toHaveClass('bg-secondary')

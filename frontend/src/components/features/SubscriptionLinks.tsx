@@ -106,7 +106,7 @@ export function SubscriptionLinks({ isOpen, onClose, user }: SubscriptionLinksPr
       <Modal isOpen={isOpen} onClose={onClose} title={t('subscriptions.title')}>
         <p className="text-secondary py-4">{t('subscriptions.noToken')}</p>
         <div className="flex justify-end">
-          <Button variant="secondary" onClick={onClose}>
+          <Button variant="outline" onClick={onClose}>
             {t('common.close')}
           </Button>
         </div>
@@ -121,16 +121,16 @@ export function SubscriptionLinks({ isOpen, onClose, user }: SubscriptionLinksPr
 
         {/* Action buttons */}
         <div className="flex gap-2 mb-4">
-          <Button variant="secondary" size="sm" onClick={() => setShowQR(true)}>
+          <Button variant="outline" size="sm" onClick={() => setShowQR(true)}>
             <QrCode className="w-4 h-4 mr-1" />
             {t('subscriptions.showQR')}
           </Button>
-          <Button variant="secondary" size="sm" onClick={handleShowStats}>
+          <Button variant="outline" size="sm" onClick={handleShowStats}>
             <BarChart3 className="w-4 h-4 mr-1" />
             {t('subscriptions.viewStats')}
           </Button>
           <Button
-            variant="danger"
+            variant="destructive"
             size="sm"
             onClick={handleRegenerate}
             disabled={regenerateMutation.isLoading}
@@ -145,7 +145,7 @@ export function SubscriptionLinks({ isOpen, onClose, user }: SubscriptionLinksPr
             <div key={link.key} className="flex items-center justify-between p-3 border border-primary rounded-lg">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <Badge variant="info">{link.label}</Badge>
+                  <Badge variant="outline">{link.label}</Badge>
                 </div>
                 <p className="text-xs text-tertiary truncate font-mono">{link.url}</p>
               </div>
@@ -179,7 +179,7 @@ export function SubscriptionLinks({ isOpen, onClose, user }: SubscriptionLinksPr
               <span className="text-sm font-medium text-primary">{t('subscriptions.shortUrl')}</span>
               {!shortUrl && (
                 <Button
-                  variant="secondary"
+                  variant="outline"
                   size="sm"
                   onClick={handleGenerateShortUrl}
                   disabled={shortUrlLoading}
@@ -208,7 +208,7 @@ export function SubscriptionLinks({ isOpen, onClose, user }: SubscriptionLinksPr
         </div>
 
         <div className="flex justify-end pt-4">
-          <Button variant="secondary" onClick={onClose}>
+          <Button variant="outline" onClick={onClose}>
             {t('common.close')}
           </Button>
         </div>
@@ -228,7 +228,7 @@ export function SubscriptionLinks({ isOpen, onClose, user }: SubscriptionLinksPr
             </p>
           </div>
           <div className="flex justify-center">
-            <Button variant="secondary" onClick={() => setShowQR(false)}>
+            <Button variant="outline" onClick={() => setShowQR(false)}>
               {t('common.close')}
             </Button>
           </div>
@@ -274,7 +274,7 @@ export function SubscriptionLinks({ isOpen, onClose, user }: SubscriptionLinksPr
                     {Object.entries(stats.by_format).map(([format, count]) => (
                       <div key={format} className="flex items-center justify-between">
                         <span className="text-sm text-secondary capitalize">{format}</span>
-                        <Badge variant="info">{String(count)}</Badge>
+                        <Badge variant="outline">{String(count)}</Badge>
                       </div>
                     ))}
                   </div>
@@ -323,7 +323,7 @@ export function SubscriptionLinks({ isOpen, onClose, user }: SubscriptionLinksPr
           </div>
 
           <div className="flex justify-end pt-4">
-            <Button variant="secondary" onClick={() => setShowStats(false)}>
+            <Button variant="outline" onClick={() => setShowStats(false)}>
               {t('common.close')}
             </Button>
           </div>

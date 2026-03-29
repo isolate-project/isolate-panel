@@ -2,97 +2,50 @@ version: '3.8'
 
 services:
   isolate-panel:
+    image: isolate-panel:latest
     build:
       context: ..
       dockerfile: docker/Dockerfile
     container_name: isolate-panel
     restart: unless-stopped
 
-    # =======================================================================
-    # PORTS CONFIGURATION
-    # =======================================================================
-    # Panel API - accessible only via localhost (SSH tunnel recommended)
-    # Access via: ssh -L 8080:localhost:8080 user@your-server
     ports:
-      - "127.0.0.1:8080:8080"
+      - "8080:8080"
+      - "443:443/tcp"
+      - "443:443/udp"
+      - "8443:8443/tcp"
 
-    # PROXY PORTS (uncomment and configure based on your setup)
-    # These ports are used by the proxy cores (Xray, Sing-box, Mihomo)
-    # IMPORTANT: Only uncomment ports you actually need for your proxies
-
-    # Example 1: Standard HTTPS proxy (TCP)
-    # - "443:443/tcp"
-
-    # Example 2: Standard HTTPS proxy (UDP for QUIC/H2)
-    # - "443:443/udp"
-
-    # Example 3: Custom proxy port (e.g., 8443)
-    # - "8443:8443/tcp"
-    # - "8443:8443/udp"
-
-    # Example 4: Multiple proxy ports for different protocols
-    # - "443:443/tcp"    # HTTPS/TLS
-    # - "8443:8443/tcp"  # Alternative HTTPS
-    # - "9000:9000/tcp"  # SOCKS5
-    # - "9000:9000/udp"  # SOCKS5 over UDP
-
-    # =======================================================================
-    # VOLUMES
-    # =======================================================================
     volumes:
-      # Persistent data (database, configs, certificates)
       - ./data:/app/data
-      # Log files
       - ./logs:/var/log/supervisor
-
-    # =======================================================================
-    # ENVIRONMENT VARIABLES
-    # =======================================================================
-    # Load from .env file (see .env.example for template)
-    env_file:
-      - .env
+      - ./logs/isolate-panel:/var/log/isolate-panel
 
     environment:
-      # Required variables (can also be in .env file)
-      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
+      - PORT=8080
+      - CONFIG_PATH=/app/configs/config.yaml
       - DATABASE_PATH=/app/data/isolate-panel.db
-      - LOG_LEVEL=${LOG_LEVEL:-info}
-      - MONITORING_MODE=${MONITORING_MODE:-lite}
-      - TZ=${TZ:-UTC}
+      - LOG_LEVEL=info
+      - APP_ENV=production
 
-    # =======================================================================
-    # SECURITY SETTINGS
-    # =======================================================================
     security_opt:
       - no-new-privileges:true
 
-    # Drop all capabilities and add only what's needed
     cap_drop:
       - ALL
     cap_add:
-      - NET_BIND_SERVICE  # Required for binding to ports < 1024
+      - NET_BIND_SERVICE
+      - SYS_PTRACE
+      - NET_ADMIN
 
-    # Read-only root filesystem (optional, for enhanced security)
-    # read_only: true
-    # tmpfs:
-    #   - /tmp
-    #   - /var/run
-
-    # =======================================================================
-    # NETWORK
-    # =======================================================================
     networks:
       - isolate-network
 
-    # =======================================================================
-    # HEALTH CHECK
-    # =======================================================================
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 10s
+      start_period: 60s
 
 networks:
   isolate-network:

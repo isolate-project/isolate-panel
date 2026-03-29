@@ -181,7 +181,7 @@ export function OutboundForm({ outbound, onSuccess, onCancel }: OutboundFormProp
       <div className="flex gap-3 justify-end pt-4 border-t border-primary">
         <Button
           type="button"
-          variant="secondary"
+          variant="outline"
           onClick={onCancel}
           disabled={isLoading}
         >
@@ -189,7 +189,7 @@ export function OutboundForm({ outbound, onSuccess, onCancel }: OutboundFormProp
         </Button>
         <Button
           type="submit"
-          variant="primary"
+          variant="default"
           loading={isLoading}
           disabled={isLoading}
         >

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'preact/hooks'
+import { useState, useCallback, useRef } from 'preact/hooks'
 
 interface UseMutationOptions<TData, TVariables> {
   onSuccess?: (data: TData, variables: TVariables) => void
@@ -21,26 +21,34 @@ export function useMutation<TData, TVariables>(
   const [error, setError] = useState<Error | null>(null)
   const [data, setData] = useState<TData | null>(null)
 
+  // Store mutationFn and options in refs to avoid dependency instability
+  const mutationFnRef = useRef(mutationFn)
+  mutationFnRef.current = mutationFn
+  const onSuccessRef = useRef(options.onSuccess)
+  onSuccessRef.current = options.onSuccess
+  const onErrorRef = useRef(options.onError)
+  onErrorRef.current = options.onError
+
   const mutate = useCallback(
     async (variables: TVariables) => {
       setIsLoading(true)
       setError(null)
 
       try {
-        const result = await mutationFn(variables)
+        const result = await mutationFnRef.current(variables)
         setData(result)
-        options.onSuccess?.(result, variables)
+        onSuccessRef.current?.(result, variables)
         return result
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Unknown error')
         setError(error)
-        options.onError?.(error, variables)
+        onErrorRef.current?.(error, variables)
         throw error
       } finally {
         setIsLoading(false)
       }
     },
-    [mutationFn, options]
+    []
   )
 
   const reset = useCallback(() => {

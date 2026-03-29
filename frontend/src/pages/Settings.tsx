@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'preact/hooks'
 import { PageLayout } from '../components/layout/PageLayout'
 import { PageHeader } from '../components/layout/PageHeader'
-import { Card } from '../components/ui/Card'
+import { Card, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Select } from '../components/ui/Select'
@@ -170,12 +170,15 @@ export function Settings() {
 
       {isLoadingSettings ? (
         <Card className="flex items-center justify-center py-12">
+      <CardContent className="p-6">
           <Spinner size="lg" />
-        </Card>
+              </CardContent>
+    </Card>
       ) : (
         <div className="space-y-6">
           {/* Appearance Settings */}
           <Card>
+      <CardContent className="p-6">
             <h3 className="text-lg font-semibold text-primary mb-4">
               {t('settings.appearance')}
             </h3>
@@ -224,10 +227,12 @@ export function Settings() {
                 />
               </div>
             </div>
-          </Card>
+                </CardContent>
+    </Card>
 
           {/* General Settings */}
           <Card>
+      <CardContent className="p-6">
             <h3 className="text-lg font-semibold text-primary mb-4">
               {t('settings.general')}
             </h3>
@@ -248,10 +253,12 @@ export function Settings() {
                 />
               </div>
             </div>
-          </Card>
+                </CardContent>
+    </Card>
 
           {/* Monitoring Mode Settings */}
           <Card>
+      <CardContent className="p-6">
             <h3 className="text-lg font-semibold text-primary mb-4">
               {t('settings.monitoringMode')}
             </h3>
@@ -290,10 +297,12 @@ export function Settings() {
                 </div>
               </div>
             </div>
-          </Card>
+                </CardContent>
+    </Card>
 
           {/* Security Settings */}
           <Card>
+      <CardContent className="p-6">
             <h3 className="text-lg font-semibold text-primary mb-4">
               {t('settings.security')}
             </h3>
@@ -368,7 +377,8 @@ export function Settings() {
                 />
               </div>
             </div>
-          </Card>
+                </CardContent>
+    </Card>
 
           {/* Info Alert */}
           <Alert variant="info">
@@ -377,7 +387,7 @@ export function Settings() {
 
           {/* Save Button */}
           <div className="flex justify-end">
-            <Button variant="primary" onClick={handleSave} disabled={isSaving}>
+            <Button variant="default" onClick={handleSave} disabled={isSaving}>
               {isSaving ? (
                 <><Spinner size="sm" className="mr-2" />{t('common.loading')}</>
               ) : (

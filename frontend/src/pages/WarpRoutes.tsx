@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'preact/hooks'
+import { useState, useEffect, useRef } from 'preact/hooks'
 import { warpApi, coreApi } from '../api/endpoints'
 
 interface WarpRoute {
@@ -41,11 +41,20 @@ export function WarpRoutes() {
     priority: 50,
   })
 
+  const abortRef = useRef<AbortController | null>(null)
+
   useEffect(() => {
     loadData()
+    return () => {
+      abortRef.current?.abort()
+    }
   }, [selectedCore])
 
   const loadData = async () => {
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+
     setLoading(true)
     try {
       const [routesRes, statusRes, presetsRes, coresRes] = await Promise.all([
@@ -54,6 +63,8 @@ export function WarpRoutes() {
         warpApi.getPresets(),
         coreApi.list(),
       ])
+
+      if (controller.signal.aborted) return
 
       setRoutes(routesRes.data.data || [])
       setStatus(statusRes.data.data || null)
@@ -65,9 +76,12 @@ export function WarpRoutes() {
         }))
       )
     } catch (error) {
+      if (controller.signal.aborted) return
       console.error('Failed to load WARP data:', error)
     } finally {
-      setLoading(false)
+      if (!controller.signal.aborted) {
+        setLoading(false)
+      }
     }
   }
 

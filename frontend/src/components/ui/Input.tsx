@@ -11,6 +11,7 @@ interface InputProps {
   label?: string
   helperText?: string
   fullWidth?: boolean
+  isInvalid?: boolean
   onChange?: (e: Event) => void
   onBlur?: (e: Event) => void
   className?: string
@@ -27,19 +28,22 @@ export function Input({
   label,
   helperText,
   fullWidth = false,
+  isInvalid,
   onChange,
   onBlur,
   className,
 }: InputProps) {
+  const hasError = error || isInvalid
+
   const inputStyles = clsx(
     'px-3 py-2 border rounded-lg transition-base',
-    'bg-primary text-primary',
-    'placeholder:text-tertiary',
+    'bg-bg-primary text-text-primary',
+    'placeholder:text-text-tertiary',
     'focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent',
     'disabled:opacity-60 disabled:cursor-not-allowed',
-    error
+    hasError
       ? 'border-danger focus:ring-danger'
-      : 'border-primary',
+      : 'border-border-primary',
     fullWidth ? 'w-full' : '',
     className
   )
@@ -47,7 +51,7 @@ export function Input({
   return (
     <div className={fullWidth ? 'w-full' : ''}>
       {label && (
-        <label htmlFor={name} className="block text-sm font-medium text-primary mb-1">
+        <label htmlFor={name} className="block text-sm font-medium text-text-primary mb-1">
           {label}
           {required && <span className="text-danger ml-1">*</span>}
         </label>
@@ -64,11 +68,11 @@ export function Input({
         onBlur={onBlur}
         className={inputStyles}
       />
-      {error && (
+      {hasError && (
         <p className="mt-1 text-sm text-danger">{error}</p>
       )}
-      {helperText && !error && (
-        <p className="mt-1 text-sm text-secondary">{helperText}</p>
+      {helperText && !hasError && (
+        <p className="mt-1 text-sm text-text-secondary">{helperText}</p>
       )}
     </div>
   )

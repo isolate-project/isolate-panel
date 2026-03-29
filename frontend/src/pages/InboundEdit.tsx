@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'preact/hooks'
-import { route } from 'preact-router'
+
 import { PageLayout } from '../components/layout/PageLayout'
 import { PageHeader } from '../components/layout/PageHeader'
-import { Card } from '../components/ui/Card'
+import { Card, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { Spinner } from '../components/ui/Spinner'
@@ -13,7 +13,7 @@ import { useCores } from '../hooks/useCores'
 import { useProtocols, useProtocolSchema, useProtocolDefaults } from '../hooks/useProtocols'
 import { useInbound, useUpdateInbound } from '../hooks/useInbounds'
 import type { Core, ProtocolSummary } from '../types'
-import { ChevronLeft, ChevronRight, Check, Zap } from 'lucide-preact'
+
 import { useTranslation } from 'react-i18next'
 
 type WizardStep = 1 | 2 | 3 | 4 | 5
@@ -182,8 +182,10 @@ export function InboundEdit({ id }: { id: number }) {
     return (
       <PageLayout>
         <Card className="flex items-center justify-center py-12">
+      <CardContent className="p-6">
           <Spinner size="lg" />
-        </Card>
+              </CardContent>
+    </Card>
       </PageLayout>
     )
   }
@@ -194,7 +196,7 @@ export function InboundEdit({ id }: { id: number }) {
         title={t('wizard.editTitle')}
         description={t('wizard.editDescription')}
         actions={
-          <Button variant="secondary" onClick={() => route(`/inbounds/${id}`)}>
+          <Button variant="outline" onClick={() => route(`/inbounds/${id}`)}>
             {t('common.cancel')}
           </Button>
         }
@@ -202,6 +204,7 @@ export function InboundEdit({ id }: { id: number }) {
 
       {/* Step Indicator */}
       <Card className="mb-6">
+      <CardContent className="p-6">
         <div className="flex items-center justify-between">
           {stepLabels.map((label, i) => {
             const stepNum = (i + 1) as WizardStep
@@ -224,10 +227,12 @@ export function InboundEdit({ id }: { id: number }) {
             )
           })}
         </div>
-      </Card>
+            </CardContent>
+    </Card>
 
       {/* Step Content */}
       <Card className="mb-6">
+      <CardContent className="p-6">
         {/* Step 1: Choose Core */}
         {step === 1 && (
           <div>
@@ -288,7 +293,7 @@ export function InboundEdit({ id }: { id: number }) {
                     >
                       <div className="flex items-center gap-2 mb-1">
                         <h4 className="font-bold text-primary">{proto.label}</h4>
-                        {proto.requires_tls && <Badge variant="info" className="text-xs">TLS</Badge>}
+                        {proto.requires_tls && <Badge variant="outline" className="text-xs">TLS</Badge>}
                       </div>
                       <p className="text-xs text-secondary">{proto.description}</p>
                       <Badge variant="default" className="mt-2 text-xs">{proto.category}</Badge>
@@ -448,12 +453,13 @@ export function InboundEdit({ id }: { id: number }) {
             </div>
           </div>
         )}
-      </Card>
+            </CardContent>
+    </Card>
 
       {/* Navigation Buttons */}
       <div className="flex justify-between">
         <Button
-          variant="secondary"
+          variant="outline"
           onClick={() => setStep((s) => Math.max(1, s - 1) as WizardStep)}
           disabled={step === 1}
         >
@@ -463,7 +469,7 @@ export function InboundEdit({ id }: { id: number }) {
 
         {step < 5 ? (
           <Button
-            variant="primary"
+            variant="default"
             onClick={() => setStep((s) => Math.min(5, s + 1) as WizardStep)}
             disabled={!canGoNext()}
           >
@@ -472,7 +478,7 @@ export function InboundEdit({ id }: { id: number }) {
           </Button>
         ) : (
           <Button
-            variant="primary"
+            variant="default"
             onClick={handleUpdate}
             loading={isUpdating}
             disabled={isUpdating}

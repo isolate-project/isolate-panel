@@ -5,10 +5,13 @@ import { useToastStore } from '../stores/toastStore'
 import { cache } from '../utils/cache'
 import i18n from '../i18n'
 
-// List all cores
+// Stable fetcher function (not recreated on each render)
+const fetchCoresList = () => coreApi.list().then((res) => res.data)
+
+// List all cores - NO POLLING for now
 export function useCores() {
-  return useQuery('cores', () => coreApi.list().then((res) => res.data), {
-    refetchInterval: 10000, // Refetch every 10 seconds
+  return useQuery('cores', fetchCoresList, {
+    refetchInterval: undefined, // Disabled polling
   })
 }
 
@@ -21,14 +24,14 @@ export function useCore(name: string) {
   )
 }
 
-// Get core status
+// Get core status - NO POLLING for now
 export function useCoreStatus(name: string) {
   return useQuery(
     `core-status-${name}`,
     () => coreApi.status(name).then((res) => res.data),
     {
       enabled: !!name,
-      refetchInterval: 5000, // Refetch every 5 seconds
+      refetchInterval: undefined, // Disabled polling
     }
   )
 }

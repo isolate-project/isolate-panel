@@ -1,24 +1,28 @@
 import { useQuery } from './useQuery'
 import { systemApi } from '../api/endpoints'
 
-// Get system resources (RAM/CPU)
+// Stable fetcher functions (not recreated on each render)
+const fetchResources = () => systemApi.resources().then((res) => res.data)
+const fetchHealth = () => systemApi.health().then((res) => res.data)
+
+// Get system resources (RAM/CPU) - NO POLLING for now
 export function useSystemResources() {
   return useQuery(
     'system-resources',
-    () => systemApi.resources().then((res) => res.data),
+    fetchResources,
     {
-      refetchInterval: 5000, // Poll every 5 seconds
+      refetchInterval: undefined, // Disabled polling
     }
   )
 }
 
-// Get system health
+// Get system health - NO POLLING for now
 export function useSystemHealth() {
   return useQuery(
     'system-health',
-    () => systemApi.health().then((res) => res.data),
+    fetchHealth,
     {
-      refetchInterval: 30000, // Poll every 30 seconds
+      refetchInterval: undefined, // Disabled polling
     }
   )
 }

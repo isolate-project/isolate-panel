@@ -1,15 +1,16 @@
-import { ComponentChildren } from 'preact'
+import { ComponentProps } from 'preact'
 import { useEffect } from 'preact/hooks'
-import { clsx } from 'clsx'
+import { cn } from '../../lib/utils'
 import { X } from 'lucide-preact'
+import { Button } from './Button'
 
 interface ModalProps {
   isOpen: boolean
   onClose: () => void
   title?: string
-  children: ComponentChildren
+  children: preact.ComponentChildren
   size?: 'sm' | 'md' | 'lg' | 'xl'
-  className?: string
+  footer?: preact.ComponentChildren
 }
 
 export function Modal({
@@ -18,75 +19,56 @@ export function Modal({
   title,
   children,
   size = 'md',
-  className,
+  footer,
 }: ModalProps) {
-  const sizeStyles = {
-    sm: 'max-w-md',
-    md: 'max-w-lg',
-    lg: 'max-w-2xl',
-    xl: 'max-w-4xl',
-  }
-
-  // Close on Escape key
   useEffect(() => {
+    if (!isOpen) return
+
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose()
-      }
+      if (e.key === 'Escape') onClose()
     }
-
+    document.body.style.overflow = 'hidden'
     document.addEventListener('keydown', handleEscape)
-    return () => document.removeEventListener('keydown', handleEscape)
-  }, [isOpen, onClose])
-
-  // Prevent body scroll when modal is open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = ''
-    }
     return () => {
-      document.body.style.overflow = ''
+      document.removeEventListener('keydown', handleEscape)
+      document.body.style.overflow = 'unset'
     }
-  }, [isOpen])
+  }, [isOpen, onClose])
 
   if (!isOpen) return null
 
-  return (
-    <div
-      className="fixed inset-0 z-modal-backdrop flex items-center justify-center p-4"
-      onClick={onClose}
-    >
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50 animate-fadeIn" />
+  const sizeClasses = {
+    sm: 'max-w-sm',
+    md: 'max-w-md',
+    lg: 'max-w-lg',
+    xl: 'max-w-xl',
+  }
 
-      {/* Modal */}
+  return (
+    <div className="fixed inset-0 z-modal flex items-center justify-center p-4">
       <div
-        className={clsx(
-          'relative z-modal w-full bg-primary rounded-lg shadow-lg',
-          'animate-fadeIn',
-          sizeStyles[size],
-          className
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <div
+        className={cn(
+          'relative w-full rounded-2xl bg-bg-primary border border-border-primary shadow-2xl',
+          'animate-in fade-in zoom-in-95 duration-200',
+          sizeClasses[size]
         )}
-        onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        {title && (
-          <div className="flex items-center justify-between p-4 border-b border-primary">
-            <h2 className="text-lg font-semibold text-primary">{title}</h2>
-            <button
-              onClick={onClose}
-              className="p-1 hover:bg-hover rounded transition-base"
-              aria-label="Close modal"
-            >
-              <X className="w-5 h-5" />
-            </button>
+        <div className="flex items-center justify-between p-6 border-b border-border-primary">
+          {title && <h2 className="text-xl font-semibold text-text-primary">{title}</h2>}
+          <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full">
+            <X className="h-4 w-4 text-text-secondary" />
+          </Button>
+        </div>
+        <div className="p-6">{children}</div>
+        {footer && (
+          <div className="flex items-center justify-end gap-3 p-6 pt-0">
+            {footer}
           </div>
         )}
-
-        {/* Content */}
-        <div className="p-4">{children}</div>
       </div>
     </div>
   )

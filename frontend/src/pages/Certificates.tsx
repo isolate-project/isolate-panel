@@ -1,7 +1,7 @@
 import { useState } from 'preact/hooks'
 import { PageLayout } from '../components/layout/PageLayout'
 import { PageHeader } from '../components/layout/PageHeader'
-import { Card } from '../components/ui/Card'
+import { Card, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { Modal } from '../components/ui/Modal'
@@ -119,7 +119,7 @@ export function Certificates() {
         description={t('certificates.description')}
         actions={
           <>
-            <Button variant="secondary" onClick={() => setShowUploadModal(true)}>
+            <Button variant="outline" onClick={() => setShowUploadModal(true)}>
               <Upload className="w-4 h-4 mr-2" />
               {t('certificates.upload')}
             </Button>
@@ -132,6 +132,7 @@ export function Certificates() {
       />
 
       <Card>
+      <CardContent className="p-6">
         {isLoading ? (
           <div className="flex justify-center py-12">
             <Spinner size="lg" />
@@ -221,7 +222,8 @@ export function Certificates() {
             </table>
           </div>
         )}
-      </Card>
+            </CardContent>
+    </Card>
 
       {/* Request Certificate Modal */}
       <Modal
@@ -264,7 +266,7 @@ export function Certificates() {
           </div>
 
           <div className="flex justify-end gap-2 pt-4">
-            <Button variant="secondary" onClick={() => setShowRequestModal(false)}>
+            <Button variant="outline" onClick={() => setShowRequestModal(false)}>
               {t('common.cancel')}
             </Button>
             <Button onClick={handleRequest} disabled={requestMutation.isLoading}>
@@ -312,7 +314,7 @@ export function Certificates() {
           </div>
 
           <div className="flex justify-end gap-2 pt-4">
-            <Button variant="secondary" onClick={() => setShowUploadModal(false)}>
+            <Button variant="outline" onClick={() => setShowUploadModal(false)}>
               {t('common.cancel')}
             </Button>
             <Button>{t('certificates.upload')}</Button>

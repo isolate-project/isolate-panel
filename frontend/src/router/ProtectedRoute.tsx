@@ -9,7 +9,7 @@ interface ProtectedRouteProps {
   children: ComponentChildren
 }
 
-// Cache the auth verification result to avoid redundant /me calls
+// Module-level cache (persists across renders)
 let authVerified = false
 let authVerifiedAt = 0
 const AUTH_CACHE_TTL = 60000 // 1 minute
@@ -17,15 +17,32 @@ const AUTH_CACHE_TTL = 60000 // 1 minute
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { isAuthenticated, setUser, logout } = useAuthStore()
   const [isChecking, setIsChecking] = useState(true)
-  const mountedRef = useRef(true)
+  const hasRunRef = useRef(false)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
+  // Cleanup on unmount
   useEffect(() => {
-    mountedRef.current = true
-    return () => { mountedRef.current = false }
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+    }
   }, [])
 
   useEffect(() => {
+    // Prevent multiple executions
+    if (hasRunRef.current) {
+      return
+    }
+    hasRunRef.current = true
+
     const checkAuth = async () => {
+      // Abort any previous request
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+      abortControllerRef.current = new AbortController()
+
       const token = localStorage.getItem('accessToken')
       
       // No token, redirect to login
@@ -44,13 +61,22 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
       // Token exists, verify it's valid by fetching user info
       try {
         const response = await authApi.me()
-        if (mountedRef.current) {
-          setUser(response.data)
-          authVerified = true
-          authVerifiedAt = Date.now()
-          setIsChecking(false)
+        
+        // Don't update if aborted
+        if (abortControllerRef.current?.signal.aborted) {
+          return
         }
-      } catch {
+        
+        setUser(response.data)
+        authVerified = true
+        authVerifiedAt = Date.now()
+        setIsChecking(false)
+      } catch (err) {
+        // Ignore abort errors
+        if (err instanceof Error && err.name === 'AbortError') {
+          return
+        }
+        
         // Token invalid or expired, logout and redirect
         authVerified = false
         logout()
@@ -59,7 +85,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     }
 
     checkAuth()
-  }, [setUser, logout, isAuthenticated])
+  }, [])  // Empty deps - only run once
 
   // Show loading spinner while checking authentication
   if (isChecking) {

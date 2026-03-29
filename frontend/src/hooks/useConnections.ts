@@ -5,13 +5,16 @@ interface ConnectionsData {
   count: number
 }
 
-// Get active connections count with polling
+// Stable fetcher function (not recreated on each render)
+const fetchConnections = () => systemApi.connections().then((res) => res.data)
+
+// Get active connections count - NO POLLING for now
 export function useConnections() {
   const { data, isLoading, error } = useQuery<ConnectionsData>(
     'system-connections',
-    () => systemApi.connections().then((res) => res.data),
+    fetchConnections,
     {
-      refetchInterval: 15000, // Poll every 15 seconds
+      refetchInterval: undefined, // Disabled polling
     }
   )
 

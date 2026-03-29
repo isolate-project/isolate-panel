@@ -1,57 +1,38 @@
-import { clsx } from 'clsx'
+import { ComponentProps } from 'preact'
+import { cn } from '../../lib/utils'
 
-interface SwitchProps {
-  name?: string
+interface SwitchProps extends Omit<ComponentProps<'button'>, 'onChange'> {
   checked?: boolean
-  disabled?: boolean
-  label?: string
-  onChange?: (e: Event) => void
-  className?: string
+  onChange?: (checked: boolean) => void
 }
 
 export function Switch({
-  name,
-  checked = false,
-  disabled = false,
-  label,
-  onChange,
   className,
+  checked = false,
+  onChange,
+  disabled,
+  ...props
 }: SwitchProps) {
   return (
-    <label
-      className={clsx(
-        'inline-flex items-center gap-3 cursor-pointer',
-        disabled && 'opacity-60 cursor-not-allowed',
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={() => onChange?.(!checked)}
+      className={cn(
+        'peer inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary disabled:cursor-not-allowed disabled:opacity-50',
+        checked ? 'bg-primary' : 'bg-border-secondary',
         className
       )}
+      {...props}
     >
-      <div className="relative">
-        <input
-          type="checkbox"
-          name={name}
-          checked={checked}
-          disabled={disabled}
-          onChange={onChange}
-          className="sr-only peer"
-        />
-        <div
-          className={clsx(
-            'w-11 h-6 rounded-full transition-base',
-            'peer-focus:ring-2 peer-focus:ring-primary peer-focus:ring-offset-2',
-            'peer-checked:bg-primary',
-            'bg-gray-300 dark:bg-gray-600',
-            disabled ? 'cursor-not-allowed' : 'cursor-pointer'
-          )}
-        />
-        <div
-          className={clsx(
-            'absolute left-1 top-1 w-4 h-4 rounded-full transition-transform',
-            'bg-white',
-            'peer-checked:translate-x-5'
-          )}
-        />
-      </div>
-      {label && <span className="text-sm text-primary">{label}</span>}
-    </label>
+      <span
+        className={cn(
+          'pointer-events-none block h-5 w-5 rounded-full bg-text-inverse shadow-lg ring-0 transition-transform duration-200 ease-in-out',
+          checked ? 'translate-x-5' : 'translate-x-0'
+        )}
+      />
+    </button>
   )
 }

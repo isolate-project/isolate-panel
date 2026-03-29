@@ -1,31 +1,55 @@
-import { clsx } from 'clsx'
+import { ComponentProps } from 'preact'
+import { cva, type VariantProps } from 'class-variance-authority'
+import { cn } from '../../lib/utils'
 
-export type BadgeVariant = 'default' | 'success' | 'warning' | 'danger' | 'info'
+const badgeVariants = cva(
+  'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2',
+  {
+    variants: {
+      variant: {
+        default:
+          'border-transparent bg-primary text-white shadow hover:bg-primary/80',
+        secondary:
+          'border-transparent bg-bg-tertiary text-text-primary hover:bg-bg-hover',
+        destructive:
+          'border-transparent bg-danger text-white shadow hover:bg-danger/80',
+        success:
+          'border-transparent bg-success text-white shadow hover:bg-success/80',
+        warning:
+          'border-transparent bg-warning text-text-primary shadow hover:bg-warning/80',
+        outline: 'text-text-primary border-border-secondary',
+        glass: 'glass-panel text-text-primary border-white/10 shadow-sm',
+      },
+    },
+    defaultVariants: {
+      variant: 'default',
+    },
+  }
+)
 
-interface BadgeProps {
-  variant?: BadgeVariant
-  children: string | number
-  className?: string
+export interface BadgeProps
+  extends ComponentProps<'div'>,
+    VariantProps<typeof badgeVariants> {
+  showDot?: boolean
 }
 
-export function Badge({ variant = 'default', children, className }: BadgeProps) {
-  const variantStyles = {
-    default: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
-    success: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
-    warning: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
-    danger: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
-    info: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
-  }
-
+function Badge({ className, variant, showDot, children, ...props }: BadgeProps) {
   return (
-    <span
-      className={clsx(
-        'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
-        variantStyles[variant],
-        className
+    <div className={cn(badgeVariants({ variant }), className)} {...props}>
+      {showDot && (
+        <span 
+          className={cn(
+            "mr-1.5 h-1.5 w-1.5 rounded-full",
+            variant === 'success' ? "bg-white" : 
+            variant === 'destructive' ? "bg-white" : 
+            variant === 'warning' ? "bg-black/50" : 
+            variant === 'secondary' ? "bg-text-tertiary" : "bg-current"
+          )} 
+        />
       )}
-    >
       {children}
-    </span>
+    </div>
   )
 }
+
+export { Badge, badgeVariants }

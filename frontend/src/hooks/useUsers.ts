@@ -5,13 +5,17 @@ import { useToastStore } from '../stores/toastStore'
 import { cache } from '../utils/cache'
 import i18n from '../i18n'
 
-// List all users with pagination
+// Stable fetcher function (not recreated on each render)
+const fetchUsersList = (params?: { page?: number; limit?: number }) => 
+  userApi.list(params).then((res) => res.data)
+
+// List all users - NO POLLING for now
 export function useUsers(params?: { page?: number; limit?: number }) {
   return useQuery(
     `users-${JSON.stringify(params || {})}`,
-    () => userApi.list(params).then((res) => res.data),
+    () => fetchUsersList(params),
     {
-      refetchInterval: 30000, // Refetch every 30 seconds
+      refetchInterval: undefined, // Disabled polling
     }
   )
 }

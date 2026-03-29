@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'preact/hooks'
-import { warpApi } from '../api/endpoints'
+import { useState, useEffect, useRef } from 'preact/hooks'
+import { warpApi, coreApi } from '../api/endpoints'
 
 interface GeoRule {
   id: number
@@ -41,35 +41,42 @@ export function GeoRules() {
     description: '',
   })
 
+  const abortRef = useRef<AbortController | null>(null)
+
   useEffect(() => {
     loadData()
+    return () => {
+      abortRef.current?.abort()
+    }
   }, [selectedCore])
 
   const loadData = async () => {
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+
     setLoading(true)
     try {
-      const [rulesRes, countriesRes, categoriesRes] = await Promise.all([
+      const [rulesRes, countriesRes, categoriesRes, coresRes] = await Promise.all([
         warpApi.getGeoRules(selectedCore),
         warpApi.getCountries(),
         warpApi.getCategories(),
+        coreApi.list(),
       ])
+
+      if (controller.signal.aborted) return
 
       setRules(rulesRes.data.data || [])
       setCountries(countriesRes.data.data || [])
       setCategories(categoriesRes.data.data || [])
-
-      // Load cores separately
-      try {
-        const coresRes = await fetch('/api/cores')
-        const coresData = await coresRes.json()
-        setCores((coresData.data || []).map((c: { name: string; id: number }) => ({ name: c.name, id: c.id })))
-      } catch (e) {
-        console.error('Failed to load cores:', e)
-      }
+      setCores((coresRes.data.data || []).map((c: { name: string; id: number }) => ({ name: c.name, id: c.id })))
     } catch (error) {
+      if (controller.signal.aborted) return
       console.error('Failed to load Geo data:', error)
     } finally {
-      setLoading(false)
+      if (!controller.signal.aborted) {
+        setLoading(false)
+      }
     }
   }
 

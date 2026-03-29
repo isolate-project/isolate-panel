@@ -15,29 +15,30 @@ export default {
         warning: 'rgb(var(--color-warning) / <alpha-value>)',
         danger: 'rgb(var(--color-danger) / <alpha-value>)',
         info: 'rgb(var(--color-info) / <alpha-value>)',
-      },
-      backgroundColor: {
-        primary: 'rgb(var(--bg-primary) / <alpha-value>)',
-        secondary: 'rgb(var(--bg-secondary) / <alpha-value>)',
-        tertiary: 'rgb(var(--bg-tertiary) / <alpha-value>)',
-        hover: 'rgb(var(--bg-hover) / <alpha-value>)',
-      },
-      textColor: {
-        primary: 'rgb(var(--text-primary) / <alpha-value>)',
-        secondary: 'rgb(var(--text-secondary) / <alpha-value>)',
-        tertiary: 'rgb(var(--text-tertiary) / <alpha-value>)',
-        inverse: 'rgb(var(--text-inverse) / <alpha-value>)',
-      },
-      borderColor: {
-        primary: 'rgb(var(--border-primary) / <alpha-value>)',
-        secondary: 'rgb(var(--border-secondary) / <alpha-value>)',
-        focus: 'rgb(var(--border-focus) / <alpha-value>)',
+        border: {
+          primary: 'rgb(var(--border-primary) / <alpha-value>)',
+          secondary: 'rgb(var(--border-secondary) / <alpha-value>)',
+          focus: 'rgb(var(--border-focus) / <alpha-value>)',
+        },
+        bg: {
+          primary: 'rgb(var(--bg-primary) / <alpha-value>)',
+          secondary: 'rgb(var(--bg-secondary) / <alpha-value>)',
+          tertiary: 'rgb(var(--bg-tertiary) / <alpha-value>)',
+          hover: 'rgb(var(--bg-hover) / <alpha-value>)',
+        },
+        text: {
+          primary: 'rgb(var(--text-primary) / <alpha-value>)',
+          secondary: 'rgb(var(--text-secondary) / <alpha-value>)',
+          tertiary: 'rgb(var(--text-tertiary) / <alpha-value>)',
+          inverse: 'rgb(var(--text-inverse) / <alpha-value>)',
+        },
       },
       borderRadius: {
         sm: 'var(--radius-sm)',
         md: 'var(--radius-md)',
         lg: 'var(--radius-lg)',
         xl: 'var(--radius-xl)',
+        '2xl': 'var(--radius-2xl)',
       },
       transitionDuration: {
         fast: 'var(--transition-fast)',

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -71,16 +72,18 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to initialize database")
 	}
-	defer db.Close()
+	// Note: Don't close database - it needs to stay open for the server lifetime
 
-	// Run migrations
-	log.Info().Msg("Running database migrations")
-	if err := db.RunMigrations(); err != nil {
-		log.Fatal().Err(err).Msg("Failed to run migrations")
-	}
-	log.Info().Msg("Migrations completed")
+	// Run migrations (commented out - run manually with ./bin/migrate)
+	// Migration manager closes the database connection, so we can't use it here
+	// log.Info().Msg("Running database migrations")
+	// if err := db.RunMigrations(); err != nil {
+	// 	log.Fatal().Err(err).Msg("Failed to run migrations")
+	// }
+	// log.Info().Msg("Migrations completed")
 
 	// Run seeders in development
+	// Note: Seeders use the same database connection, so they work fine
 	if cfg.IsDevelopment() {
 		log.Info().Msg("Running database seeders")
 		seeder := seeds.NewSeeder(db.DB)
@@ -215,9 +218,13 @@ func main() {
 		log.Warn().Err(err).Msg("Failed to initialize certificate service - ACME features disabled")
 	}
 
-	// Set notification service for certificate and core lifecycle
-	certService.SetNotificationService(notificationService)
-	lifecycleManager.SetNotificationService(notificationService)
+	// Set notification service for certificate and core lifecycle (if available)
+	if notificationService != nil {
+		if certService != nil {
+			certService.SetNotificationService(notificationService)
+		}
+		lifecycleManager.SetNotificationService(notificationService)
+	}
 
 	// Initialize handlers
 	authHandler := api.NewAuthHandler(db.DB, tokenService, notificationService)
@@ -248,10 +255,7 @@ func main() {
 	app.Use(middleware.CORS())
 	app.Use(middleware.RequestLogger())
 
-	// 404 handler
-	app.Use(middleware.NotFoundHandler)
-
-	// Health check endpoint with detailed status
+	// Health check endpoint (must be before static middleware)
 	var startTime = time.Now()
 	app.Get("/health", func(c fiber.Ctx) error {
 		type HealthResponse struct {
@@ -286,6 +290,32 @@ func main() {
 		}
 
 		return c.Status(statusCode).JSON(response)
+	})
+
+	// Serve static files from /var/www/html (must be after /health but before /api)
+	app.Use(func(c fiber.Ctx) error {
+		// Skip API routes and subscription routes
+		if strings.HasPrefix(c.Path(), "/api") || strings.HasPrefix(c.Path(), "/sub/") || strings.HasPrefix(c.Path(), "/s/") {
+			return c.Next()
+		}
+
+		// Try to serve static file
+		filePath := "/var/www/html" + c.Path()
+		if c.Path() == "/" {
+			filePath = "/var/www/html/index.html"
+		}
+
+		// Check if file exists
+		if _, err := os.Stat(filePath); err == nil {
+			return c.SendFile(filePath)
+		}
+
+		// For SPA - return index.html for unknown routes
+		if _, err := os.Stat("/var/www/html/index.html"); err == nil {
+			return c.SendFile("/var/www/html/index.html")
+		}
+
+		return c.Next()
 	})
 
 	// API routes
@@ -406,7 +436,7 @@ func main() {
 	// Log startup information
 	log.Info().
 		Str("host", cfg.App.Host).
-		Int("port", cfg.App.Port).
+		Int("port", cfg.App.Port).Str("env_port", os.Getenv("PORT")).
 		Msg("Starting HTTP server")
 
 	log.Info().Msg("✓ Authentication system enabled")

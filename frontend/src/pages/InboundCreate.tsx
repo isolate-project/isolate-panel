@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'preact/hooks'
-import { route } from 'preact-router'
+
 import { PageLayout } from '../components/layout/PageLayout'
 import { PageHeader } from '../components/layout/PageHeader'
-import { Card } from '../components/ui/Card'
+import { Card, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { Spinner } from '../components/ui/Spinner'
@@ -15,7 +15,7 @@ import { useCreateInbound } from '../hooks/useInbounds'
 import { useQuery } from '../hooks/useQuery'
 import { certificateApi } from '../api/endpoints'
 import type { Core, ProtocolSummary } from '../types'
-import { ChevronLeft, ChevronRight, Check, Zap } from 'lucide-preact'
+
 import { useTranslation } from 'react-i18next'
 
 type WizardStep = 1 | 2 | 3 | 4 | 5
@@ -167,7 +167,7 @@ export function InboundCreate() {
         title={t('wizard.title')}
         description={t('wizard.description')}
         actions={
-          <Button variant="secondary" onClick={() => route('/inbounds')}>
+          <Button variant="outline" onClick={() => route('/inbounds')}>
             {t('common.cancel')}
           </Button>
         }
@@ -175,6 +175,7 @@ export function InboundCreate() {
 
       {/* Step Indicator */}
       <Card className="mb-6">
+      <CardContent className="p-6">
         <div className="flex items-center justify-between">
           {stepLabels.map((label, i) => {
             const stepNum = (i + 1) as WizardStep
@@ -197,10 +198,12 @@ export function InboundCreate() {
             )
           })}
         </div>
-      </Card>
+            </CardContent>
+    </Card>
 
       {/* Step Content */}
       <Card className="mb-6">
+      <CardContent className="p-6">
         {/* Step 1: Choose Core */}
         {step === 1 && (
           <div>
@@ -261,7 +264,7 @@ export function InboundCreate() {
                     >
                       <div className="flex items-center gap-2 mb-1">
                         <h4 className="font-bold text-primary">{proto.label}</h4>
-                        {proto.requires_tls && <Badge variant="info" className="text-xs">TLS</Badge>}
+                        {proto.requires_tls && <Badge variant="outline" className="text-xs">TLS</Badge>}
                       </div>
                       <p className="text-xs text-secondary">{proto.description}</p>
                       <Badge variant="default" className="mt-2 text-xs">{proto.category}</Badge>
@@ -446,12 +449,13 @@ export function InboundCreate() {
             </div>
           </div>
         )}
-      </Card>
+            </CardContent>
+    </Card>
 
       {/* Navigation Buttons */}
       <div className="flex justify-between">
         <Button
-          variant="secondary"
+          variant="outline"
           onClick={() => setStep((s) => Math.max(1, s - 1) as WizardStep)}
           disabled={step === 1}
         >
@@ -461,7 +465,7 @@ export function InboundCreate() {
 
         {step < 5 ? (
           <Button
-            variant="primary"
+            variant="default"
             onClick={() => setStep((s) => Math.min(5, s + 1) as WizardStep)}
             disabled={!canGoNext()}
           >
@@ -470,7 +474,7 @@ export function InboundCreate() {
           </Button>
         ) : (
           <Button
-            variant="primary"
+            variant="default"
             onClick={handleCreate}
             loading={isCreating}
             disabled={isCreating}

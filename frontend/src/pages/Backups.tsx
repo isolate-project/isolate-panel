@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'preact/hooks'
+import { useState, useEffect, useRef } from 'preact/hooks'
 import { backupApi } from '../api/endpoints'
 
 interface Backup {
@@ -41,11 +41,17 @@ export function Backups() {
     include_geo: false,
   })
 
+  const mountedRef = useRef(true)
+
   useEffect(() => {
+    mountedRef.current = true
     loadData()
     // Refresh every 10 seconds to track backup progress
     const interval = setInterval(loadData, 10000)
-    return () => clearInterval(interval)
+    return () => {
+      mountedRef.current = false
+      clearInterval(interval)
+    }
   }, [])
 
   const loadData = async () => {
@@ -55,15 +61,20 @@ export function Backups() {
         backupApi.getSchedule(),
       ])
 
+      if (!mountedRef.current) return
+
       setBackups(backupsRes.data.data || [])
       setSchedule(scheduleRes.data.data || { schedule: '', next_run: '' })
       if (scheduleRes.data.data?.schedule) {
         setCronExpression(scheduleRes.data.data.schedule)
       }
     } catch (error) {
+      if (!mountedRef.current) return
       console.error('Failed to load backups:', error)
     } finally {
-      setLoading(false)
+      if (mountedRef.current) {
+        setLoading(false)
+      }
     }
   }
 

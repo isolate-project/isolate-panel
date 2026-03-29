@@ -133,7 +133,7 @@ export function RAMPanicButton() {
       )}
 
       <Button
-        variant="danger"
+        variant="destructive"
         onClick={handlePanic}
         disabled={isLoading}
         fullWidth

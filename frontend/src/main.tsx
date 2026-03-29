@@ -4,17 +4,7 @@ import './index.css'
 
 // Initialize theme on app start
 const savedTheme = localStorage.getItem('theme-storage')
-if (savedTheme) {
-  try {
-    const { state } = JSON.parse(savedTheme)
-    const theme = state?.theme || 'light'
-    document.documentElement.setAttribute('data-theme', theme)
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark')
-    }
-  } catch (e) {
-    // Ignore parse errors
-  }
-}
+const theme = savedTheme ? JSON.parse(savedTheme)?.state?.theme : 'dark'
+document.documentElement.setAttribute('data-theme', theme)
 
 render(<App />, document.getElementById('app')!)

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'preact/hooks'
 import { PageLayout } from '../components/layout/PageLayout'
 import { PageHeader } from '../components/layout/PageHeader'
-import { Card } from '../components/ui/Card'
+import { Card, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { Spinner } from '../components/ui/Spinner'
@@ -65,12 +65,15 @@ export function Cores() {
 
       {isLoading ? (
         <Card className="flex items-center justify-center py-12">
+      <CardContent className="p-6">
           <Spinner size="lg" />
-        </Card>
+              </CardContent>
+    </Card>
       ) : cores && cores.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {cores.map((core: Core) => (
             <Card key={core.id} className="p-6">
+      <CardContent className="p-6">
               <div className="flex items-start justify-between mb-4">
                 <div>
                   <h3 className="text-lg font-semibold text-primary mb-1">
@@ -117,7 +120,7 @@ export function Cores() {
               <div className="flex gap-2">
                 {!core.is_running ? (
                   <Button
-                    variant="primary"
+                    variant="default"
                     size="sm"
                     onClick={() => handleStart(core.name)}
                     disabled={isStarting}
@@ -139,7 +142,7 @@ export function Cores() {
                       {t('cores.stop')}
                     </Button>
                     <Button
-                      variant="secondary"
+                      variant="outline"
                       size="sm"
                       onClick={() => handleRestart(core.name)}
                       disabled={isRestarting}
@@ -160,14 +163,17 @@ export function Cores() {
                   </Button>
                 </div>
               </div>
-            </Card>
+                  </CardContent>
+    </Card>
           ))}
         </div>
       ) : (
         <Card className="text-center py-12">
+      <CardContent className="p-6">
           <Activity className="w-12 h-12 mx-auto mb-4 text-tertiary" />
           <p className="text-secondary">{t('cores.noCores')}</p>
-        </Card>
+              </CardContent>
+    </Card>
       )}
 
       {/* Logs Modal */}
@@ -194,9 +200,12 @@ function CoreLogsView({ coreName }: { coreName: string }) {
   const [error, setError] = useState<string | null>(null)
   const logsEndRef = useRef<HTMLDivElement>(null)
 
+  const mountedRef = useRef(true)
+
   const fetchLogs = async () => {
     try {
       const response = await coreApi.logs(coreName, { lines: 100 })
+      if (!mountedRef.current) return
       const data = response.data
       if (Array.isArray(data?.logs)) {
         setLogs(data.logs)
@@ -209,17 +218,24 @@ function CoreLogsView({ coreName }: { coreName: string }) {
       }
       setError(null)
     } catch {
+      if (!mountedRef.current) return
       setError(t('cores.logsError'))
       setLogs([])
     } finally {
-      setIsLoading(false)
+      if (mountedRef.current) {
+        setIsLoading(false)
+      }
     }
   }
 
   useEffect(() => {
+    mountedRef.current = true
     fetchLogs()
     const interval = setInterval(fetchLogs, 5000)
-    return () => clearInterval(interval)
+    return () => {
+      mountedRef.current = false
+      clearInterval(interval)
+    }
   }, [coreName])
 
   useEffect(() => {

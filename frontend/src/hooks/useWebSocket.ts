@@ -21,19 +21,26 @@ export function useWebSocket<T = unknown>(
   options: UseWebSocketOptions<T> = {}
 ): UseWebSocketReturn<T> {
   const {
-    onMessage,
-    onError,
-    onOpen,
-    onClose,
     reconnectInterval = 3000,
     reconnectAttempts = 5,
   } = options
+
+  // Store callbacks in refs to avoid dependency instability
+  const onMessageRef = useRef(options.onMessage)
+  onMessageRef.current = options.onMessage
+  const onErrorRef = useRef(options.onError)
+  onErrorRef.current = options.onError
+  const onOpenRef = useRef(options.onOpen)
+  onOpenRef.current = options.onOpen
+  const onCloseRef = useRef(options.onClose)
+  onCloseRef.current = options.onClose
 
   const [isConnected, setIsConnected] = useState(false)
   const [lastMessage, setLastMessage] = useState<T | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectCountRef = useRef(0)
   const reconnectTimeoutRef = useRef<number>()
+  const intentionalCloseRef = useRef(false)
 
   const connect = useCallback(() => {
     try {
@@ -42,14 +49,14 @@ export function useWebSocket<T = unknown>(
       ws.onopen = () => {
         setIsConnected(true)
         reconnectCountRef.current = 0
-        onOpen?.()
+        onOpenRef.current?.()
       }
 
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data) as T
           setLastMessage(data)
-          onMessage?.(data)
+          onMessageRef.current?.(data)
         } catch (error) {
           console.error('Failed to parse WebSocket message:', error)
         }
@@ -57,15 +64,15 @@ export function useWebSocket<T = unknown>(
 
       ws.onerror = (error) => {
         console.error('WebSocket error:', error)
-        onError?.(error)
+        onErrorRef.current?.(error)
       }
 
       ws.onclose = () => {
         setIsConnected(false)
-        onClose?.()
+        onCloseRef.current?.()
 
-        // Auto-reconnect
-        if (reconnectCountRef.current < reconnectAttempts) {
+        // Auto-reconnect only if not intentionally closed
+        if (!intentionalCloseRef.current && reconnectCountRef.current < reconnectAttempts) {
           reconnectCountRef.current++
           reconnectTimeoutRef.current = window.setTimeout(() => {
             connect()
@@ -77,12 +84,14 @@ export function useWebSocket<T = unknown>(
     } catch (error) {
       console.error('Failed to create WebSocket:', error)
     }
-  }, [url, onMessage, onError, onOpen, onClose, reconnectInterval, reconnectAttempts])
+  }, [url, reconnectInterval, reconnectAttempts])
 
   useEffect(() => {
+    intentionalCloseRef.current = false
     connect()
 
     return () => {
+      intentionalCloseRef.current = true
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current)
       }
@@ -99,6 +108,10 @@ export function useWebSocket<T = unknown>(
   }, [])
 
   const disconnect = useCallback(() => {
+    intentionalCloseRef.current = true
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current)
+    }
     if (wsRef.current) {
       wsRef.current.close()
     }
