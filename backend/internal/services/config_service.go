@@ -12,6 +12,7 @@ import (
 	"github.com/vovk4morkovk4/isolate-panel/internal/core/singbox"
 	mihomocore "github.com/vovk4morkovk4/isolate-panel/internal/cores/mihomo"
 	xraycore "github.com/vovk4morkovk4/isolate-panel/internal/cores/xray"
+	"github.com/vovk4morkovk4/isolate-panel/internal/cache"
 	"github.com/vovk4morkovk4/isolate-panel/internal/models"
 )
 
@@ -20,10 +21,15 @@ type ConfigService struct {
 	db          *gorm.DB
 	coreManager *core.CoreManager
 	configDir   string
+	cache       *cache.Cache
 }
 
 // NewConfigService creates a new config service
-func NewConfigService(db *gorm.DB, coreManager *core.CoreManager, configDir string) *ConfigService {
+func NewConfigService(db *gorm.DB, coreManager *core.CoreManager, configDir string, cacheManager ...*cache.CacheManager) *ConfigService {
+	var configCache *cache.Cache
+	if len(cacheManager) > 0 && cacheManager[0] != nil {
+		configCache = cacheManager[0].GetConfigCache()
+	}
 	if configDir == "" {
 		configDir = "./data/cores"
 	}
@@ -31,6 +37,7 @@ func NewConfigService(db *gorm.DB, coreManager *core.CoreManager, configDir stri
 		db:          db,
 		coreManager: coreManager,
 		configDir:   configDir,
+		cache:       configCache,
 	}
 }
 

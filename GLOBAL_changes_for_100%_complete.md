@@ -14,7 +14,7 @@
 | Phase 1 | MVP Backend | ⚠️ 92% | ✅ 100% |
 | Phase 2 | MVP Frontend | ✅ 100% | ✅ 100% |
 | Phase 3 | Inbound/Outbound Management | ✅ 100% | ✅ 100% |
-| Phase 4 | Subscriptions | ⚠️ 88% | ✅ 100% |
+| Phase 4 | Subscriptions | ✅ 100% | ✅ 100% |
 | Phase 5 | Certificates | ⚠️ 83% | ✅ 100% |
 | Phase 6 | Monitoring & Statistics | ⚠️ 75% | ✅ 100% |
 | Phase 7 | Xray + Mihomo Cores | ⚠️ 82% | ✅ 100% |
@@ -103,16 +103,16 @@
 
 ---
 
-## Phase 4: Subscriptions — 88% → 100%
+## Phase 4: Subscriptions — ✅ 100%
 
 **Реализовано:** V2Ray/Clash/Sing-box форматы, short URL, rate limiting, access logging, отображение QR кода в UI, выдача заголовков `Profile-Update-Interval`.
 
-### Что осталось:
+### Что осталось (Выполнено):
 
-- [ ] **4.1** Интегрировать кэширование подписок (`internal/cache/manager.go` написан, но это мёртвый код, он не прокинут в зависимости сервисов и `main.go`)
-- [ ] **4.2** User-Agent auto-detection для формата подписки (сейчас формат задаётся только при явном указании в URL: `/sub/:token/clash` или `/sub/:token/singbox`)
-- [ ] **4.3** Unit тесты для subscription форматов (V2Ray, Clash, Sing-box)
-- [ ] **4.4** Integration тесты: создать user → создать inbound → assign → get subscription → verify format
+- [x] **4.1** Интегрировать кэширование подписок (`internal/cache/manager.go` написан, но это мёртвый код, он не прокинут в зависимости сервисов и `main.go`)
+- [x] **4.2** User-Agent auto-detection для формата подписки (сейчас формат задаётся только при явном указании в URL: `/sub/:token/clash` или `/sub/:token/singbox`)
+- [x] **4.3** Unit тесты для subscription форматов (V2Ray, Clash, Sing-box)
+- [x] **4.4** Integration тесты: создать user → создать inbound → assign → get subscription → verify format
 
 ---
 

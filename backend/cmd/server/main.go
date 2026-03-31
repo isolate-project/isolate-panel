@@ -14,6 +14,7 @@ import (
 
 	"github.com/vovk4morkovk4/isolate-panel/internal/api"
 	"github.com/vovk4morkovk4/isolate-panel/internal/auth"
+	"github.com/vovk4morkovk4/isolate-panel/internal/cache"
 	appconfig "github.com/vovk4morkovk4/isolate-panel/internal/config"
 	"github.com/vovk4morkovk4/isolate-panel/internal/core"
 	"github.com/vovk4morkovk4/isolate-panel/internal/database"
@@ -94,6 +95,12 @@ func main() {
 		}
 	}
 
+	// Initialize Cache Manager
+	cacheManager, err := cache.NewCacheManager()
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to initialize cache manager")
+	}
+
 	// Initialize Core Manager
 	coreManager := core.NewCoreManager(db.DB, cfg.Cores.SupervisorURL)
 
@@ -101,7 +108,7 @@ func main() {
 	lifecycleManager := services.NewCoreLifecycleManager(db.DB, coreManager)
 
 	// Initialize Config Service
-	configService := services.NewConfigService(db.DB, coreManager, cfg.Cores.ConfigDir)
+	configService := services.NewConfigService(db.DB, coreManager, cfg.Cores.ConfigDir, cacheManager)
 
 	// Connect ConfigService to LifecycleManager
 	lifecycleManager.SetConfigService(configService)
@@ -129,10 +136,11 @@ func main() {
 	portManager := services.NewPortManager(db.DB)
 
 	// Initialize services
-	userService := services.NewUserService(db.DB, notificationService)
+	settingsService := services.NewSettingsService(db.DB, cacheManager)
+	userService := services.NewUserService(db.DB, notificationService, cacheManager)
 	inboundService := services.NewInboundService(db.DB, lifecycleManager, portManager)
 	outboundService := services.NewOutboundService(db.DB, configService)
-	subscriptionService := services.NewSubscriptionService(db.DB, "")
+	subscriptionService := services.NewSubscriptionService(db.DB, "", cacheManager)
 
 	// Initialize traffic collector (interval based on monitoring_mode setting)
 	trafficCollector := services.NewTrafficCollector(
@@ -430,7 +438,7 @@ func main() {
 
 	// Subscription routes (public, token-based auth, rate limited)
 	subscriptionRoutes := app.Group("", middleware.SubscriptionRateLimiter())
-	subscriptionRoutes.Get("/sub/:token", subscriptionsHandler.GetV2RaySubscription)
+	subscriptionRoutes.Get("/sub/:token", subscriptionsHandler.GetAutoDetectSubscription)
 	subscriptionRoutes.Get("/sub/:token/clash", subscriptionsHandler.GetClashSubscription)
 	subscriptionRoutes.Get("/sub/:token/singbox", subscriptionsHandler.GetSingboxSubscription)
 	subscriptionRoutes.Get("/sub/:token/qr", subscriptionsHandler.GetQRCode)
@@ -484,6 +492,9 @@ func main() {
 	backupScheduler.Stop()
 	if certService != nil {
 		certService.Stop()
+	}
+	if cacheManager != nil {
+		cacheManager.Close()
 	}
 
 	// 3. Close database connection

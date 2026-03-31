@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -19,6 +20,22 @@ func NewSubscriptionsHandler(subscriptionService *services.SubscriptionService) 
 	return &SubscriptionsHandler{
 		subscriptionService: subscriptionService,
 	}
+}
+
+// GetAutoDetectSubscription inspects User-Agent to return the appropriate subscription format
+func (h *SubscriptionsHandler) GetAutoDetectSubscription(c fiber.Ctx) error {
+	userAgent := strings.ToLower(c.Get("User-Agent"))
+
+	if strings.Contains(userAgent, "clash") || strings.Contains(userAgent, "mihomo") {
+		return h.GetClashSubscription(c)
+	}
+
+	if strings.Contains(userAgent, "sing-box") {
+		return h.GetSingboxSubscription(c)
+	}
+
+	// Default to V2Ray format (Base64 vless/vmess/etc.)
+	return h.GetV2RaySubscription(c)
 }
 
 // GetV2RaySubscription serves V2Ray format subscription (base64-encoded links)

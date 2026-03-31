@@ -68,6 +68,8 @@ func runAutoMigrations(db *gorm.DB) error {
 		&models.Certificate{},
 		&models.GeoRule{},
 		&models.WarpRoute{},
+		&models.SubscriptionAccess{},
+		&models.SubscriptionShortURL{},
 	)
 }
 

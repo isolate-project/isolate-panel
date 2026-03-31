@@ -8,11 +8,11 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
-	"sync"
 	"time"
 
 	"gorm.io/gorm"
 
+	"github.com/vovk4morkovk4/isolate-panel/internal/cache"
 	"github.com/vovk4morkovk4/isolate-panel/internal/models"
 )
 
@@ -20,31 +20,22 @@ import (
 type SubscriptionService struct {
 	db       *gorm.DB
 	panelURL string
-	cache    *sync.Map // map[string]cacheEntry
-	cacheTTL time.Duration
-}
-
-// cacheEntry holds cached subscription data
-type cacheEntry struct {
-	content   string
-	expiresAt time.Time
-}
-
-// cacheKey generates a cache key for a subscription
-func cacheKey(userID uint, format string) string {
-	return fmt.Sprintf("sub:%d:%s", userID, format)
+	cache    *cache.Cache
 }
 
 // NewSubscriptionService creates a new subscription service
-func NewSubscriptionService(db *gorm.DB, panelURL string) *SubscriptionService {
+func NewSubscriptionService(db *gorm.DB, panelURL string, cacheManager ...*cache.CacheManager) *SubscriptionService {
+	var subCache *cache.Cache
+	if len(cacheManager) > 0 && cacheManager[0] != nil {
+		subCache = cacheManager[0].GetSubscriptionCache()
+	}
 	if panelURL == "" {
 		panelURL = "http://localhost:8080"
 	}
 	return &SubscriptionService{
 		db:       db,
 		panelURL: panelURL,
-		cache:    &sync.Map{},
-		cacheTTL: 5 * time.Minute,
+		cache:    subCache,
 	}
 }
 
@@ -231,32 +222,32 @@ func (s *SubscriptionService) GenerateSingbox(data *UserSubscriptionData) (strin
 
 // GetCachedSubscription gets cached subscription content
 func (s *SubscriptionService) GetCachedSubscription(userID uint, format string) (string, bool) {
-	key := cacheKey(userID, format)
-	if entry, ok := s.cache.Load(key); ok {
-		e := entry.(cacheEntry)
-		if time.Now().Before(e.expiresAt) {
-			return e.content, true
-		}
-		s.cache.Delete(key)
+	if s.cache == nil {
+		return "", false
+	}
+	key := fmt.Sprintf("sub:%d:%s", userID, format)
+	if cached, found := s.cache.GetString(key); found {
+		return cached, true
 	}
 	return "", false
 }
 
 // SetCachedSubscription sets cached subscription content
 func (s *SubscriptionService) SetCachedSubscription(userID uint, format string, content string) {
-	key := cacheKey(userID, format)
-	s.cache.Store(key, cacheEntry{
-		content:   content,
-		expiresAt: time.Now().Add(s.cacheTTL),
-	})
+	if s.cache != nil {
+		key := fmt.Sprintf("sub:%d:%s", userID, format)
+		s.cache.Set(key, content)
+	}
 }
 
 // InvalidateUserCache invalidates all cached subscriptions for a user
 func (s *SubscriptionService) InvalidateUserCache(userID uint) {
-	formats := []string{"v2ray", "clash", "singbox"}
-	for _, format := range formats {
-		key := cacheKey(userID, format)
-		s.cache.Delete(key)
+	if s.cache != nil {
+		formats := []string{"v2ray", "clash", "singbox"}
+		for _, format := range formats {
+			key := fmt.Sprintf("sub:%d:%s", userID, format)
+			s.cache.Delete(key)
+		}
 	}
 }
 
