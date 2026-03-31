@@ -49,6 +49,9 @@ export function Input({
     className
   )
 
+  const errorId = name ? `${name}-error` : undefined
+  const helperId = name ? `${name}-helper` : undefined
+
   return (
     <div className={fullWidth ? 'w-full' : ''}>
       {label && (
@@ -68,12 +71,16 @@ export function Input({
         onChange={onChange}
         onBlur={onBlur}
         className={inputStyles}
+        aria-invalid={hasError ? 'true' : undefined}
+        aria-describedby={
+          hasError && errorId ? errorId : helperText && helperId ? helperId : undefined
+        }
       />
       {hasError && (
-        <p className="mt-1 text-sm text-danger">{error}</p>
+        <p id={errorId} className="mt-1 text-sm text-danger" role="alert">{error}</p>
       )}
       {helperText && !hasError && (
-        <p className="mt-1 text-sm text-text-secondary">{helperText}</p>
+        <p id={helperId} className="mt-1 text-sm text-text-secondary">{helperText}</p>
       )}
     </div>
   )

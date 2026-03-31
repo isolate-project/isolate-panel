@@ -8,6 +8,7 @@ import { Card, CardContent } from '../components/ui/Card'
 import { Alert } from '../components/ui/Alert'
 import { useAuthStore } from '../stores/authStore'
 import { useToastStore } from '../stores/toastStore'
+import { useMetaTags } from '../hooks/useDocumentTitle'
 import { authApi } from '../api/endpoints'
 import { AxiosError } from 'axios'
 
@@ -15,6 +16,11 @@ export function Login() {
   const { t } = useTranslation()
   const { setTokens, setUser } = useAuthStore()
   const { addToast } = useToastStore()
+
+  useMetaTags({
+    title: t('auth.login') || 'Login',
+    description: 'Sign in to Isolate Panel administration dashboard',
+  })
   
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')

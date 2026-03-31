@@ -96,7 +96,8 @@ export function GeoRules() {
       setShowForm(false)
       setFormData({ type: 'geoip', code: '', action: 'proxy', priority: 50, description: '' })
       loadData()
-    } catch (error: any) {
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { error?: string } }; message?: string }
       alert('Failed to create rule: ' + (error.response?.data?.error || error.message))
     }
   }
@@ -108,7 +109,8 @@ export function GeoRules() {
       await warpApi.deleteGeoRule(id, selectedCore)
       alert('Rule deleted successfully!')
       loadData()
-    } catch (error: any) {
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { error?: string } }; message?: string }
       alert('Failed to delete rule: ' + (error.response?.data?.error || error.message))
     }
   }
@@ -117,7 +119,8 @@ export function GeoRules() {
     try {
       await warpApi.toggleGeoRule(id, selectedCore)
       loadData()
-    } catch (error: any) {
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { error?: string } }; message?: string }
       alert('Failed to toggle rule: ' + (error.response?.data?.error || error.message))
     }
   }
@@ -128,7 +131,8 @@ export function GeoRules() {
     try {
       await warpApi.updateDatabases()
       alert('Geo databases updated successfully!')
-    } catch (error: any) {
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { error?: string } }; message?: string }
       alert('Failed to update databases: ' + (error.response?.data?.error || error.message))
     }
   }
@@ -231,7 +235,7 @@ export function GeoRules() {
                   required
                 >
                   <option value="">Select...</option>
-                  {(ruleType === 'geoip' ? countries : categories).map((item: any) => (
+                  {(ruleType === 'geoip' ? countries : categories).map((item: { code?: string; name: string; description?: string }) => (
                     <option key={item.code || item.name} value={item.code || item.name}>
                       {ruleType === 'geoip'
                         ? `${item.name} (${item.code})`

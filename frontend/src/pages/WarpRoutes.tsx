@@ -92,7 +92,8 @@ export function WarpRoutes() {
       await warpApi.register()
       alert('WARP registered successfully!')
       loadData()
-    } catch (error: any) {
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { error?: string } }; message?: string }
       alert('Failed to register WARP: ' + (error.response?.data?.error || error.message))
     }
   }
@@ -104,7 +105,8 @@ export function WarpRoutes() {
       await warpApi.applyPreset(presetName, selectedCore)
       alert('Preset applied successfully!')
       loadData()
-    } catch (error: any) {
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { error?: string } }; message?: string }
       alert('Failed to apply preset: ' + (error.response?.data?.error || error.message))
     }
   }
@@ -124,7 +126,8 @@ export function WarpRoutes() {
       setShowForm(false)
       setFormData({ resource_type: 'domain', resource_value: '', description: '', priority: 50 })
       loadData()
-    } catch (error: any) {
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { error?: string } }; message?: string }
       alert('Failed to create route: ' + (error.response?.data?.error || error.message))
     }
   }
@@ -136,7 +139,8 @@ export function WarpRoutes() {
       await warpApi.deleteRoute(id)
       alert('Route deleted successfully!')
       loadData()
-    } catch (error: any) {
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { error?: string } }; message?: string }
       alert('Failed to delete route: ' + (error.response?.data?.error || error.message))
     }
   }
@@ -145,7 +149,8 @@ export function WarpRoutes() {
     try {
       await warpApi.toggleRoute(id)
       loadData()
-    } catch (error: any) {
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { error?: string } }; message?: string }
       alert('Failed to toggle route: ' + (error.response?.data?.error || error.message))
     }
   }
@@ -154,7 +159,8 @@ export function WarpRoutes() {
     try {
       await warpApi.sync()
       alert('WARP routes synchronized!')
-    } catch (error: any) {
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { error?: string } }; message?: string }
       alert('Failed to sync: ' + (error.response?.data?.error || error.message))
     }
   }

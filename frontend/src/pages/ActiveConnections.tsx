@@ -39,7 +39,7 @@ export function ActiveConnections() {
     `active-connections-${userIdFilter}`,
     () => {
       const params = userIdFilter ? { user_id: userIdFilter } : {}
-      return apiClient.get('/stats/connections', { params }).then((res: any) => res.data)
+      return apiClient.get('/stats/connections', { params }).then((res) => res.data)
     },
     {
       refetchInterval: autoRefresh ? 5000 : undefined,
@@ -47,7 +47,7 @@ export function ActiveConnections() {
   )
 
   const disconnectMutation = useMutation(
-    (userId: number) => apiClient.post(`/stats/user/${userId}/disconnect`).then((res: any) => res.data),
+    (userId: number) => apiClient.post(`/stats/user/${userId}/disconnect`).then((res) => res.data),
     {
       onSuccess: () => {
         addToast({ type: 'success', message: t('connections.disconnected') })

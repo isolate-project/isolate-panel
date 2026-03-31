@@ -1,4 +1,5 @@
 import { Router, Route } from 'preact-router'
+import { ErrorBoundary } from './components/layout/ErrorBoundary'
 import { ProtectedRoute } from './router/ProtectedRoute'
 import { ToastContainer } from './components/ui/ToastContainer'
 import { Login } from './pages/Login'
@@ -148,25 +149,27 @@ export function App() {
 
   return (
     <>
-      <Router>
-        <Route path="/login" component={Login} />
-        <Route path="/" component={ProtectedDashboard} />
-        <Route path="/users" component={ProtectedUsers} />
-        <Route path="/cores" component={ProtectedCores} />
-        <Route path="/inbounds" component={ProtectedInbounds} />
-        <Route path="/inbounds/create" component={ProtectedInboundCreate} />
-        <Route path="/inbounds/:id/edit" component={ProtectedInboundEdit} />
-        <Route path="/inbounds/:id" component={ProtectedInboundDetail} />
-        <Route path="/outbounds" component={ProtectedOutbounds} />
-        <Route path="/certificates" component={ProtectedCertificates} />
-        <Route path="/connections" component={ProtectedActiveConnections} />
-        <Route path="/settings" component={ProtectedSettings} />
-        <Route path="/warp" component={ProtectedWarpRoutes} />
-        <Route path="/geo" component={ProtectedGeoRules} />
-        <Route path="/backups" component={ProtectedBackups} />
-        <Route path="/notifications" component={ProtectedNotifications} />
-        <Route default component={NotFound} />
-      </Router>
+      <ErrorBoundary>
+        <Router>
+          <Route path="/login" component={Login} />
+          <Route path="/" component={ProtectedDashboard} />
+          <Route path="/users" component={ProtectedUsers} />
+          <Route path="/cores" component={ProtectedCores} />
+          <Route path="/inbounds" component={ProtectedInbounds} />
+          <Route path="/inbounds/create" component={ProtectedInboundCreate} />
+          <Route path="/inbounds/:id/edit" component={ProtectedInboundEdit} />
+          <Route path="/inbounds/:id" component={ProtectedInboundDetail} />
+          <Route path="/outbounds" component={ProtectedOutbounds} />
+          <Route path="/certificates" component={ProtectedCertificates} />
+          <Route path="/connections" component={ProtectedActiveConnections} />
+          <Route path="/settings" component={ProtectedSettings} />
+          <Route path="/warp" component={ProtectedWarpRoutes} />
+          <Route path="/geo" component={ProtectedGeoRules} />
+          <Route path="/backups" component={ProtectedBackups} />
+          <Route path="/notifications" component={ProtectedNotifications} />
+          <Route default component={NotFound} />
+        </Router>
+      </ErrorBoundary>
       <ToastContainer />
     </>
   )

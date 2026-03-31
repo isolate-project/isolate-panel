@@ -126,7 +126,7 @@ export function Inbounds() {
                 type="text"
                 placeholder={t('inbounds.searchPlaceholder')}
                 value={searchTerm}
-                onChange={(e: any) => setSearchTerm(e.target.value)}
+                onChange={(e) => setSearchTerm((e.target as HTMLInputElement).value)}
                 className="pl-10 h-10 bg-transparent border-none focus:ring-0 shadow-none text-base sm:text-sm placeholder:text-text-tertiary"
               />
             </div>
@@ -134,7 +134,7 @@ export function Inbounds() {
             <div className="w-full sm:w-48">
               <Select
                 value={protocolFilter}
-                onChange={(e: any) => setProtocolFilter(e.target.value)}
+                onChange={(e) => setProtocolFilter((e.target as HTMLSelectElement).value)}
                 options={[
                   { value: 'all', label: 'All Protocols' },
                   { value: 'vless', label: 'VLESS' },

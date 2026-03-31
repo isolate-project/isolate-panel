@@ -39,7 +39,8 @@ export function Notifications() {
     try {
       await backupApi.delete(id)
       loadData()
-    } catch (error: any) {
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { error?: string } }; message?: string }
       alert('Failed to delete: ' + (error.response?.data?.error || error.message))
     }
   }
@@ -49,7 +50,8 @@ export function Notifications() {
     try {
       // Will be implemented with notificationApi
       alert('Test notification sent!')
-    } catch (error: any) {
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { error?: string } }; message?: string }
       alert('Failed to send test: ' + (error.response?.data?.error || error.message))
     } finally {
       setSendingTest(false)
@@ -140,7 +142,7 @@ export function Notifications() {
             <div class="flex gap-4">
               <select
                 value={testChannel}
-                onChange={(e) => setTestChannel((e.target as HTMLSelectElement).value as any)}
+                onChange={(e) => setTestChannel((e.target as HTMLSelectElement).value as 'telegram' | 'webhook')}
                 class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="all">All Channels</option>

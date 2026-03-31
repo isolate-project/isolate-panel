@@ -12,7 +12,7 @@
 |------|----------|-------------------|------|
 | Phase 0 | Setup & Infrastructure | ✅ 100% | ✅ 100% |
 | Phase 1 | MVP Backend | ⚠️ 92% | ✅ 100% |
-| Phase 2 | MVP Frontend | ⚠️ 80% | ✅ 100% |
+| Phase 2 | MVP Frontend | ✅ 100% | ✅ 100% |
 | Phase 3 | Inbound/Outbound Management | ✅ 96% | ✅ 100% |
 | Phase 4 | Subscriptions | ⚠️ 88% | ✅ 100% |
 | Phase 5 | Certificates | ⚠️ 83% | ✅ 100% |
@@ -42,7 +42,7 @@
 
 ---
 
-## Phase 1: MVP Backend — 92% → 100%
+## Phase 1: MVP Backend — 100???% → 100%
 
 **Реализовано:** Fiber API, GORM/SQLite, JWT auth, core lifecycle, middleware, database, запись `last_login_at`.
 
@@ -70,23 +70,23 @@
 
 ---
 
-## Phase 2: MVP Frontend — 80% → 100%
+## Phase 2: MVP Frontend — ✅ 100%
 
 **Реализовано:** 17 страниц, 25 UI компонентов, Zustand stores, i18n, Tailwind v4. Частичные юнит-тесты (hooks, UI components).
 
 ### Что осталось:
 
-- [ ] **2.1** Исправить все TypeScript ошибки (восстановить `tsc --noEmit` check)
-- [ ] **2.2** Ужесточить ESLint конфигурацию (сейчас не strict, разрешены `any` и `ban-ts-comment`)
-- [ ] **2.3** Добавить error boundaries для всех страниц
-- [ ] **2.4** Frontend unit тесты (Vitest) для непокрытых частей:
+- [x] **2.1** Исправить все TypeScript ошибки (восстановить `tsc --noEmit` check)
+- [x] **2.2** Ужесточить ESLint конфигурацию (сейчас не strict, разрешены `any` и `ban-ts-comment`)
+- [x] **2.3** Добавить error boundaries для всех страниц
+- [x] **2.4** Frontend unit тесты (Vitest) для непокрытых частей:
   - Tесты для сторов (`authStore`, `themeStore`)
   - Тесты для страниц (page render tests)
-- [ ] **2.5** Accessibility (a11y):
+- [x] **2.5** Accessibility (a11y):
   - ARIA labels где они отсутствуют (сейчас есть только в ~4 компонентах)
   - Keyboard navigation
   - Focus management в модальных окнах
-- [ ] **2.6** Обновить мета-теги и SEO для Login/Dashboard
+- [x] **2.6** Обновить мета-теги и SEO для Login/Dashboard
 
 ---
 

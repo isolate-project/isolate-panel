@@ -71,7 +71,7 @@ describe('useForm Hook', () => {
     }))
     
     act(() => {
-      result.current.handleSubmit({ preventDefault: () => {} } as any)
+      result.current.handleSubmit({ preventDefault: () => {} } as Event)
     })
     
     await waitFor(() => {
@@ -89,7 +89,7 @@ describe('useForm Hook', () => {
     }))
     
     act(() => {
-      result.current.handleSubmit({ preventDefault: () => {} } as any)
+      result.current.handleSubmit({ preventDefault: () => {} } as Event)
     })
     
     await waitFor(() => {

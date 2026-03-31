@@ -190,7 +190,7 @@ const TrafficDisplay = ({ used, total, formatBytes }: { used: number, total: num
                 type="text"
                 placeholder={t('users.searchPlaceholder') || 'Search users...'}
                 value={searchTerm}
-                onChange={(e: any) => setSearchTerm(e.target.value)}
+                onChange={(e) => setSearchTerm((e.target as HTMLInputElement).value)}
                 className="pl-10 h-10 bg-transparent border-none focus:ring-0 shadow-none text-base sm:text-sm placeholder:text-text-tertiary"
               />
             </div>
@@ -198,7 +198,7 @@ const TrafficDisplay = ({ used, total, formatBytes }: { used: number, total: num
             <div className="flex gap-4 sm:gap-2">
               <Select
                 value={statusFilter}
-                onChange={(e: any) => setStatusFilter(e.target.value)}
+                onChange={(e) => setStatusFilter((e.target as HTMLSelectElement).value as 'all' | 'active' | 'inactive')}
                 options={[
                   { value: 'all', label: t('common.all') || 'All Status' },
                   { value: 'active', label: t('common.active') || 'Active' },
@@ -207,7 +207,7 @@ const TrafficDisplay = ({ used, total, formatBytes }: { used: number, total: num
               />
               <Select
                 value={limit.toString()}
-                onChange={(e: any) => { setLimit(Number(e.target.value)); setPage(1) }}
+                onChange={(e) => { setLimit(Number((e.target as HTMLSelectElement).value)); setPage(1) }}
                 options={[
                   { value: '10', label: '10 / page' }, { value: '20', label: '20 / page' }, { value: '50', label: '50 / page' }
                 ]}

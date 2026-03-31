@@ -1,3 +1,4 @@
+import type { ComponentChildren } from 'preact'
 import { route } from 'preact-router'
 import { PageLayout } from '../components/layout/PageLayout'
 import { PageHeader } from '../components/layout/PageHeader'
@@ -12,13 +13,20 @@ import { useCores } from '../hooks/useCores'
 import { useSystemResources } from '../hooks/useSystem'
 import { useConnections } from '../hooks/useConnections'
 import type { User, Core } from '../types'
-import { Users, Activity, HardDrive, Box, ArrowUpRight, ShieldAlert, Cpu } from 'lucide-preact'
+import { Users, Activity, HardDrive, Box, ArrowUpRight, ShieldAlert, Cpu, LucideIcon } from 'lucide-preact'
 import { useTranslation } from 'react-i18next'
 import { cn } from '../lib/utils'
+import { useMetaTags } from '../hooks/useDocumentTitle'
 
 
 export function Dashboard() {
   const { t } = useTranslation()
+
+  useMetaTags({
+    title: t('dashboard.title') || 'Dashboard',
+    description: 'Isolate Panel dashboard — proxy servers overview, active connections, and system resources monitoring',
+  })
+
   const { data: usersResponse, isLoading: usersLoading } = useUsers()
   const { data: cores, isLoading: coresLoading } = useCores()
   const { data: resources } = useSystemResources()
@@ -42,7 +50,17 @@ export function Dashboard() {
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
   }
 
-const StatCard = ({ title, value, subtext, icon: Icon, loading, colorClass }: any) => (
+
+interface StatCardProps {
+  title: string
+  value: string | number
+  subtext?: ComponentChildren
+  icon: LucideIcon
+  loading?: boolean
+  colorClass?: string
+}
+
+const StatCard = ({ title, value, subtext, icon: Icon, loading, colorClass }: StatCardProps) => (
   <Card className="hover:shadow-lg transition-all duration-200">
     <CardContent className="p-6">
       <div className="flex items-center justify-between">

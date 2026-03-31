@@ -88,7 +88,7 @@ describe('useMutation Hook', () => {
   })
 
   it('should not update state if unmounted', async () => {
-    let resolvePromise: (value: any) => void
+    let resolvePromise: (value: unknown) => void
     const longMutation = vi.fn().mockImplementation(() => new Promise((resolve) => {
       resolvePromise = resolve
     }))

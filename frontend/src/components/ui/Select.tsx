@@ -35,6 +35,8 @@ export function Select({
             error && 'border-danger focus:ring-danger',
             className
           )}
+          aria-label={!label && placeholder ? placeholder : undefined}
+          aria-invalid={error ? 'true' : undefined}
           {...props}
         >
           {placeholder && (
@@ -48,9 +50,9 @@ export function Select({
             </option>
           ))}
         </select>
-        <ChevronDown className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary pointer-events-none" />
+        <ChevronDown className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary pointer-events-none" aria-hidden="true" />
       </div>
-      {error && <p className="mt-1 text-sm text-danger">{error}</p>}
+      {error && <p className="mt-1 text-sm text-danger" role="alert">{error}</p>}
     </div>
   )
 }

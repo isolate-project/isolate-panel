@@ -13,15 +13,15 @@ export function CardSkeleton({ count = 3 }: CardSkeletonProps) {
           className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4"
         >
           <div className="flex items-start justify-between mb-3">
-            <Skeleton className="h-5 w-24" variant="rounded" />
-            <Skeleton className="h-6 w-6" variant="circular" />
+            <Skeleton className="h-5 w-24" />
+            <Skeleton className="h-6 w-6" />
           </div>
-          <Skeleton className="h-8 w-16 mb-2" variant="text" />
-          <Skeleton className="h-4 w-full mb-1" variant="text" />
-          <Skeleton className="h-4 w-2/3" variant="text" />
+          <Skeleton className="h-8 w-16 mb-2" />
+          <Skeleton className="h-4 w-full mb-1" />
+          <Skeleton className="h-4 w-2/3" />
           <div className="mt-4 flex gap-2">
-            <Skeleton className="h-8 w-20" variant="rounded" />
-            <Skeleton className="h-8 w-20" variant="rounded" />
+            <Skeleton className="h-8 w-20" />
+            <Skeleton className="h-8 w-20" />
           </div>
         </div>
       ))}

@@ -1,13 +1,10 @@
 import { ComponentProps } from 'preact'
 import { cn } from '../../lib/utils'
 
-interface SkeletonProps extends ComponentProps<'div'> {
-  variant?: string
-}
+interface SkeletonProps extends ComponentProps<'div'> {}
 
 function Skeleton({
   className,
-  variant,
   ...props
 }: SkeletonProps) {
   return (

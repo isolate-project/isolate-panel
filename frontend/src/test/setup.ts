@@ -49,7 +49,7 @@ vi.mock('lucide-preact', async () => {
   const actual = await vi.importActual('lucide-preact')
   const mockComponent = () => null
   
-  const mocks: Record<string, any> = {}
+  const mocks: Record<string, unknown> = {}
   Object.keys(actual).forEach(key => {
     mocks[key] = mockComponent
   })

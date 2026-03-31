@@ -87,7 +87,8 @@ export function Backups() {
       })
       alert('Backup creation started! Check status in a few seconds.')
       loadData()
-    } catch (error: any) {
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { error?: string } }; message?: string }
       alert('Failed to create backup: ' + (error.response?.data?.error || error.message))
     } finally {
       setCreating(false)
@@ -103,7 +104,8 @@ export function Backups() {
     try {
       await backupApi.restore(id, true)
       alert('Restore operation started! The panel will restart after completion.')
-    } catch (error: any) {
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { error?: string } }; message?: string }
       alert('Failed to restore: ' + (error.response?.data?.error || error.message))
     }
   }
@@ -115,7 +117,8 @@ export function Backups() {
       await backupApi.delete(id)
       alert('Backup deleted')
       loadData()
-    } catch (error: any) {
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { error?: string } }; message?: string }
       alert('Failed to delete: ' + (error.response?.data?.error || error.message))
     }
   }
@@ -132,7 +135,8 @@ export function Backups() {
       link.click()
       document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
-    } catch (error: any) {
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { error?: string } }; message?: string }
       alert('Failed to download: ' + (error.response?.data?.error || error.message))
     }
   }
@@ -143,7 +147,8 @@ export function Backups() {
       alert('Schedule updated')
       setShowScheduleForm(false)
       loadData()
-    } catch (error: any) {
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { error?: string } }; message?: string }
       alert('Failed to set schedule: ' + (error.response?.data?.error || error.message))
     }
   }

@@ -82,7 +82,7 @@ describe('useQuery Hook', () => {
   })
 
   it('should update state only if mounted', async () => {
-    let resolvePromise: (value: any) => void
+    let resolvePromise: (value: unknown) => void
     const longFetcher = vi.fn().mockImplementation(() => new Promise((resolve) => {
       resolvePromise = resolve
     }))
