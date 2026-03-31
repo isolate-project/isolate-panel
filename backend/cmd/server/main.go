@@ -213,16 +213,31 @@ func main() {
 		}
 	}()
 
-	// Initialize certificate service (with Cloudflare DNS-01 challenge)
+	// Build Cloudflare credentials (only include non-empty values)
+	cfCredentials := make(map[string]string)
+	if v := os.Getenv("CLOUDFLARE_API_KEY"); v != "" {
+		cfCredentials["api_key"] = v
+	}
+	if v := os.Getenv("CLOUDFLARE_EMAIL"); v != "" {
+		cfCredentials["email"] = v
+	}
+	if v := os.Getenv("CLOUDFLARE_API_TOKEN"); v != "" {
+		cfCredentials["api_token"] = v
+	}
+
+	// Determine DNS provider (only set if credentials are present)
+	dnsProvider := ""
+	if len(cfCredentials) > 0 {
+		dnsProvider = "cloudflare"
+	}
+
+	// Initialize certificate service (with optional Cloudflare DNS-01 challenge)
 	certService, err := services.NewCertificateService(db.DB, services.CertificateServiceConfig{
 		CertDir:     "/etc/isolate-panel/certs",
 		Email:       cfg.App.AdminEmail, // From config
-		DNSProvider: "cloudflare",
-		Credentials: map[string]string{
-			"api_key": os.Getenv("CLOUDFLARE_API_KEY"),
-			"email":   os.Getenv("CLOUDFLARE_EMAIL"),
-		},
-		Staging: cfg.App.Env == "development", // Use staging in dev
+		DNSProvider: dnsProvider,
+		Credentials: cfCredentials,
+		Staging:     cfg.App.Env == "development", // Use staging in dev
 	})
 	if err != nil {
 		log.Warn().Err(err).Msg("Failed to initialize certificate service - ACME features disabled")

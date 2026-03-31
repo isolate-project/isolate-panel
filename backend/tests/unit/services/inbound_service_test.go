@@ -20,7 +20,7 @@ func TestInboundService_ListInbounds(t *testing.T) {
 	_ = testutil.CreateTestInbound(t, db, "VLESS-8443", core.ID)
 
 	// Create service with nil lifecycle manager
-	service := services.NewInboundService(db, nil)
+	service := services.NewInboundService(db, nil, nil)
 
 	t.Run("list all inbounds", func(t *testing.T) {
 		inbounds, err := service.ListInbounds(nil, nil)
@@ -44,7 +44,7 @@ func TestInboundService_GetInbound(t *testing.T) {
 	core := testutil.GetTestCore(t, db, "singbox")
 	inbound := testutil.CreateTestInbound(t, db, "VMess-443", core.ID)
 
-	service := services.NewInboundService(db, nil)
+	service := services.NewInboundService(db, nil, nil)
 
 	t.Run("get existing inbound", func(t *testing.T) {
 		found, err := service.GetInbound(inbound.ID)
@@ -68,7 +68,7 @@ func TestInboundService_UpdateInbound(t *testing.T) {
 	core := testutil.GetTestCore(t, db, "singbox")
 	inbound := testutil.CreateTestInbound(t, db, "VMess-443", core.ID)
 
-	service := services.NewInboundService(db, nil)
+	service := services.NewInboundService(db, nil, nil)
 
 	t.Run("update inbound port", func(t *testing.T) {
 		updates := map[string]interface{}{"port": 10443}
@@ -95,7 +95,7 @@ func TestInboundService_DeleteInbound(t *testing.T) {
 	core := testutil.GetTestCore(t, db, "singbox")
 	inbound := testutil.CreateTestInbound(t, db, "VMess-443", core.ID)
 
-	service := services.NewInboundService(db, nil)
+	service := services.NewInboundService(db, nil, nil)
 
 	t.Run("delete existing inbound", func(t *testing.T) {
 		err := service.DeleteInbound(inbound.ID)

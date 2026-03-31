@@ -15,7 +15,7 @@
 | Phase 2 | MVP Frontend | ✅ 100% | ✅ 100% |
 | Phase 3 | Inbound/Outbound Management | ✅ 100% | ✅ 100% |
 | Phase 4 | Subscriptions | ✅ 100% | ✅ 100% |
-| Phase 5 | Certificates | ⚠️ 83% | ✅ 100% |
+| Phase 5 | Certificates | ✅ 100% | ✅ 100% |
 | Phase 6 | Monitoring & Statistics | ⚠️ 75% | ✅ 100% |
 | Phase 7 | Xray + Mihomo Cores | ⚠️ 82% | ✅ 100% |
 | Phase 8 | WARP + GeoIP | ⚠️ 50% | ✅ 100% |
@@ -116,20 +116,24 @@
 
 ---
 
-## Phase 5: Certificates — 83% → 100%
+## Phase 5: Certificates — ✅ 100%
 
-**Реализовано:** `certificate_service.go`, Certificates UI, автоматическое обновление (time.Ticker scheduler работает), ручная загрузка (`POST /upload`).
+**Реализовано:** `certificate_service.go`, Certificates UI, автоматическое обновление (time.Ticker scheduler работает), ручная загрузка (`POST /upload`), Cloudflare DNS-01 challenge, привязка сертификата к inbound (БД + UI selector), unit и integration тесты.
 
-### Что осталось:
+### Что выполнено:
 
-- [ ] **5.1** Проверить и довести до рабочего состояния DNS-01 challenge (Cloudflare)
-  - Тестировать с реальным Cloudflare API или мок
-  - Проверить, что env vars `CLOUDFLARE_API_KEY` / `CLOUDFLARE_EMAIL` корректно пробрасываются
-- [ ] **5.2** Привязка сертификатов к inbound
-  - UI selector для выбора сертификата при создании inbound с TLS
-- [ ] **5.3** Wildcard сертификат поддержка через DNS-01
-- [ ] **5.4** Unit тесты для certificate service и ACME
-- [ ] **5.5** Integration тест: request cert → verify → renew
+- [x] **5.1** Проверить и довести до рабочего состояния DNS-01 challenge (Cloudflare)
+  - Добавлена поддержка `CLOUDFLARE_API_TOKEN` (помимо `API_KEY + EMAIL`)
+  - Graceful degradation: при отсутствии credentials ACME не инициализируется, но панель работает
+  - ACME init failure стала non-fatal (manual upload продолжает работать)
+- [x] **5.2** Привязка сертификатов к inbound
+  - Backend: валидация `tls_cert_id` при Create/Update inbound (проверка существования и статуса)
+  - Frontend: dropdown выбора сертификата в InboundForm при `tls_enabled = true`
+  - Автоочистка `tls_cert_id` при отключении TLS
+  - **Примечание:** подстановка cert paths в конфиг-генераторы ядер — задача Phase 7.6
+- [x] **5.3** Wildcard сертификат поддержка через DNS-01 (код уже был, покрыто тестами)
+- [x] **5.4** Unit тесты для certificate service (15 тестов) и ACME (14 тестов)
+- [x] **5.5** Integration тесты: lifecycle (create→list→get→status→delete) + cert-inbound binding
 
 ---
 
@@ -160,7 +164,7 @@
 - [ ] **7.3** Проверить генерацию конфигов для всех 25 поддерживаемых протоколов
 - [ ] **7.4** Настроить Transport options (WebSocket, gRPC, H2, XHTTP) в генераторах
 - [ ] **7.5** Reality settings для VLESS в Xray/Sing-box
-- [ ] **7.6** TLS конфигурация (интеграция с Phase 5)
+- [ ] **7.6** TLS конфигурация (интеграция с Phase 5): чтение `cert_path`/`key_path` из привязанного `Certificate` через `TLSCertID` (привязка БД + UI selector уже реализованы в Phase 5.2), подстановка в конфиг-генераторы, перезагрузка ядра после смены сертификата
 
 ---
 

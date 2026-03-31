@@ -5,11 +5,12 @@ import { FormField } from './FormField'
 import { Button } from '../ui/Button'
 import { useCreateInbound, useUpdateInbound } from '../../hooks/useInbounds'
 import { useCores } from '../../hooks/useCores'
+import { useQuery } from '../../hooks/useQuery'
 import type { Inbound, Core } from '../../types'
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent } from '../ui/Card'
 import { Save } from 'lucide-preact'
-import { inboundApi } from '../../api/endpoints'
+import { inboundApi, certificateApi } from '../../api/endpoints'
 
 interface InboundFormProps {
   inbound?: Inbound | null
@@ -38,6 +39,13 @@ export function InboundForm({ inbound, onSuccess, onCancel }: InboundFormProps) 
   const [portError, setPortError] = useState<string | null>(null)
   const portCheckTimeout = useRef<number | null>(null)
 
+  // Fetch available certificates for dropdown
+  const { data: certDropdownData } = useQuery<{ options: Array<{ id: number; domain: string; label: string }> }>(
+    'certificates-dropdown',
+    () => certificateApi.dropdown().then(res => res.data as { options: Array<{ id: number; domain: string; label: string }> })
+  )
+  const certOptions = (certDropdownData?.options ?? []).map(c => ({ value: c.id.toString(), label: c.label }))
+
   const {
     values,
     errors,
@@ -57,6 +65,7 @@ export function InboundForm({ inbound, onSuccess, onCancel }: InboundFormProps) 
           listen_address: inbound.listen_address || '0.0.0.0',
           is_enabled: inbound.is_enabled ?? true,
           tls_enabled: inbound.tls_enabled ?? true,
+          tls_cert_id: inbound.tls_cert_id ?? null,
         }
       : {
           name: '',
@@ -66,9 +75,14 @@ export function InboundForm({ inbound, onSuccess, onCancel }: InboundFormProps) 
           listen_address: '0.0.0.0',
           is_enabled: true,
           tls_enabled: true,
+          tls_cert_id: null,
         },
     onSubmit: async (data) => {
       const payload = data as unknown as Record<string, unknown>
+      // Convert sentinel 0 to null for API
+      if (!payload.tls_cert_id) {
+        payload.tls_cert_id = null
+      }
       if (inbound) {
         await updateInbound({ id: inbound.id, data: payload })
       } else {
@@ -95,6 +109,11 @@ export function InboundForm({ inbound, onSuccess, onCancel }: InboundFormProps) 
           handleChange('protocol', (supportedProtocols[0] || 'vless') as InboundFormData['protocol'])
         }
       }
+    }
+
+    // Clear certificate when TLS is disabled
+    if (name === 'tls_enabled' && value === false) {
+      handleChange('tls_cert_id', 0)
     }
 
     // Debounced port check
@@ -251,6 +270,20 @@ export function InboundForm({ inbound, onSuccess, onCancel }: InboundFormProps) 
               helperText="Requires a valid certificate and private key in the proxy core."
               onChange={onChange}
             />
+
+            {values.tls_enabled && certOptions.length > 0 && (
+              <FormField
+                name="tls_cert_id"
+                label={t('inbounds.certificate') || 'TLS Certificate'}
+                type="select"
+                value={values.tls_cert_id ? String(values.tls_cert_id) : ''}
+                disabled={isLoading}
+                options={[{ value: '', label: t('common.none') || '— None —' }, ...certOptions]}
+                helperText={t('inbounds.certificateHelp') || 'Select a certificate to use for TLS. Managed in Certificates page.'}
+                onChange={(name, value) => onChange(name, value ? Number(value) : 0)}
+                onBlur={onBlur}
+              />
+            )}
 
             <FormField
               name="is_enabled"

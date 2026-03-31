@@ -59,6 +59,22 @@ func (s *InboundService) CreateInbound(inbound *models.Inbound) error {
 		}
 	}
 
+	// Validate TLS certificate binding
+	if inbound.TLSEnabled && inbound.TLSCertID != nil {
+		var cert models.Certificate
+		if err := s.db.First(&cert, *inbound.TLSCertID).Error; err != nil {
+			return fmt.Errorf("certificate not found (id=%d): %w", *inbound.TLSCertID, err)
+		}
+		if cert.Status == models.CertificateStatusExpired || cert.Status == models.CertificateStatusRevoked {
+			return fmt.Errorf("certificate %s is %s and cannot be used", cert.Domain, cert.Status)
+		}
+	}
+
+	// Clear certificate binding when TLS is disabled
+	if !inbound.TLSEnabled {
+		inbound.TLSCertID = nil
+	}
+
 	// Set defaults
 	if inbound.ListenAddress == "" {
 		inbound.ListenAddress = "0.0.0.0"
@@ -151,6 +167,35 @@ func (s *InboundService) UpdateInbound(id uint, updates map[string]interface{}) 
 			if err == nil {
 				return nil, fmt.Errorf("port %d is already in use", newPort)
 			}
+		}
+	}
+
+	// Validate TLS certificate binding on update
+	if tlsCertID, ok := updates["tls_cert_id"]; ok && tlsCertID != nil {
+		var certIDVal uint
+		switch v := tlsCertID.(type) {
+		case float64:
+			certIDVal = uint(v)
+		case uint:
+			certIDVal = v
+		case int:
+			certIDVal = uint(v)
+		}
+		if certIDVal > 0 {
+			var cert models.Certificate
+			if err := s.db.First(&cert, certIDVal).Error; err != nil {
+				return nil, fmt.Errorf("certificate not found (id=%d): %w", certIDVal, err)
+			}
+			if cert.Status == models.CertificateStatusExpired || cert.Status == models.CertificateStatusRevoked {
+				return nil, fmt.Errorf("certificate %s is %s and cannot be used", cert.Domain, cert.Status)
+			}
+		}
+	}
+
+	// Clear certificate binding when TLS is disabled
+	if tlsEnabled, ok := updates["tls_enabled"]; ok {
+		if enabled, isBool := tlsEnabled.(bool); isBool && !enabled {
+			updates["tls_cert_id"] = nil
 		}
 	}
 

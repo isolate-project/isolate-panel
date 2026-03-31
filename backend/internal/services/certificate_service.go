@@ -69,9 +69,11 @@ func NewCertificateService(db *gorm.DB, config CertificateServiceConfig) (*Certi
 			Staging:     config.Staging,
 		})
 		if err != nil {
-			return nil, fmt.Errorf("failed to create ACME client: %w", err)
+			// Non-fatal: continue without ACME, manual upload still works
+			fmt.Printf("[WARN] ACME client initialization failed (manual certificate upload still available): %v\n", err)
+		} else {
+			cs.acmeClient = acmeClient
 		}
-		cs.acmeClient = acmeClient
 	}
 
 	// Start auto-renewal checker
@@ -85,14 +87,14 @@ func (cs *CertificateService) RequestCertificate(domain string, isWildcard bool)
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
 
-	if cs.acmeClient == nil {
-		return nil, fmt.Errorf("ACME client not initialized - configure DNS provider credentials first")
-	}
-
-	// Check if certificate already exists
+	// Check if certificate already exists (before ACME check for better error messages)
 	var existing models.Certificate
 	if err := cs.db.Where("domain = ?", domain).First(&existing).Error; err == nil {
 		return nil, fmt.Errorf("certificate for domain %s already exists", domain)
+	}
+
+	if cs.acmeClient == nil {
+		return nil, fmt.Errorf("ACME client not initialized - configure DNS provider credentials first")
 	}
 
 	// Request certificate from ACME

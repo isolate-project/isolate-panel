@@ -29,6 +29,7 @@ export const inboundSchema = z.object({
   listen_address: z.string().default('0.0.0.0'),
   is_enabled: z.boolean().default(true),
   tls_enabled: z.boolean().default(true),
+  tls_cert_id: z.number().nullable().optional(),
 })
 
 export type InboundFormData = z.infer<typeof inboundSchema>
