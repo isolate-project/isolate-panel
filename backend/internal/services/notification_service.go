@@ -205,6 +205,30 @@ func (s *NotificationService) NotifyQuotaExceeded(user *models.User) {
 	)
 }
 
+// NotifyQuotaWarning sends a quota threshold warning notification (e.g., 80% or 90%)
+func (s *NotificationService) NotifyQuotaWarning(user *models.User, percentUsed int) {
+	usedStr := formatBytes(user.TrafficUsedBytes)
+	limitStr := ""
+	if user.TrafficLimitBytes != nil {
+		limitStr = formatBytes(*user.TrafficLimitBytes)
+	}
+
+	metadata := map[string]interface{}{
+		"user_id":      user.ID,
+		"username":     user.Username,
+		"percent_used": percentUsed,
+		"used_bytes":   user.TrafficUsedBytes,
+	}
+
+	s.Send(
+		models.EventTypeQuotaExceeded, // reuse same event type for filtering
+		models.NotificationSeverityWarning,
+		fmt.Sprintf("User quota warning: %d%%", percentUsed),
+		fmt.Sprintf("User %s has used %d%% of traffic quota (%s / %s)", user.Username, percentUsed, usedStr, limitStr),
+		metadata,
+	)
+}
+
 // NotifyExpiryWarning sends expiry warning notification
 func (s *NotificationService) NotifyExpiryWarning(user *models.User, daysLeft int) {
 	expiryStr := ""

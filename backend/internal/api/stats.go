@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"strconv"
 	"time"
 
@@ -133,7 +134,8 @@ func (h *StatsHandler) GetActiveConnections(c fiber.Ctx) error {
 	})
 }
 
-// DisconnectUser disconnects all active connections for a user
+// DisconnectUser disconnects all active connections for a user.
+// First attempts to close connections via core APIs, then removes from DB.
 func (h *StatsHandler) DisconnectUser(c fiber.Ctx) error {
 	userID, err := strconv.ParseUint(c.Params("user_id"), 10, 32)
 	if err != nil {
@@ -142,7 +144,7 @@ func (h *StatsHandler) DisconnectUser(c fiber.Ctx) error {
 		})
 	}
 
-	// Get user connections
+	// Get user connections from DB
 	connections, err := h.connectionTracker.GetUserConnections(uint(userID))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -150,14 +152,102 @@ func (h *StatsHandler) DisconnectUser(c fiber.Ctx) error {
 		})
 	}
 
-	// Remove all connections
+	closed := 0
+	var errors []string
+
+	// Attempt to close each connection via core API
+	for _, conn := range connections {
+		// Try to close via core (Xray may not support this, Sing-box/Mihomo do)
+		closeErr := h.connectionTracker.CloseUserConnection(
+			c.Context(),
+			conn.CoreName,
+			conn.CoreID,
+			strconv.FormatUint(uint64(conn.ID), 10),
+		)
+		if closeErr != nil {
+			// Core-level close failed — just remove from DB tracking
+			errors = append(errors, closeErr.Error())
+		}
+
+		// Always remove from DB
+		h.connectionTracker.RemoveConnection(conn.ID)
+		closed++
+	}
+
+	return c.JSON(fiber.Map{
+		"message":            "User disconnected",
+		"connections_closed": closed,
+		"errors":             errors,
+	})
+}
+
+// KickUser fully removes a user from all running cores (force disconnect).
+// The user is removed from each core inbound they are assigned to.
+// Config regeneration can optionally re-add them.
+func (h *StatsHandler) KickUser(c fiber.Ctx) error {
+	userID, err := strconv.ParseUint(c.Params("user_id"), 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid user ID",
+		})
+	}
+
+	// Get user with UUID
+	var user models.User
+	if err := h.db.First(&user, userID).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "User not found",
+		})
+	}
+
+	// Get all inbounds assigned to this user
+	var inbounds []models.Inbound
+	if err := h.db.Table("inbounds").
+		Joins("JOIN user_inbound_mapping ON user_inbound_mapping.inbound_id = inbounds.id").
+		Where("user_inbound_mapping.user_id = ?", userID).
+		Find(&inbounds).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to get user inbounds",
+		})
+	}
+
+	kicked := 0
+	var errors []string
+
+	for _, inbound := range inbounds {
+		// Get core name for this inbound
+		var core models.Core
+		if err := h.db.First(&core, inbound.CoreID).Error; err != nil {
+			continue
+		}
+
+		// Remove user from this inbound in the core
+		// Tag format matches config generators: "protocol_id"
+		inboundTag := fmt.Sprintf("%s_%d", inbound.Protocol, inbound.ID)
+		removeErr := h.connectionTracker.RemoveUserFromCore(
+			c.Context(),
+			core.Name,
+			inboundTag,
+			user.UUID,
+		)
+		if removeErr != nil {
+			errors = append(errors, removeErr.Error())
+		} else {
+			kicked++
+		}
+	}
+
+	// Also clean up all DB connections for this user
+	connections, _ := h.connectionTracker.GetUserConnections(uint(userID))
 	for _, conn := range connections {
 		h.connectionTracker.RemoveConnection(conn.ID)
 	}
 
 	return c.JSON(fiber.Map{
-		"message":            "User disconnected",
-		"connections_closed": len(connections),
+		"message":          "User kicked from cores",
+		"inbounds_kicked":  kicked,
+		"connections_removed": len(connections),
+		"errors":           errors,
 	})
 }
 
@@ -188,3 +278,99 @@ func (h *StatsHandler) GetDashboardStats(c fiber.Ctx) error {
 		"cores_running":      coresRunning,
 	})
 }
+
+// GetTrafficOverview returns aggregated traffic overview for all users.
+// Used by Dashboard charts.
+func (h *StatsHandler) GetTrafficOverview(c fiber.Ctx) error {
+	days, _ := strconv.Atoi(c.Query("days", "7"))
+	if days <= 0 || days > 365 {
+		days = 7
+	}
+
+	granularity := c.Query("granularity", "daily")
+	if granularity != "raw" && granularity != "hourly" && granularity != "daily" {
+		granularity = "daily"
+	}
+
+	now := time.Now()
+	startDate := now.AddDate(0, 0, -days)
+
+	type TrafficPoint struct {
+		Date     string `json:"date"`
+		Upload   uint64 `json:"upload"`
+		Download uint64 `json:"download"`
+		Total    uint64 `json:"total"`
+	}
+
+	var points []TrafficPoint
+
+	err := h.db.Table("traffic_stats").
+		Select("DATE(recorded_at) as date, SUM(upload) as upload, SUM(download) as download, SUM(total) as total").
+		Where("granularity = ?", granularity).
+		Where("recorded_at >= ?", startDate).
+		Group("DATE(recorded_at)").
+		Order("date ASC").
+		Scan(&points).Error
+
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	// Calculate totals
+	var totalUpload, totalDownload uint64
+	for _, p := range points {
+		totalUpload += p.Upload
+		totalDownload += p.Download
+	}
+
+	return c.JSON(fiber.Map{
+		"days":           days,
+		"granularity":    granularity,
+		"start_date":     startDate.Format("2006-01-02"),
+		"end_date":       now.Format("2006-01-02"),
+		"points":         points,
+		"total_upload":   totalUpload,
+		"total_download": totalDownload,
+		"total":          totalUpload + totalDownload,
+	})
+}
+
+// GetTopUsers returns top traffic-consuming users.
+// Used by Dashboard charts.
+func (h *StatsHandler) GetTopUsers(c fiber.Ctx) error {
+	limit, _ := strconv.Atoi(c.Query("limit", "10"))
+	if limit <= 0 || limit > 50 {
+		limit = 10
+	}
+
+	type TopUser struct {
+		UserID           uint   `json:"user_id"`
+		Username         string `json:"username"`
+		TrafficUsedBytes int64  `json:"traffic_used_bytes"`
+		TrafficLimitBytes *int64 `json:"traffic_limit_bytes"`
+		IsActive         bool   `json:"is_active"`
+	}
+
+	var topUsers []TopUser
+
+	err := h.db.Table("users").
+		Select("id as user_id, username, traffic_used_bytes, traffic_limit_bytes, is_active").
+		Where("traffic_used_bytes > 0").
+		Order("traffic_used_bytes DESC").
+		Limit(limit).
+		Scan(&topUsers).Error
+
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"users": topUsers,
+		"total": len(topUsers),
+	})
+}
+

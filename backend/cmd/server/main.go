@@ -175,7 +175,7 @@ func main() {
 	dataAggregator.Start()
 
 	// Initialize data retention service (cleanup old data)
-	dataRetention := services.NewDataRetentionService(db.DB, 0)
+	dataRetention := services.NewDataRetentionService(db.DB, 0, settingsService)
 	dataRetention.Start()
 
 	// Initialize WARP service
@@ -434,6 +434,9 @@ func main() {
 	statsGroup.Get("/user/:user_id/traffic", statsHandler.GetUserTrafficStats)
 	statsGroup.Get("/connections", statsHandler.GetActiveConnections)
 	statsGroup.Post("/user/:user_id/disconnect", statsHandler.DisconnectUser)
+	statsGroup.Post("/user/:user_id/kick", statsHandler.KickUser)
+	statsGroup.Get("/traffic/overview", statsHandler.GetTrafficOverview)
+	statsGroup.Get("/traffic/top-users", statsHandler.GetTopUsers)
 
 	// WARP and Geo routes (protected)
 	warpHandler.RegisterRoutes(protectedGroup)

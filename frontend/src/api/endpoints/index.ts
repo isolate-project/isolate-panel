@@ -138,6 +138,12 @@ export const statsApi = {
     apiClient.get('/stats/connections', { params: userId ? { user_id: userId } : {} }),
   disconnectUser: (userId: number) =>
     apiClient.post(`/stats/user/${userId}/disconnect`),
+  kickUser: (userId: number) =>
+    apiClient.post(`/stats/user/${userId}/kick`),
+  trafficOverview: (params?: { days?: number; granularity?: string }) =>
+    apiClient.get('/stats/traffic/overview', { params }),
+  topUsers: (params?: { limit?: number }) =>
+    apiClient.get('/stats/traffic/top-users', { params }),
 }
 
 // System endpoints

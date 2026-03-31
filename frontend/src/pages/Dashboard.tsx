@@ -8,6 +8,7 @@ import { Badge } from '../components/ui/Badge'
 import { Progress } from '../components/ui/Progress'
 import { Skeleton } from '../components/ui/Skeleton'
 import { RAMPanicButton } from '../components/features/RAMPanicButton'
+import { TrafficChart, TopUsersChart } from '../components/features/DashboardCharts'
 import { useUsers } from '../hooks/useUsers'
 import { useCores } from '../hooks/useCores'
 import { useSystemResources } from '../hooks/useSystem'
@@ -143,7 +144,13 @@ const StatCard = ({ title, value, subtext, icon: Icon, loading, colorClass }: St
           />
         </div>
 
-        {/* 2. System Overview & Quick Panel */}
+        {/* 2. Traffic Charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <TrafficChart days={7} />
+          </div>
+          <TopUsersChart limit={5} />
+        </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main System Resources - Spans 2 cols */}
           <Card className="lg:col-span-2">
