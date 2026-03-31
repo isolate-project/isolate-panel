@@ -8,6 +8,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/vovk4morkovk4/isolate-panel/internal/cores"
 	"github.com/vovk4morkovk4/isolate-panel/internal/models"
 )
 
@@ -137,10 +138,14 @@ type RoutingRule struct {
 	Type        string   `json:"type"`
 	InboundTag  []string `json:"inboundTag,omitempty"`
 	OutboundTag string   `json:"outboundTag"`
+	Domain      []string `json:"domain,omitempty"`
+	IP          []string `json:"ip,omitempty"`
 }
 
 // GenerateConfig generates Xray configuration from database
-func GenerateConfig(db *gorm.DB, coreID uint) (*Config, error) {
+func GenerateConfig(ctx *cores.ConfigContext, coreID uint) (*Config, error) {
+	db := ctx.DB
+
 	// Get core
 	var core models.Core
 	if err := db.First(&core, coreID).Error; err != nil {
@@ -235,6 +240,49 @@ func GenerateConfig(db *gorm.DB, coreID uint) (*Config, error) {
 				"domainStrategy": "UseIP",
 			}),
 		})
+	}
+
+	// Inject WARP WireGuard outbound + routing rules
+	if warpData, ok := cores.InjectWARP(ctx, coreID); ok {
+		tag, protocol, settings := cores.XrayWARPOutbound(warpData.Account)
+		config.Outbounds = append(config.Outbounds, OutboundConfig{
+			Tag:      tag,
+			Protocol: protocol,
+			Settings: settings,
+		})
+		// Add WARP routing rules
+		warpRules := cores.XrayWARPRoutingRules(warpData.Routes)
+		for _, wr := range warpRules {
+			rule := RoutingRule{
+				Type:        "field",
+				OutboundTag: "warp-out",
+			}
+			if domain, ok := wr["domain"].([]string); ok {
+				rule.Domain = domain
+			}
+			if ip, ok := wr["ip"].([]string); ok {
+				rule.IP = ip
+			}
+			config.Routing.Rules = append(config.Routing.Rules, rule)
+		}
+	}
+
+	// Inject GeoIP/GeoSite routing rules
+	if geoData, ok := cores.InjectGeo(ctx, coreID); ok {
+		geoRules := cores.XrayGeoRoutingRules(geoData.Rules)
+		for _, gr := range geoRules {
+			rule := RoutingRule{Type: "field"}
+			if outboundTag, ok := gr["outboundTag"].(string); ok {
+				rule.OutboundTag = outboundTag
+			}
+			if domain, ok := gr["domain"].([]string); ok {
+				rule.Domain = domain
+			}
+			if ip, ok := gr["ip"].([]string); ok {
+				rule.IP = ip
+			}
+			config.Routing.Rules = append(config.Routing.Rules, rule)
+		}
 	}
 
 	return config, nil

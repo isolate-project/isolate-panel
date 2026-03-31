@@ -9,6 +9,7 @@ import (
 	"gopkg.in/yaml.v3"
 	"gorm.io/gorm"
 
+	"github.com/vovk4morkovk4/isolate-panel/internal/cores"
 	"github.com/vovk4morkovk4/isolate-panel/internal/models"
 )
 
@@ -61,7 +62,9 @@ type ProxyGroup struct {
 }
 
 // GenerateConfig generates Mihomo configuration from database
-func GenerateConfig(db *gorm.DB, coreID uint) (*Config, error) {
+func GenerateConfig(ctx *cores.ConfigContext, coreID uint) (*Config, error) {
+	db := ctx.DB
+
 	// Get inbounds for this core
 	var inbounds []models.Inbound
 	if err := db.Where("core_id = ?", coreID).Find(&inbounds).Error; err != nil {
@@ -107,8 +110,31 @@ func GenerateConfig(db *gorm.DB, coreID uint) (*Config, error) {
 		config.Proxies = append(config.Proxies, *proxy)
 	}
 
+	// Inject WARP WireGuard proxy + routing rules
+	if warpData, ok := cores.InjectWARP(ctx, coreID); ok {
+		wgProxy := cores.MihomoWARPProxy(warpData.Account)
+		proxy := Proxy{
+			Name:  "warp-out",
+			Type:  "wireguard",
+			Extra: wgProxy,
+		}
+		config.Proxies = append(config.Proxies, proxy)
+		// Add WARP routing rules (before default MATCH)
+		warpRules := cores.MihomoWARPRules(warpData.Routes)
+		config.Rules = append(config.Rules, warpRules...)
+	}
+
+	// Inject GeoIP/GeoSite routing rules
+	if geoData, ok := cores.InjectGeo(ctx, coreID); ok {
+		geoRules := cores.MihomoGeoRules(geoData.Rules)
+		config.Rules = append(config.Rules, geoRules...)
+	}
+
 	// Add default rule if no rules
 	if len(config.Rules) == 0 {
+		config.Rules = append(config.Rules, "MATCH,DIRECT")
+	} else {
+		// Always add MATCH,DIRECT as final fallback
 		config.Rules = append(config.Rules, "MATCH,DIRECT")
 	}
 

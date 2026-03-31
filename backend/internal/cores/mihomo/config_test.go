@@ -7,9 +7,14 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
+	"github.com/vovk4morkovk4/isolate-panel/internal/cores"
 	"github.com/vovk4morkovk4/isolate-panel/internal/cores/mihomo"
 	"github.com/vovk4morkovk4/isolate-panel/internal/models"
 )
+
+func testCtx(db *gorm.DB) *cores.ConfigContext {
+	return &cores.ConfigContext{DB: db}
+}
 
 func setupTestDB(t *testing.T) *gorm.DB {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
@@ -63,7 +68,7 @@ func TestGenerateConfig_Basic(t *testing.T) {
 	})
 
 	// Generate config
-	config, err := mihomo.GenerateConfig(db, core.ID)
+	config, err := mihomo.GenerateConfig(testCtx(db), core.ID)
 	if err != nil {
 		t.Fatalf("GenerateConfig failed: %v", err)
 	}
@@ -156,7 +161,7 @@ func TestGenerateConfig_MultipleProtocols(t *testing.T) {
 	}
 
 	// Generate config
-	config, err := mihomo.GenerateConfig(db, core.ID)
+	config, err := mihomo.GenerateConfig(testCtx(db), core.ID)
 	if err != nil {
 		t.Fatalf("GenerateConfig failed: %v", err)
 	}
@@ -237,7 +242,7 @@ func TestWriteConfig(t *testing.T) {
 	db.Create(&inbound)
 
 	// Generate and write config
-	config, err := mihomo.GenerateConfig(db, core.ID)
+	config, err := mihomo.GenerateConfig(testCtx(db), core.ID)
 	if err != nil {
 		t.Fatalf("GenerateConfig failed: %v", err)
 	}
@@ -329,7 +334,7 @@ func TestMihomoExclusiveProtocols(t *testing.T) {
 		})
 	}
 
-	config, err := mihomo.GenerateConfig(db, core.ID)
+	config, err := mihomo.GenerateConfig(testCtx(db), core.ID)
 	if err != nil {
 		t.Fatalf("GenerateConfig failed: %v", err)
 	}

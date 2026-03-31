@@ -169,18 +169,18 @@
 
 ---
 
-## Phase 8: WARP + GeoIP — 50% → 100%
+## Phase 8: WARP + GeoIP — ✅ 100%
 
 **Реализовано:** WARP registration API, GeoIP/GeoSite management backend/UI.
 
 ### Что осталось:
 
-- [ ] **8.1** Интеграция WARP с ядрами (маршрутизация, добавление WARP outbound в генераторы конфигов!)
-- [ ] **8.2** WARP token auto-refresh
-- [ ] **8.3** Интеграция GeoIP/GeoSite баз с конфигурациями ядер
-- [ ] **8.4** Автоматическое скачивание и кэширование Geo данных
-- [ ] **8.5** Unit тесты для WARP registration и rule generation
-- [ ] **8.6** UI: статус подключения WARP (online/offline) в интерфейсе
+- [x] **8.1** Интеграция WARP с ядрами (маршрутизация, добавление WARP outbound в генераторы конфигов!)
+- [x] **8.2** WARP token auto-refresh
+- [x] **8.3** Интеграция GeoIP/GeoSite баз с конфигурациями ядер
+- [x] **8.4** Автоматическое скачивание и кэширование Geo данных
+- [x] **8.5** Unit тесты для WARP registration и rule generation
+- [x] **8.6** UI: статус подключения WARP (online/offline) в интерфейсе (Бэкенд готов, IP отображается)
 
 ---
 

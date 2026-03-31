@@ -12,16 +12,21 @@ import (
 
 // WarpHandler handles WARP-related API requests
 type WarpHandler struct {
-	warpService *services.WARPService
-	geoService  *services.GeoService
+	warpService   *services.WARPService
+	geoService    *services.GeoService
+	configService *services.ConfigService
 }
 
 // NewWarpHandler creates a new WARP handler
-func NewWarpHandler(warpService *services.WARPService, geoService *services.GeoService) *WarpHandler {
-	return &WarpHandler{
+func NewWarpHandler(warpService *services.WARPService, geoService *services.GeoService, configService ...*services.ConfigService) *WarpHandler {
+	h := &WarpHandler{
 		warpService: warpService,
 		geoService:  geoService,
 	}
+	if len(configService) > 0 {
+		h.configService = configService[0]
+	}
+	return h
 }
 
 // RegisterRoutes registers WARP API routes
@@ -247,11 +252,64 @@ func (h *WarpHandler) ToggleWarpRoute(c fiber.Ctx) error {
 
 // SyncWarpRoutes applies WARP routes to cores
 func (h *WarpHandler) SyncWarpRoutes(c fiber.Ctx) error {
-	// For MVP, this is a no-op
-	// In production, this would regenerate core configs
+	if h.configService == nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "config service not available",
+		})
+	}
+
+	coreIDStr := c.Query("core_id")
+	if coreIDStr == "" {
+		// Sync all cores
+		var cores []models.Core
+		if err := h.warpService.DB().Find(&cores).Error; err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": err.Error(),
+			})
+		}
+		var errors []string
+		for _, core := range cores {
+			if err := h.configService.RegenerateAndReload(core.Name); err != nil {
+				errors = append(errors, core.Name+": "+err.Error())
+			}
+		}
+		if len(errors) > 0 {
+			return c.JSON(fiber.Map{
+				"success":  false,
+				"message":  "Partial sync",
+				"errors":   errors,
+			})
+		}
+		return c.JSON(fiber.Map{
+			"success": true,
+			"message": "All cores synced successfully",
+		})
+	}
+
+	// Sync a specific core
+	coreID, err := strconv.ParseUint(coreIDStr, 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "invalid core_id",
+		})
+	}
+
+	var core models.Core
+	if err := h.warpService.DB().First(&core, coreID).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "core not found",
+		})
+	}
+
+	if err := h.configService.RegenerateAndReload(core.Name); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
 	return c.JSON(fiber.Map{
 		"success": true,
-		"message": "WARP routes synchronized",
+		"message": "Config regenerated and core reloaded for " + core.Name,
 	})
 }
 

@@ -19,6 +19,8 @@ type ConfigService struct {
 	db          *gorm.DB
 	coreManager *cores.CoreManager
 	configDir   string
+	warpDir     string
+	geoDir      string
 	cache       *cache.Cache
 }
 
@@ -35,7 +37,18 @@ func NewConfigService(db *gorm.DB, coreManager *cores.CoreManager, configDir str
 		db:          db,
 		coreManager: coreManager,
 		configDir:   configDir,
+		warpDir:     "./data/warp",
+		geoDir:      "./data/geo",
 		cache:       configCache,
+	}
+}
+
+// configContext creates a ConfigContext for generators
+func (s *ConfigService) configContext() *cores.ConfigContext {
+	return &cores.ConfigContext{
+		DB:      s.db,
+		WarpDir: s.warpDir,
+		GeoDir:  s.geoDir,
 	}
 }
 
@@ -120,7 +133,7 @@ func (s *ConfigService) generateSingboxConfig(inbounds []models.Inbound, outboun
 	// Use the first inbound's core ID
 	coreID := inbounds[0].CoreID
 
-	config, err := singboxcore.GenerateConfig(s.db, coreID)
+	config, err := singboxcore.GenerateConfig(s.configContext(), coreID)
 	if err != nil {
 		return err
 	}
@@ -147,7 +160,7 @@ func (s *ConfigService) generateXrayConfig(inbounds []models.Inbound, outbounds 
 	// Use the first inbound's core ID
 	coreID := inbounds[0].CoreID
 
-	config, err := xraycore.GenerateConfig(s.db, coreID)
+	config, err := xraycore.GenerateConfig(s.configContext(), coreID)
 	if err != nil {
 		return err
 	}
@@ -174,7 +187,7 @@ func (s *ConfigService) generateMihomoConfig(inbounds []models.Inbound, outbound
 	// Use the first inbound's core ID
 	coreID := inbounds[0].CoreID
 
-	config, err := mihomocore.GenerateConfig(s.db, coreID)
+	config, err := mihomocore.GenerateConfig(s.configContext(), coreID)
 	if err != nil {
 		return err
 	}

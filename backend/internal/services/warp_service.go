@@ -6,9 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -19,17 +21,22 @@ import (
 
 // WARPService manages WARP configuration and routing
 type WARPService struct {
-	db      *gorm.DB
-	warpDir string
+	db       *gorm.DB
+	warpDir  string
+	stopCh   chan struct{}
+	stopOnce sync.Once
 }
 
 // WARPAccount represents Cloudflare WARP account
 type WARPAccount struct {
-	AccountID  string `json:"account_id"`
-	DeviceID   string `json:"device_id"`
-	PrivateKey string `json:"private_key"`
-	PublicKey  string `json:"public_key"`
-	Token      string `json:"token"`
+	AccountID   string `json:"account_id"`
+	DeviceID    string `json:"device_id"`
+	PrivateKey  string `json:"private_key"`
+	PublicKey   string `json:"public_key"`
+	Token       string `json:"token"`
+	IPv4Address string `json:"ipv4_address,omitempty"`
+	IPv6Address string `json:"ipv6_address,omitempty"`
+	ClientID    string `json:"client_id,omitempty"`
 }
 
 // WARPStatus represents WARP connection status
@@ -183,11 +190,30 @@ func (s *WARPService) registerWithCloudflare(deviceID, publicKey string) (*WARPA
 		return nil, fmt.Errorf("token not found in response")
 	}
 
-	return &WARPAccount{
+	account := &WARPAccount{
 		AccountID: accountID,
 		DeviceID:  deviceID,
 		Token:     token,
-	}, nil
+	}
+
+	// Extract IP addresses from config.interface.addresses
+	if config, ok := apiResp["config"].(map[string]interface{}); ok {
+		if iface, ok := config["interface"].(map[string]interface{}); ok {
+			if addrs, ok := iface["addresses"].(map[string]interface{}); ok {
+				if v4, ok := addrs["v4"].(string); ok {
+					account.IPv4Address = v4
+				}
+				if v6, ok := addrs["v6"].(string); ok {
+					account.IPv6Address = v6
+				}
+			}
+		}
+		if clientID, ok := config["client_id"].(string); ok {
+			account.ClientID = clientID
+		}
+	}
+
+	return account, nil
 }
 
 // saveAccount saves WARP account to file
@@ -233,6 +259,8 @@ func (s *WARPService) GetStatus() (*WARPStatus, error) {
 	if account != nil {
 		status.DeviceID = account.DeviceID
 		status.AccountID = account.AccountID
+		status.IPAddress = account.IPv4Address
+		status.IPv6Address = account.IPv6Address
 	}
 
 	return status, nil
@@ -255,11 +283,20 @@ func (s *WARPService) GenerateWireGuardConfig() (string, error) {
 		warpPublicKey = "bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo="
 	)
 
-	// Generate WireGuard config
+	// Generate WireGuard config with real assigned addresses
+	addressV4 := "172.16.0.2/32"
+	addressV6 := "2606:4700:110:8f77:XXXX::1/128"
+	if account.IPv4Address != "" {
+		addressV4 = account.IPv4Address + "/32"
+	}
+	if account.IPv6Address != "" {
+		addressV6 = account.IPv6Address + "/128"
+	}
+
 	config := fmt.Sprintf(`[Interface]
 PrivateKey = %s
-Address = 172.16.0.2/32
-Address = 2606:4700:110:8f77:XXXX::1/128
+Address = %s
+Address = %s
 DNS = 1.1.1.1, 1.0.0.1, 2606:4700:4700::1111
 
 [Peer]
@@ -267,7 +304,7 @@ PublicKey = %s
 Endpoint = %s
 AllowedIPs = 0.0.0.0/0, ::/0
 PersistentKeepalive = 30
-`, account.PrivateKey, warpPublicKey, warpEndpoint)
+`, account.PrivateKey, addressV4, addressV6, warpPublicKey, warpEndpoint)
 
 	return config, nil
 }
@@ -361,4 +398,98 @@ func (s *WARPService) ApplyPreset(presetName string, coreID uint) error {
 // DB returns the database instance
 func (s *WARPService) DB() *gorm.DB {
 	return s.db
+}
+
+// RefreshToken refreshes the WARP token with Cloudflare API
+func (s *WARPService) RefreshToken() error {
+	account, err := s.LoadAccount()
+	if err != nil {
+		return err
+	}
+	if account == nil {
+		return fmt.Errorf("WARP not registered")
+	}
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	url := fmt.Sprintf("https://api.cloudflareclient.com/v0a4005/reg/%s", account.DeviceID)
+	req, err := http.NewRequest("PUT", url, bytes.NewBuffer([]byte("{}")))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Authorization", "Bearer "+account.Token)
+	req.Header.Set("CF-Client-Version", "a-6.10-4005")
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to refresh token: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("token refresh failed: %s (status %d)", string(body), resp.StatusCode)
+	}
+
+	// Parse updated response
+	var apiResp map[string]interface{}
+	if err := json.Unmarshal(body, &apiResp); err != nil {
+		return err
+	}
+
+	// Update token if present
+	if newToken, ok := apiResp["token"].(string); ok && newToken != "" {
+		account.Token = newToken
+	}
+
+	// Update IPs if present
+	if config, ok := apiResp["config"].(map[string]interface{}); ok {
+		if iface, ok := config["interface"].(map[string]interface{}); ok {
+			if addrs, ok := iface["addresses"].(map[string]interface{}); ok {
+				if v4, ok := addrs["v4"].(string); ok {
+					account.IPv4Address = v4
+				}
+				if v6, ok := addrs["v6"].(string); ok {
+					account.IPv6Address = v6
+				}
+			}
+		}
+	}
+
+	return s.saveAccount(account)
+}
+
+// StartAutoRefresh starts a background goroutine that refreshes the token periodically
+func (s *WARPService) StartAutoRefresh(interval time.Duration) {
+	s.stopCh = make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				if err := s.RefreshToken(); err != nil {
+					log.Printf("[WARP] Token refresh failed: %v", err)
+				} else {
+					log.Printf("[WARP] Token refreshed successfully")
+				}
+			case <-s.stopCh:
+				return
+			}
+		}
+	}()
+}
+
+// StopAutoRefresh stops the background token refresh
+func (s *WARPService) StopAutoRefresh() {
+	s.stopOnce.Do(func() {
+		if s.stopCh != nil {
+			close(s.stopCh)
+		}
+	})
 }

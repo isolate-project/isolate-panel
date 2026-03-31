@@ -3,9 +3,11 @@ package services
 import (
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/vovk4morkovk4/isolate-panel/internal/models"
@@ -14,8 +16,10 @@ import (
 
 // GeoService manages GeoIP/GeoSite databases and rules
 type GeoService struct {
-	db     *gorm.DB
-	geoDir string
+	db       *gorm.DB
+	geoDir   string
+	stopCh   chan struct{}
+	stopOnce sync.Once
 }
 
 // GeoDatabase represents a GeoIP/GeoSite database
@@ -109,7 +113,7 @@ func (s *GeoService) DownloadCountryMMDB() error {
 	return s.downloadFile(url, "Country.mmdb")
 }
 
-// downloadFile downloads a file from URL
+// downloadFile downloads a file from URL with atomic write (tmp → rename)
 func (s *GeoService) downloadFile(url, filename string) error {
 	resp, err := http.Get(url)
 	if err != nil {
@@ -117,33 +121,33 @@ func (s *GeoService) downloadFile(url, filename string) error {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == http.StatusNotModified {
+		return nil // already up-to-date
+	}
+
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("failed to download: %s", resp.Status)
 	}
 
-	path := filepath.Join(s.geoDir, filename)
-	file, err := os.Create(path)
+	// Atomic write: download to tmp, then rename
+	tmpPath := filepath.Join(s.geoDir, filename+".tmp")
+	file, err := os.Create(tmpPath)
 	if err != nil {
 		return err
 	}
-	defer file.Close()
 
-	_, err = io.Copy(file, resp.Body)
-	return err
-}
-
-// UpdateAllDatabases downloads all Geo databases
-func (s *GeoService) UpdateAllDatabases() error {
-	if err := s.DownloadGeoIP(); err != nil {
-		return fmt.Errorf("failed to download GeoIP: %w", err)
+	if _, err := io.Copy(file, resp.Body); err != nil {
+		file.Close()
+		os.Remove(tmpPath)
+		return err
 	}
+	file.Close()
 
-	if err := s.DownloadGeoSite(); err != nil {
-		return fmt.Errorf("failed to download GeoSite: %w", err)
-	}
-
-	if err := s.DownloadCountryMMDB(); err != nil {
-		return fmt.Errorf("failed to download Country MMDB: %w", err)
+	// Rename to final path
+	finalPath := filepath.Join(s.geoDir, filename)
+	if err := os.Rename(tmpPath, finalPath); err != nil {
+		os.Remove(tmpPath)
+		return err
 	}
 
 	return nil
@@ -266,4 +270,120 @@ func (s *GeoService) ToggleGeoRule(id uint, coreID uint, enabled bool) error {
 // DB returns the database instance
 func (s *GeoService) DB() *gorm.DB {
 	return s.db
+}
+
+// downloadFileConditional downloads if modified (using If-Modified-Since)
+func (s *GeoService) downloadFileConditional(url, filename string) (bool, error) {
+	path := filepath.Join(s.geoDir, filename)
+
+	client := &http.Client{Timeout: 120 * time.Second}
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return false, err
+	}
+
+	// Check existing file for If-Modified-Since
+	if info, err := os.Stat(path); err == nil {
+		req.Header.Set("If-Modified-Since", info.ModTime().UTC().Format(http.TimeFormat))
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotModified {
+		return false, nil // already up-to-date
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return false, fmt.Errorf("failed to download: %s", resp.Status)
+	}
+
+	// Atomic: write to tmp then rename
+	tmpPath := path + ".tmp"
+	file, err := os.Create(tmpPath)
+	if err != nil {
+		return false, err
+	}
+
+	if _, err := io.Copy(file, resp.Body); err != nil {
+		file.Close()
+		os.Remove(tmpPath)
+		return false, err
+	}
+	file.Close()
+
+	if err := os.Rename(tmpPath, path); err != nil {
+		os.Remove(tmpPath)
+		return false, err
+	}
+
+	return true, nil
+}
+
+// UpdateAllDatabases downloads all geo databases if they are outdated
+func (s *GeoService) UpdateAllDatabases() error {
+	databases := map[string]string{
+		"geoip.dat":    "https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat",
+		"geosite.dat":  "https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat",
+		"Country.mmdb": "https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-Country.mmdb",
+	}
+
+	var lastErr error
+	for filename, url := range databases {
+		updated, err := s.downloadFileConditional(url, filename)
+		if err != nil {
+			log.Printf("[GEO] Failed to update %s: %v", filename, err)
+			lastErr = err
+			continue
+		}
+		if updated {
+			log.Printf("[GEO] Updated %s", filename)
+		} else {
+			log.Printf("[GEO] %s is up-to-date", filename)
+		}
+	}
+
+	return lastErr
+}
+
+// StartAutoUpdate starts a background goroutine to periodically update geo databases
+func (s *GeoService) StartAutoUpdate(interval time.Duration) {
+	s.stopCh = make(chan struct{})
+
+	// Initial async download if files don't exist
+	go func() {
+		if _, err := os.Stat(filepath.Join(s.geoDir, "geoip.dat")); os.IsNotExist(err) {
+			log.Printf("[GEO] Geo databases not found, downloading...")
+			if err := s.UpdateAllDatabases(); err != nil {
+				log.Printf("[GEO] Initial download failed: %v", err)
+			}
+		}
+	}()
+
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				if err := s.UpdateAllDatabases(); err != nil {
+					log.Printf("[GEO] Auto-update failed: %v", err)
+				}
+			case <-s.stopCh:
+				return
+			}
+		}
+	}()
+}
+
+// StopAutoUpdate stops the background auto-update goroutine
+func (s *GeoService) StopAutoUpdate() {
+	s.stopOnce.Do(func() {
+		if s.stopCh != nil {
+			close(s.stopCh)
+		}
+	})
 }

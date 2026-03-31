@@ -183,12 +183,16 @@ func main() {
 	if err := warpService.Initialize(); err != nil {
 		log.Warn().Err(err).Msg("Failed to initialize WARP service")
 	}
+	// Start WARP token auto-refresh (every 24 hours)
+	warpService.StartAutoRefresh(24 * time.Hour)
 
 	// Initialize Geo service
 	geoService := services.NewGeoService(db.DB, "/app/data/geo")
 	if err := geoService.Initialize(); err != nil {
 		log.Warn().Err(err).Msg("Failed to initialize Geo service")
 	}
+	// Start Geo database auto-update (every 7 days)
+	geoService.StartAutoUpdate(7 * 24 * time.Hour)
 
 	// Initialize Backup service
 	backupService := services.NewBackupService(db.DB, "/app/data/backups", "/app/data")
@@ -261,7 +265,7 @@ func main() {
 	subscriptionsHandler := api.NewSubscriptionsHandler(subscriptionService)
 	certificatesHandler := api.NewCertificatesHandler(certService, db.DB)
 	statsHandler := api.NewStatsHandler(db.DB, trafficCollector, connectionTracker)
-	warpHandler := api.NewWarpHandler(warpService, geoService)
+	warpHandler := api.NewWarpHandler(warpService, geoService, configService)
 	backupHandler := api.NewBackupHandler(backupService, backupScheduler)
 	notificationHandler := api.NewNotificationHandler(notificationService)
 	settingsHandler := api.NewSettingsHandler(settingsService, trafficCollector)
@@ -508,6 +512,8 @@ func main() {
 	connectionTracker.Stop()
 	trafficCollector.Stop()
 	backupScheduler.Stop()
+	warpService.StopAutoRefresh()
+	geoService.StopAutoUpdate()
 	if certService != nil {
 		certService.Stop()
 	}

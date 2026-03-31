@@ -8,6 +8,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/vovk4morkovk4/isolate-panel/internal/cores"
 	"github.com/vovk4morkovk4/isolate-panel/internal/models"
 )
 
@@ -140,22 +141,43 @@ type TransportConfig struct {
 
 // OutboundConfig represents a single outbound configuration
 type OutboundConfig struct {
-	Type string `json:"type"`
-	Tag  string `json:"tag"`
+	Type  string                 `json:"type"`
+	Tag   string                 `json:"tag"`
+	Extra map[string]interface{} `json:"-"`
+}
+
+// MarshalJSON implements custom JSON marshaling to flatten Extra fields
+func (o OutboundConfig) MarshalJSON() ([]byte, error) {
+	m := map[string]interface{}{
+		"type": o.Type,
+		"tag":  o.Tag,
+	}
+	for k, v := range o.Extra {
+		if _, exists := m[k]; !exists {
+			m[k] = v
+		}
+	}
+	return json.Marshal(m)
 }
 
 // RouteConfig represents routing configuration
 type RouteConfig struct {
-	Rules         []RouteRule `json:"rules,omitempty"`
-	Final         string      `json:"final,omitempty"`
-	AutoDetectInterface bool  `json:"auto_detect_interface,omitempty"`
+	Rules               []RouteRule `json:"rules,omitempty"`
+	Final               string      `json:"final,omitempty"`
+	AutoDetectInterface bool        `json:"auto_detect_interface,omitempty"`
+	GeoIPPath           string      `json:"geoip_path,omitempty"`
+	GeoSitePath         string      `json:"geosite_path,omitempty"`
 }
 
 // RouteRule represents a single routing rule
 type RouteRule struct {
-	Inbound  []string `json:"inbound,omitempty"`
-	Outbound string   `json:"outbound"`
-	Protocol []string `json:"protocol,omitempty"`
+	Inbound      []string `json:"inbound,omitempty"`
+	Outbound     string   `json:"outbound"`
+	Protocol     []string `json:"protocol,omitempty"`
+	DomainSuffix []string `json:"domain_suffix,omitempty"`
+	IPCIDR       []string `json:"ip_cidr,omitempty"`
+	GeoIP        string   `json:"geoip,omitempty"`
+	GeoSite      string   `json:"geosite,omitempty"`
 }
 
 // ============================================================
@@ -208,7 +230,9 @@ type NaiveUser struct {
 // ============================================================
 
 // GenerateConfig generates Sing-box configuration from database
-func GenerateConfig(db *gorm.DB, coreID uint) (*Config, error) {
+func GenerateConfig(ctx *cores.ConfigContext, coreID uint) (*Config, error) {
+	db := ctx.DB
+
 	// Get core
 	var core models.Core
 	if err := db.First(&core, coreID).Error; err != nil {
@@ -279,6 +303,54 @@ func GenerateConfig(db *gorm.DB, coreID uint) (*Config, error) {
 			Type: "direct",
 			Tag:  "direct",
 		})
+	}
+
+	// Inject WARP WireGuard outbound + route rules
+	if warpData, ok := cores.InjectWARP(ctx, coreID); ok {
+		wgOutbound := cores.SingboxWARPOutbound(warpData.Account)
+		config.Outbounds = append(config.Outbounds, OutboundConfig{
+			Type:  "wireguard",
+			Tag:   "warp-out",
+			Extra: wgOutbound,
+		})
+		// Add WARP routing rules
+		warpRules := cores.SingboxWARPRouteRules(warpData.Routes)
+		for _, wr := range warpRules {
+			rule := RouteRule{Outbound: "warp-out"}
+			if ds, ok := wr["domain_suffix"].([]string); ok {
+				rule.DomainSuffix = ds
+			}
+			if ic, ok := wr["ip_cidr"].([]string); ok {
+				rule.IPCIDR = ic
+			}
+			config.Route.Rules = append(config.Route.Rules, rule)
+		}
+	}
+
+	// Inject GeoIP/GeoSite routing rules
+	if geoData, ok := cores.InjectGeo(ctx, coreID); ok {
+		geoRules := cores.SingboxGeoRouteRules(geoData.Rules, ctx.GeoDir)
+		for _, gr := range geoRules {
+			rule := RouteRule{}
+			if outbound, ok := gr["outbound"].(string); ok {
+				rule.Outbound = outbound
+			}
+			if geoip, ok := gr["geoip"].(string); ok {
+				rule.GeoIP = geoip
+			}
+			if geosite, ok := gr["geosite"].(string); ok {
+				rule.GeoSite = geosite
+			}
+			config.Route.Rules = append(config.Route.Rules, rule)
+		}
+		// Set geo asset paths
+		if ctx.GeoDir != "" {
+			assets := cores.SingboxGeoAssets(ctx.GeoDir)
+			if assets != nil {
+				config.Route.GeoIPPath = assets["geoip"]
+				config.Route.GeoSitePath = assets["geosite"]
+			}
+		}
 	}
 
 	return config, nil

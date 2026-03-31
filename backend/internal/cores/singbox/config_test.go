@@ -10,9 +10,14 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
+	"github.com/vovk4morkovk4/isolate-panel/internal/cores"
 	"github.com/vovk4morkovk4/isolate-panel/internal/cores/singbox"
 	"github.com/vovk4morkovk4/isolate-panel/internal/models"
 )
+
+func testCtx(db *gorm.DB) *cores.ConfigContext {
+	return &cores.ConfigContext{DB: db}
+}
 
 func setupTestDB(t *testing.T) *gorm.DB {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
@@ -66,7 +71,7 @@ func TestGenerateConfig_Basic(t *testing.T) {
 	require.NoError(t, db.Create(&inbound).Error)
 	assignUsers(t, db, inbound.ID, users)
 
-	config, err := singbox.GenerateConfig(db, core.ID)
+	config, err := singbox.GenerateConfig(testCtx(db), core.ID)
 	require.NoError(t, err)
 	require.NotNil(t, config)
 
@@ -132,7 +137,7 @@ func TestGenerateConfig_MultipleProtocols(t *testing.T) {
 		assignUsers(t, db, inbound.ID, users)
 	}
 
-	config, err := singbox.GenerateConfig(db, core.ID)
+	config, err := singbox.GenerateConfig(testCtx(db), core.ID)
 	require.NoError(t, err)
 
 	assert.Len(t, config.Inbounds, len(protocols))
@@ -169,7 +174,7 @@ func TestGenerateConfig_VLESSUsers(t *testing.T) {
 	require.NoError(t, db.Create(&inbound).Error)
 	assignUsers(t, db, inbound.ID, users)
 
-	config, err := singbox.GenerateConfig(db, core.ID)
+	config, err := singbox.GenerateConfig(testCtx(db), core.ID)
 	require.NoError(t, err)
 	require.Len(t, config.Inbounds, 1)
 
@@ -196,7 +201,7 @@ func TestGenerateConfig_TrojanUsers(t *testing.T) {
 	require.NoError(t, db.Create(&inbound).Error)
 	assignUsers(t, db, inbound.ID, users)
 
-	config, err := singbox.GenerateConfig(db, core.ID)
+	config, err := singbox.GenerateConfig(testCtx(db), core.ID)
 	require.NoError(t, err)
 	require.Len(t, config.Inbounds, 1)
 
@@ -226,7 +231,7 @@ func TestGenerateConfig_ShadowsocksMultiUser(t *testing.T) {
 	require.NoError(t, db.Create(&inbound).Error)
 	assignUsers(t, db, inbound.ID, users)
 
-	config, err := singbox.GenerateConfig(db, core.ID)
+	config, err := singbox.GenerateConfig(testCtx(db), core.ID)
 	require.NoError(t, err)
 	require.Len(t, config.Inbounds, 1)
 
@@ -261,7 +266,7 @@ func TestGenerateConfig_Hysteria2WithSettings(t *testing.T) {
 	require.NoError(t, db.Create(&inbound).Error)
 	assignUsers(t, db, inbound.ID, users)
 
-	config, err := singbox.GenerateConfig(db, core.ID)
+	config, err := singbox.GenerateConfig(testCtx(db), core.ID)
 	require.NoError(t, err)
 	require.Len(t, config.Inbounds, 1)
 
@@ -290,7 +295,7 @@ func TestGenerateConfig_DefaultOutbound(t *testing.T) {
 	}
 	require.NoError(t, db.Create(&inbound).Error)
 
-	config, err := singbox.GenerateConfig(db, core.ID)
+	config, err := singbox.GenerateConfig(testCtx(db), core.ID)
 	require.NoError(t, err)
 
 	// Should have default direct outbound
@@ -320,7 +325,7 @@ func TestGenerateConfig_WithOutbounds(t *testing.T) {
 	}
 	require.NoError(t, db.Create(&outbound).Error)
 
-	config, err := singbox.GenerateConfig(db, core.ID)
+	config, err := singbox.GenerateConfig(testCtx(db), core.ID)
 	require.NoError(t, err)
 
 	require.Len(t, config.Outbounds, 1)
@@ -381,7 +386,7 @@ func TestWriteAndReadConfig(t *testing.T) {
 	require.NoError(t, db.Create(&inbound).Error)
 	assignUsers(t, db, inbound.ID, users)
 
-	config, err := singbox.GenerateConfig(db, core.ID)
+	config, err := singbox.GenerateConfig(testCtx(db), core.ID)
 	require.NoError(t, err)
 
 	// Write to temp file
@@ -411,7 +416,7 @@ func TestGenerateConfig_NoUsersAssigned(t *testing.T) {
 	require.NoError(t, db.Create(&inbound).Error)
 	// No users assigned
 
-	config, err := singbox.GenerateConfig(db, core.ID)
+	config, err := singbox.GenerateConfig(testCtx(db), core.ID)
 	require.NoError(t, err)
 	require.Len(t, config.Inbounds, 1)
 
@@ -422,7 +427,7 @@ func TestGenerateConfig_NoUsersAssigned(t *testing.T) {
 func TestGenerateConfig_CoreNotFound(t *testing.T) {
 	db := setupTestDB(t)
 
-	_, err := singbox.GenerateConfig(db, 999)
+	_, err := singbox.GenerateConfig(testCtx(db), 999)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to get core")
 }
