@@ -103,7 +103,7 @@ test.describe('Inbounds Management', () => {
     // Confirm if needed
     try {
       await page.click('button:has-text("Confirm"), button:has-text("Yes")');
-    } catch (e) {
+    } catch {
       // No confirmation
     }
     

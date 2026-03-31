@@ -1,4 +1,5 @@
-import { create } from 'zustand'
+import { createStore } from 'zustand/vanilla'
+import { useStore } from 'zustand'
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info'
 
@@ -17,7 +18,7 @@ interface ToastState {
   clearAll: () => void
 }
 
-export const useToastStore = create<ToastState>((set, get) => ({
+export const toastStore = createStore<ToastState>()((set, get) => ({
   toasts: [],
   timeouts: new Map(),
   
@@ -59,3 +60,9 @@ export const useToastStore = create<ToastState>((set, get) => ({
     set({ toasts: [] })
   },
 }))
+
+export function useToastStore(): ToastState
+export function useToastStore<T>(selector: (state: ToastState) => T): T
+export function useToastStore<T>(selector?: (state: ToastState) => T) {
+  return useStore(toastStore, selector!)
+}

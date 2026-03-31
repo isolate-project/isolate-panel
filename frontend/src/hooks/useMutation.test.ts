@@ -34,7 +34,7 @@ describe('useMutation Hook', () => {
     const { result } = renderHook(() => useMutation(errorMutationFn))
 
     act(() => {
-      result.current.mutate({ some: 'data' })
+      result.current.mutate({ some: 'data' }).catch(() => {})
     })
 
     await waitFor(() => {
@@ -79,7 +79,7 @@ describe('useMutation Hook', () => {
     const { result: errResult } = renderHook(() => useMutation(errorFn, { onSuccess, onError }))
 
     act(() => {
-      errResult.current.mutate({ key2: 'val2' })
+      errResult.current.mutate({ key2: 'val2' }).catch(() => {})
     })
 
     await waitFor(() => {

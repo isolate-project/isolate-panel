@@ -31,7 +31,7 @@ describe('Button', () => {
     render(<Button variant="outline">Secondary</Button>)
     
     const button = screen.getByRole('button')
-    expect(button).toHaveClass('bg-secondary')
+    expect(button).toHaveClass('border-border-primary text-text-primary')
   })
 
   it('applies disabled state', () => {

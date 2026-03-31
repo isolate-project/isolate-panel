@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'preact/hooks'
+import { route } from 'preact-router'
+import { Zap, ChevronLeft, ChevronRight, Check } from 'lucide-preact'
 
 import { PageLayout } from '../components/layout/PageLayout'
 import { PageHeader } from '../components/layout/PageHeader'

@@ -20,12 +20,18 @@ services:
       - ./logs:/var/log/supervisor
       - ./logs/isolate-panel:/var/log/isolate-panel
 
+    env_file:
+      - .env
+
     environment:
       - PORT=8080
       - CONFIG_PATH=/app/configs/config.yaml
       - DATABASE_PATH=/app/data/isolate-panel.db
-      - LOG_LEVEL=info
-      - APP_ENV=production
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - APP_ENV=${APP_ENV:-production}
+      - JWT_SECRET=${JWT_SECRET:-}
+      - TZ=${TZ:-UTC}
+      - MONITORING_MODE=${MONITORING_MODE:-lite}
 
     security_opt:
       - no-new-privileges:true

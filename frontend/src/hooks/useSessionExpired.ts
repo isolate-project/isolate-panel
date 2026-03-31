@@ -4,6 +4,10 @@ import i18n from '../i18n'
 
 let hasShownSessionExpired = false
 
+export function resetSessionExpiredFlag_FOR_TESTING() {
+  hasShownSessionExpired = false
+}
+
 export function useSessionExpired() {
   const { addToast } = useToastStore()
 

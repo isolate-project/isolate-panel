@@ -1,4 +1,3 @@
-import { ComponentProps } from 'preact'
 import { useEffect } from 'preact/hooks'
 import { cn } from '../../lib/utils'
 import { X } from 'lucide-preact'

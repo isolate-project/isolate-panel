@@ -23,11 +23,15 @@ func NewPortManager(db *gorm.DB) *PortManager {
 		db: db,
 		reservedPorts: map[int]string{
 			22:    "SSH",
+			53:    "DNS",
 			80:    "HTTP (system)",
+			443:   "HTTPS (system)",
 			8080:  "Panel HTTP",
+			8443:  "Panel HTTPS",
 			9090:  "Sing-box API",
-			10085: "Xray API",
 			9091:  "Mihomo API",
+			9097:  "Mihomo API (Alt)",
+			10085: "Xray API",
 		},
 	}
 }
@@ -35,9 +39,9 @@ func NewPortManager(db *gorm.DB) *PortManager {
 // IsPortAvailable checks if a port is available globally (across all cores)
 // Allows any port from 1-65535 except reserved ports and conflicts
 func (pm *PortManager) IsPortAvailable(port int, excludeInboundID *uint) (bool, string, error) {
-	// Check if port is in valid range (1-65535)
-	if port < 1 || port > 65535 {
-		return false, "Port must be between 1 and 65535", nil
+	// Check if port is in valid range (1024-65535)
+	if port < 1024 || port > 65535 {
+		return false, "Port must be between 1024 and 65535", nil
 	}
 
 	// Check reserved ports
@@ -102,8 +106,8 @@ func (pm *PortManager) AllocatePort() (int, error) {
 
 // ValidatePort validates a port number
 func (pm *PortManager) ValidatePort(port int) error {
-	if port < 1 || port > 65535 {
-		return fmt.Errorf("port must be between 1 and 65535")
+	if port < 1024 || port > 65535 {
+		return fmt.Errorf("port must be between 1024 and 65535")
 	}
 	if reason, reserved := pm.reservedPorts[port]; reserved {
 		return fmt.Errorf("port %d is reserved for %s", port, reason)

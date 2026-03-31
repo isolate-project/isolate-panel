@@ -9,12 +9,15 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/vovk4morkovk4/isolate-panel/internal/database"
+	"github.com/vovk4morkovk4/isolate-panel/internal/database/seeds"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 )
 
 func main() {
 	var (
 		dbPath  = flag.String("db", "./data/isolate-panel.db", "Database path")
-		command = flag.String("cmd", "up", "Command: up, down, steps, version, force")
+		command = flag.String("cmd", "up", "Command: up, down, steps, version, force, setup")
 		steps   = flag.Int("steps", 1, "Number of steps for 'steps' command")
 		version = flag.Int("version", 0, "Version for 'force' command")
 	)
@@ -74,9 +77,25 @@ func main() {
 		}
 		fmt.Println("✓ Version forced successfully")
 
+	case "setup":
+		fmt.Println("Running initialization setup (admin, settings, cores)...")
+		gormDB, err := gorm.Open(sqlite.Open(*dbPath), &gorm.Config{})
+		if err != nil {
+			log.Fatalf("Failed to open GORM database: %v", err)
+		}
+		seeder := seeds.NewSeeder(gormDB)
+		adminPassword := os.Getenv("ADMIN_PASSWORD")
+		if adminPassword == "" {
+			fmt.Println("WARNING: ADMIN_PASSWORD environment variable not set. Using default.")
+		}
+		if err := seeder.RunAll(adminPassword); err != nil {
+			log.Fatalf("Failed to run setup/seeders: %v", err)
+		}
+		fmt.Println("✓ Initial setup completed successfully")
+
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", *command)
-		fmt.Fprintf(os.Stderr, "Available commands: up, down, steps, version, force\n")
+		fmt.Fprintf(os.Stderr, "Available commands: up, down, steps, version, force, setup\n")
 		os.Exit(1)
 	}
 }

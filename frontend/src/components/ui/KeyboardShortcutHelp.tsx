@@ -1,5 +1,5 @@
 import { Modal } from './Modal';
-import { formatShortcuts, type KeyboardShortcut } from '../hooks/useKeyboardShortcuts';
+import { formatShortcuts, type KeyboardShortcut } from '../../hooks/useKeyboardShortcuts';
 
 interface KeyboardShortcutHelpProps {
   isOpen: boolean;
@@ -28,7 +28,7 @@ export function KeyboardShortcutHelp({
         
         {formattedShortcuts.length > 0 ? (
           <ul className="space-y-2">
-            {formattedShortcuts.map((shortcut, index) => (
+            {formattedShortcuts.map((shortcut: string, index: number) => (
               <li
                 key={index}
                 className="flex items-center justify-between py-2 px-3 bg-gray-50 dark:bg-gray-800 rounded-lg"

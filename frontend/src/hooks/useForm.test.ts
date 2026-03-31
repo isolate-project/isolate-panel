@@ -21,13 +21,13 @@ describe('useForm Hook', () => {
   })
 
   it('should initialize with initial values', () => {
-    const { result } = renderHook(() => useForm({ initialValues, schema }))
+    const { result } = renderHook(() => useForm({ initialValues, schema, onSubmit: async () => {} }))
     expect(result.current.values).toEqual(initialValues)
     expect(result.current.errors).toEqual({})
   })
 
   it('should update values on change', () => {
-    const { result } = renderHook(() => useForm({ initialValues, schema }))
+    const { result } = renderHook(() => useForm({ initialValues, schema, onSubmit: async () => {} }))
     
     act(() => {
       result.current.handleChange('username', 'testuser')
@@ -37,10 +37,13 @@ describe('useForm Hook', () => {
   })
 
   it('should validate values on change', async () => {
-    const { result } = renderHook(() => useForm({ initialValues, schema }))
+    const { result } = renderHook(() => useForm({ initialValues, schema, onSubmit: async () => {} }))
     
     act(() => {
       result.current.handleChange('username', 'ab') // too short
+    })
+    act(() => {
+      result.current.handleBlur('username')
     })
     
     // Validation is async in implementation
@@ -50,6 +53,9 @@ describe('useForm Hook', () => {
     
     act(() => {
       result.current.handleChange('username', 'abc') // valid
+    })
+    act(() => {
+      result.current.handleBlur('username')
     })
     
     await waitFor(() => {
@@ -95,7 +101,7 @@ describe('useForm Hook', () => {
   })
 
   it('should reset the form', () => {
-    const { result } = renderHook(() => useForm({ initialValues, schema }))
+    const { result } = renderHook(() => useForm({ initialValues, schema, onSubmit: async () => {} }))
     
     act(() => {
       result.current.handleChange('username', 'changed')

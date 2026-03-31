@@ -1,4 +1,4 @@
-import { ComponentProps, useState, useEffect, useRef } from 'preact/compat'
+import { useEffect, useRef } from 'preact/compat'
 import { cn } from '../../lib/utils'
 
 export function DropdownMenu({ children }: { children: preact.ComponentChildren }) {

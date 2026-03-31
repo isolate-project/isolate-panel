@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -87,7 +89,7 @@ func main() {
 	if cfg.IsDevelopment() {
 		log.Info().Msg("Running database seeders")
 		seeder := seeds.NewSeeder(db.DB)
-		if err := seeder.RunAll(); err != nil {
+		if err := seeder.RunAll(os.Getenv("ADMIN_PASSWORD")); err != nil {
 			log.Fatal().Err(err).Msg("Failed to run seeders")
 		}
 	}
@@ -451,9 +453,45 @@ func main() {
 	log.Info().Msg("✓ Settings management enabled")
 	log.Info().Msg("✓ Backup system enabled")
 
-	// Start server
+	// Start server in a separate goroutine
 	addr := fmt.Sprintf("%s:%d", cfg.App.Host, cfg.App.Port)
-	if err := app.Listen(addr); err != nil {
-		log.Fatal().Err(err).Msg("Failed to start server")
+	go func() {
+		if err := app.Listen(addr); err != nil {
+			log.Error().Err(err).Msg("Server forced to shutdown")
+		}
+	}()
+
+	// Graceful shutdown
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	
+	sig := <-quit
+	log.Info().Str("signal", sig.String()).Msg("Gracefully shutting down server...")
+
+	// 1. Stop processing new requests
+	log.Info().Msg("Stopping HTTP server...")
+	if err := app.Shutdown(); err != nil {
+		log.Error().Err(err).Msg("Server shutdown error")
 	}
+
+	// 2. Stop background services
+	log.Info().Msg("Stopping background services...")
+	dataAggregator.Stop()
+	dataRetention.Stop()
+	connectionTracker.Stop()
+	trafficCollector.Stop()
+	backupScheduler.Stop()
+	if certService != nil {
+		certService.Stop()
+	}
+
+	// 3. Close database connection
+	log.Info().Msg("Closing database connection...")
+	if sqlDB, err := db.DB.DB(); err == nil {
+		if err := sqlDB.Close(); err != nil {
+			log.Error().Err(err).Msg("Failed to close database securely")
+		}
+	}
+
+	log.Info().Msg("Server stopped securely")
 }

@@ -1,21 +1,20 @@
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { renderHook } from '@testing-library/preact'
-import { useSessionExpired } from './useSessionExpired'
-import { useToastStore } from '../stores/toastStore'
+import { useSessionExpired, resetSessionExpiredFlag_FOR_TESTING } from './useSessionExpired'
 
-// Mock toast store
+const mockAddToast = vi.fn()
 vi.mock('../stores/toastStore', () => ({
   useToastStore: () => ({
-    addToast: vi.fn(),
+    addToast: mockAddToast,
   }),
 }))
 
 describe('useSessionExpired Hook', () => {
-  const mockAddToast = useToastStore().addToast
 
   beforeEach(() => {
     vi.clearAllMocks()
     vi.useRealTimers()
+    resetSessionExpiredFlag_FOR_TESTING()
   })
 
   it('should trigger toast when accessToken is removed from storage', () => {

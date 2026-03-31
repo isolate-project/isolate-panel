@@ -2,6 +2,7 @@ import { clsx } from 'clsx'
 
 interface InputProps {
   type?: 'text' | 'email' | 'password' | 'number' | 'tel' | 'url'
+  id?: string
   name?: string
   value?: string | number
   placeholder?: string

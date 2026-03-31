@@ -13,6 +13,10 @@ RUN CGO_ENABLED=1 GOOS=linux go build \
     -ldflags="-w -s -X 'main.Version=0.1.0'" \
     -o /app/server \
     ./cmd/server/main.go
+RUN CGO_ENABLED=1 GOOS=linux go build \
+    -ldflags="-w -s" \
+    -o /app/isolate-migrate \
+    ./cmd/migrate/main.go
 
 # =============================================================================
 # Stage 2: Node.js Builder
@@ -46,6 +50,7 @@ RUN apk add --no-cache \
 
 # Copy compiled Go binary
 COPY --from=go-builder /app/server /usr/local/bin/isolate-panel
+COPY --from=go-builder /app/isolate-migrate /usr/local/bin/isolate-migrate
 
 # Copy compiled frontend
 COPY --from=node-builder /app/dist /var/www/html

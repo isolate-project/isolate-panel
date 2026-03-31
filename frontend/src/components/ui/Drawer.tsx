@@ -1,4 +1,4 @@
-import { ComponentProps, useEffect, useRef } from 'preact/compat'
+import { useEffect, useRef } from 'preact/compat'
 import { createPortal } from 'preact/compat'
 import { cn } from '../../lib/utils'
 import { X } from 'lucide-preact'

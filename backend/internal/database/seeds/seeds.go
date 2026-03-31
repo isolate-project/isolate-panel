@@ -57,25 +57,25 @@ func NewSeeder(db *gorm.DB) *Seeder {
 }
 
 // RunAll runs all seeders
-func (s *Seeder) RunAll() error {
-	seeders := []func() error{
-		s.SeedDefaultAdmin,
-		s.SeedDefaultSettings,
-		s.SeedCores,
-		s.SeedDevelopmentUsers,
+func (s *Seeder) RunAll(adminPassword string) error {
+	if err := s.SeedDefaultAdmin(adminPassword); err != nil {
+		return err
 	}
-
-	for _, seeder := range seeders {
-		if err := seeder(); err != nil {
-			return err
-		}
+	if err := s.SeedDefaultSettings(); err != nil {
+		return err
 	}
-
+	if err := s.SeedCores(); err != nil {
+		return err
+	}
+	
+	// Note: SeedDevelopmentUsers is disabled for safety in automated runs.
+	// To be implemented via a dedicated CLI command (e.g. isolate-migrate seed-dev) in the future if needed.
+	
 	return nil
 }
 
 // SeedDefaultAdmin creates default admin user
-func (s *Seeder) SeedDefaultAdmin() error {
+func (s *Seeder) SeedDefaultAdmin(adminPassword string) error {
 	var count int64
 	s.db.Model(&Admin{}).Count(&count)
 
@@ -89,7 +89,11 @@ func (s *Seeder) SeedDefaultAdmin() error {
 		return fmt.Errorf("failed to generate salt: %w", err)
 	}
 
-	passwordHash := hashPasswordArgon2id("admin", salt)
+	if adminPassword == "" {
+		adminPassword = "admin"
+	}
+
+	passwordHash := hashPasswordArgon2id(adminPassword, salt)
 
 	admin := &Admin{
 		Username:     "admin",
@@ -101,8 +105,12 @@ func (s *Seeder) SeedDefaultAdmin() error {
 		return fmt.Errorf("failed to seed default admin: %w", err)
 	}
 
-	fmt.Println("✓ Default admin created (username: admin, password: admin)")
-	fmt.Println("  WARNING: Change the default password immediately!")
+	if adminPassword == "admin" {
+		fmt.Println("✓ Default admin created (username: admin, password: admin)")
+		fmt.Println("  WARNING: Default password used! Change it immediately!")
+	} else {
+		fmt.Println("✓ Default admin created with custom setup password")
+	}
 	return nil
 }
 

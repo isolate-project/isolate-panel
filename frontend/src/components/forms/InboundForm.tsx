@@ -87,8 +87,8 @@ export function InboundForm({ inbound, onSuccess, onCancel }: InboundFormProps) 
         setSelectedCoreType(selectedCore.type)
         // Reset protocol to first supported if current is not supported
         const supportedProtocols = CORE_PROTOCOLS[selectedCore.type] || []
-        if (!supportedProtocols.includes(values.protocol)) {
-          handleChange('protocol', supportedProtocols[0] || 'vless')
+        if (!supportedProtocols.includes(values.protocol as string)) {
+          handleChange('protocol', (supportedProtocols[0] || 'vless') as InboundFormData['protocol'])
         }
       }
     }
@@ -101,7 +101,7 @@ export function InboundForm({ inbound, onSuccess, onCancel }: InboundFormProps) 
   // Initialize core type on mount
   useEffect(() => {
     if (inbound && cores) {
-      const core = cores.find(c => c.id === inbound.core_id)
+      const core = cores.find((c: Core) => c.id === inbound.core_id)
       if (core) setSelectedCoreType(core.type)
     } else if (coreOptions.length > 0) {
       setSelectedCoreType(coreOptions[0]?.type || '')

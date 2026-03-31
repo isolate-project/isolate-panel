@@ -115,7 +115,7 @@ test.describe('Users Management', () => {
     // Confirm deletion if there's a confirmation dialog
     try {
       await page.click('button:has-text("Confirm"), button:has-text("Yes")');
-    } catch (e) {
+    } catch {
       // No confirmation dialog
     }
     

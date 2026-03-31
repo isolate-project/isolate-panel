@@ -12,7 +12,7 @@ database:
   max_idle_conns: 10
 
 jwt:
-  secret: x7K9mN2pQ5vR8wY3zA6bC0dE1fG4hJ7kL9nM2sT5uV8xA3yB6cD9eF2gH5jK8mN1pQ4r
+  secret: "change-this-in-production-use-env-var"
   access_token_ttl: 2592000
   refresh_token_ttl: 7776000
 
