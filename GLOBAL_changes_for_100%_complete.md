@@ -21,7 +21,7 @@
 | Phase 8 | WARP + GeoIP | ⚠️ 50% | ✅ 100% |
 | Phase 9 | Backup System | ⚠️ 87% | ✅ 100% |
 | Phase 10 | Notifications | ⚠️ 70% | ✅ 100% |
-| Phase 11 | CLI Interface | ⚠️ 82% | ✅ 100% |
+| Phase 11 | CLI Interface | ✅ 100% | ✅ 100% |
 | Phase 12 | Docker Deployment | ⚠️ 82% | ✅ 100% |
 | Phase 13 | Testing | ⚠️ 58% | ✅ 100% |
 | Phase 14 | Optimization & Polish | ⚠️ 35% | ✅ 100% |
@@ -212,17 +212,17 @@
 
 ---
 
-## Phase 11: CLI Interface — 82% → 100%
+## Phase 11: CLI Interface — 100%
 
 **Реализовано:** Cobra framework, команды (user, core, system), shell completions (bash, zsh, fish).
 
-### Что осталось:
+### Выполнено:
 
-- [ ] **11.1** Ручная проверка команд (list/add/delete/start/stop/restore)
-- [ ] **11.2** Добавить Unit-тесты для команд директории `cli/cmd/`
-- [ ] **11.3** Внедрить CLI output formatters (table, json, yaml)
-- [ ] **11.4** Integration тесты: вызов из CLI → вызов API → проверка результата
-- [ ] **11.5** Man pages / help documentation
+- [x] **11.1** Ручная проверка команд (list/add/delete/start/stop/restore)
+- [x] **11.2** Добавить Unit-тесты для команд директории `cli/cmd/`
+- [x] **11.3** Внедрить CLI output formatters (table, json, yaml)
+- [x] **11.4** Integration тесты: вызов из CLI → вызов API → проверка результата
+- [x] **11.5** Man pages / help documentation
 
 ---
 

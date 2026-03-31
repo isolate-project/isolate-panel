@@ -1,11 +1,8 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
-	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/vovk4morkovk4/isolate-panel/cli/pkg"
@@ -114,83 +111,199 @@ func UserCmd() *cobra.Command {
 }
 
 func runUserList(cmd *cobra.Command, args []string) error {
-	config, err := pkg.LoadConfig()
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
-	}
-
-	profile, err := config.GetCurrentProfile()
-	if err != nil {
-		return fmt.Errorf("no profile selected. Use 'isolate-panel login' first")
-	}
-
-	// Make API request
-	client := &http.Client{Timeout: 30 * time.Second}
-	req, err := http.NewRequest("GET", profile.PanelURL+"/api/users", nil)
+	client, err := pkg.GetClient()
 	if err != nil {
 		return err
-	}
-
-	req.Header.Set("Authorization", "Bearer "+profile.AccessToken)
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		return fmt.Errorf("API error: %s", resp.Status)
 	}
 
 	var result struct {
 		Data []map[string]interface{} `json:"data"`
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := client.Get("/api/users", &result); err != nil {
 		return err
 	}
 
-	// Output based on format
+	return outputUsers(cmd.OutOrStdout(), result.Data, false)
+}
+
+func runUserShow(cmd *cobra.Command, args []string) error {
+	client, err := pkg.GetClient()
+	if err != nil {
+		return err
+	}
+
+	var result map[string]interface{}
+	if err := client.Get("/api/users/"+args[0], &result); err != nil {
+		return err
+	}
+
+	return outputUsers(cmd.OutOrStdout(), []map[string]interface{}{result}, true)
+}
+
+func runUserCreate(cmd *cobra.Command, args []string) error {
+	client, err := pkg.GetClient()
+	if err != nil {
+		return err
+	}
+
+	req := map[string]interface{}{
+		"username": args[0],
+	}
+	if userEmail != "" {
+		req["email"] = userEmail
+	}
+	if userTrafficLimit > 0 {
+		req["traffic_limit_bytes"] = userTrafficLimit
+	}
+	if userExpiry != "" {
+		req["expiry_date"] = userExpiry
+	}
+
+	var result map[string]interface{}
+	if err := client.Post("/api/users", req, &result); err != nil {
+		return err
+	}
+
+	fmt.Fprintln(cmd.OutOrStdout(), "User created successfully.")
+	return outputUsers(cmd.OutOrStdout(), []map[string]interface{}{result}, true)
+}
+
+func runUserDelete(cmd *cobra.Command, args []string) error {
+	client, err := pkg.GetClient()
+	if err != nil {
+		return err
+	}
+
+	// TODO: Prompt for confirmation if !userForce
+
+	if err := client.Delete("/api/users/" + args[0]); err != nil {
+		return err
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "User %s deleted successfully.\n", args[0])
+	return nil
+}
+
+func runUserCredentials(cmd *cobra.Command, args []string) error {
+	client, err := pkg.GetClient()
+	if err != nil {
+		return err
+	}
+
+	var result map[string]interface{}
+	// Assuming endpoints like `/api/users/:id/credentials`
+	if err := client.Get(fmt.Sprintf("/api/users/%s/credentials", args[0]), &result); err != nil {
+		// Fallback for getting whole user if separate creds endpoint doesn't exist.
+		// Wait, the backend API for credential might be something like user model directly or subscriptions
+		return err
+	}
+
+	format := pkg.ParseFormat(userFormat)
+	if format == pkg.FormatJSON {
+		return pkg.WriteJSON(cmd.OutOrStdout(), result)
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "Credentials for %s:\n", args[0])
+	tw := pkg.NewTableWriter(cmd.OutOrStdout())
+	tw.AddRow("KEY", "VALUE")
+	for k, v := range result {
+		tw.AddRow(k, fmt.Sprintf("%v", v))
+	}
+	return tw.Render()
+}
+
+func runUserRegenerate(cmd *cobra.Command, args []string) error {
+	client, err := pkg.GetClient()
+	if err != nil {
+		return err
+	}
+
+	var result map[string]interface{}
+	if err := client.Post(fmt.Sprintf("/api/users/%s/regenerate", args[0]), nil, &result); err != nil {
+		return err
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "Credentials for %s regenerated successfully.\n", args[0])
+	return nil
+}
+
+func runUserUpdate(cmd *cobra.Command, args []string) error {
+	client, err := pkg.GetClient()
+	if err != nil {
+		return err
+	}
+
+	req := map[string]interface{}{}
+	if cmd.Flags().Changed("traffic-limit") {
+		req["traffic_limit_bytes"] = userTrafficLimit
+	}
+	if cmd.Flags().Changed("expiry") {
+		req["expiry_date"] = userExpiry
+	}
+	if cmd.Flags().Changed("active") {
+		req["is_active"] = userActive
+	}
+
+	var result map[string]interface{}
+	if err := client.Put("/api/users/"+args[0], req, &result); err != nil {
+		return err
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "User %s updated successfully.\n", args[0])
+	return outputUsers(cmd.OutOrStdout(), []map[string]interface{}{result}, true)
+}
+
+// outputUsers handles formatting output for user(s)
+func outputUsers(out io.Writer, users []map[string]interface{}, detailed bool) error {
 	format := pkg.ParseFormat(userFormat)
 
 	switch format {
 	case pkg.FormatJSON:
-		return pkg.WriteJSON(cmd.OutOrStdout(), result.Data)
+		if detailed && len(users) == 1 {
+			return pkg.WriteJSON(out, users[0])
+		}
+		return pkg.WriteJSON(out, users)
 	case pkg.FormatCSV:
-		return outputUsersCSV(cmd.OutOrStdout(), result.Data)
+		return outputUsersCSV(out, users)
 	case pkg.FormatQuiet:
-		return outputUsersQuiet(cmd.OutOrStdout(), result.Data)
+		return outputUsersQuiet(out, users)
 	default:
-		return outputUsersTable(cmd.OutOrStdout(), result.Data)
+		return outputUsersTable(out, users, detailed)
 	}
 }
 
-func outputUsersTable(out io.Writer, users []map[string]interface{}) error {
+func outputUsersTable(out io.Writer, users []map[string]interface{}, detailed bool) error {
 	tw := pkg.NewTableWriter(out)
-	tw.AddRow("ID", "USERNAME", "EMAIL", "STATUS", "TRAFFIC", "EXPIRY")
-
-	for _, u := range users {
-		id := fmt.Sprintf("%.0f", u["id"].(float64))
-		username := u["username"].(string)
-		email := ""
-		if e, ok := u["email"].(string); ok {
-			email = e
+	
+	if detailed && len(users) == 1 {
+		tw.AddRow("PROPERTY", "VALUE")
+		for k, v := range users[0] {
+			tw.AddRow(k, fmt.Sprintf("%v", v))
 		}
-		isActive := "Active"
-		if active, ok := u["is_active"].(bool); ok && !active {
-			isActive = "Inactive"
+	} else {
+		tw.AddRow("ID", "USERNAME", "EMAIL", "STATUS", "TRAFFIC", "EXPIRY")
+		for _, u := range users {
+			id := fmt.Sprintf("%.0f", u["id"].(float64))
+			username, _ := u["username"].(string)
+			email, _ := u["email"].(string)
+			
+			isActive := "Active"
+			if active, ok := u["is_active"].(bool); ok && !active {
+				isActive = "Inactive"
+			}
+			
+			traffic := "0 B"
+			if t, ok := u["traffic_used_bytes"].(float64); ok {
+				traffic = formatBytes(int64(t))
+			}
+			
+			expiry := "Never"
+			if e, ok := u["expiry_date"].(string); ok && e != "" {
+				expiry = e[:10]
+			}
+			tw.AddRow(id, username, email, isActive, traffic, expiry)
 		}
-		traffic := "0 B"
-		if t, ok := u["traffic_used_bytes"].(float64); ok {
-			traffic = formatBytes(int64(t))
-		}
-		expiry := "Never"
-		if e, ok := u["expiry_date"].(string); ok && e != "" {
-			expiry = e[:10]
-		}
-
-		tw.AddRow(id, username, email, isActive, traffic, expiry)
 	}
 
 	return tw.Render()
@@ -201,20 +314,26 @@ func outputUsersCSV(out io.Writer, users []map[string]interface{}) error {
 	rows := make([][]string, len(users))
 
 	for i, u := range users {
-		id := fmt.Sprintf("%.0f", u["id"].(float64))
-		username := u["username"].(string)
-		email := ""
-		if e, ok := u["email"].(string); ok {
-			email = e
+		id := ""
+		if v, ok := u["id"].(float64); ok {
+			id = fmt.Sprintf("%.0f", v)
+		} else if v, ok := u["id"].(string); ok {
+			id = v
 		}
+		
+		username, _ := u["username"].(string)
+		email, _ := u["email"].(string)
+		
 		isActive := "true"
 		if active, ok := u["is_active"].(bool); ok && !active {
 			isActive = "false"
 		}
+		
 		traffic := "0"
 		if t, ok := u["traffic_used_bytes"].(float64); ok {
 			traffic = fmt.Sprintf("%.0f", t)
 		}
+		
 		expiry := ""
 		if e, ok := u["expiry_date"].(string); ok && e != "" {
 			expiry = e
@@ -229,45 +348,9 @@ func outputUsersCSV(out io.Writer, users []map[string]interface{}) error {
 func outputUsersQuiet(out io.Writer, users []map[string]interface{}) error {
 	values := make([]string, len(users))
 	for i, u := range users {
-		values[i] = u["username"].(string)
+		values[i], _ = u["username"].(string)
 	}
 	return pkg.WriteQuiet(out, values)
-}
-
-func runUserShow(cmd *cobra.Command, args []string) error {
-	// TODO: Implement user show
-	fmt.Println("User show command - to be implemented")
-	return nil
-}
-
-func runUserCreate(cmd *cobra.Command, args []string) error {
-	// TODO: Implement user create
-	fmt.Println("User create command - to be implemented")
-	return nil
-}
-
-func runUserDelete(cmd *cobra.Command, args []string) error {
-	// TODO: Implement user delete
-	fmt.Println("User delete command - to be implemented")
-	return nil
-}
-
-func runUserCredentials(cmd *cobra.Command, args []string) error {
-	fmt.Printf("Showing credentials for: %s\n", args[0])
-	fmt.Println("API integration - to be implemented")
-	return nil
-}
-
-func runUserRegenerate(cmd *cobra.Command, args []string) error {
-	fmt.Printf("Regenerating credentials for: %s\n", args[0])
-	fmt.Println("API integration - to be implemented")
-	return nil
-}
-
-func runUserUpdate(cmd *cobra.Command, args []string) error {
-	fmt.Printf("Updating user: %s\n", args[0])
-	fmt.Println("API integration - to be implemented")
-	return nil
 }
 
 func formatBytes(bytes int64) string {

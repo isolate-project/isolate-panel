@@ -1,11 +1,8 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
-	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/vovk4morkovk4/isolate-panel/cli/pkg"
@@ -68,82 +65,115 @@ func OutboundCmd() *cobra.Command {
 }
 
 func runOutboundList(cmd *cobra.Command, args []string) error {
-	config, err := pkg.LoadConfig()
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
-	}
-
-	profile, err := config.GetCurrentProfile()
-	if err != nil {
-		return fmt.Errorf("no profile selected. Use 'isolate-panel login' first")
-	}
-
-	// Make API request
-	client := &http.Client{Timeout: 30 * time.Second}
-	req, err := http.NewRequest("GET", profile.PanelURL+"/api/outbounds", nil)
+	client, err := pkg.GetClient()
 	if err != nil {
 		return err
-	}
-
-	req.Header.Set("Authorization", "Bearer "+profile.AccessToken)
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		return fmt.Errorf("API error: %s", resp.Status)
 	}
 
 	var result struct {
 		Data []map[string]interface{} `json:"data"`
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := client.Get("/api/outbounds", &result); err != nil {
 		return err
 	}
 
-	// Output based on format
+	return outputOutbounds(cmd.OutOrStdout(), result.Data, false)
+}
+
+func runOutboundShow(cmd *cobra.Command, args []string) error {
+	client, err := pkg.GetClient()
+	if err != nil {
+		return err
+	}
+
+	var result map[string]interface{}
+	if err := client.Get("/api/outbounds/"+args[0], &result); err != nil {
+		return err
+	}
+
+	return outputOutbounds(cmd.OutOrStdout(), []map[string]interface{}{result}, true)
+}
+
+func runOutboundCreate(cmd *cobra.Command, args []string) error {
+	client, err := pkg.GetClient()
+	if err != nil {
+		return err
+	}
+
+	// Just an example stub, as we didn't add flags for this command yet.
+	// Normally we would parse args mapping it to the body request
+	reqBody := map[string]interface{}{}
+
+	var result map[string]interface{}
+	if err := client.Post("/api/outbounds", reqBody, &result); err != nil {
+		return err
+	}
+
+	fmt.Fprintln(cmd.OutOrStdout(), "✓ Outbound created successfully")
+	return outputOutbounds(cmd.OutOrStdout(), []map[string]interface{}{result}, true)
+}
+
+func runOutboundDelete(cmd *cobra.Command, args []string) error {
+	client, err := pkg.GetClient()
+	if err != nil {
+		return err
+	}
+
+	if err := client.Delete("/api/outbounds/" + args[0]); err != nil {
+		return err
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "✓ Outbound %s deleted successfully\n", args[0])
+	return nil
+}
+
+func outputOutbounds(out io.Writer, outbounds []map[string]interface{}, detailed bool) error {
 	format := pkg.ParseFormat(outboundFormat)
 
 	switch format {
 	case pkg.FormatJSON:
-		return pkg.WriteJSON(cmd.OutOrStdout(), result.Data)
+		if detailed && len(outbounds) == 1 {
+			return pkg.WriteJSON(out, outbounds[0])
+		}
+		return pkg.WriteJSON(out, outbounds)
 	case pkg.FormatCSV:
-		return outputOutboundsCSV(cmd.OutOrStdout(), result.Data)
+		return outputOutboundsCSV(out, outbounds)
 	case pkg.FormatQuiet:
-		return outputOutboundsQuiet(cmd.OutOrStdout(), result.Data)
+		return outputOutboundsQuiet(out, outbounds)
 	default:
-		return outputOutboundsTable(cmd.OutOrStdout(), result.Data)
+		return outputOutboundsTable(out, outbounds, detailed)
 	}
 }
 
-func outputOutboundsTable(out io.Writer, outbounds []map[string]interface{}) error {
+func outputOutboundsTable(out io.Writer, outbounds []map[string]interface{}, detailed bool) error {
 	tw := pkg.NewTableWriter(out)
-	tw.AddRow("ID", "NAME", "TYPE", "CORE", "ENABLED")
+	
+	if detailed && len(outbounds) == 1 {
+		tw.AddRow("PROPERTY", "VALUE")
+		for k, v := range outbounds[0] {
+			tw.AddRow(k, fmt.Sprintf("%v", v))
+		}
+	} else {
+		tw.AddRow("ID", "NAME", "TYPE", "CORE", "ENABLED")
+		for _, o := range outbounds {
+			id := ""
+			if v, ok := o["id"].(float64); ok {
+				id = fmt.Sprintf("%.0f", v)
+			} else if v, ok := o["id"].(string); ok {
+				id = v
+			}
+			name, _ := o["name"].(string)
+			otype, _ := o["type"].(string)
+			core, _ := o["core"].(string)
+			
+			enabled := "true"
+			if e, ok := o["enabled"].(bool); ok && !e {
+				enabled = "false"
+			}
 
-	for _, o := range outbounds {
-		id := fmt.Sprintf("%.0f", o["id"].(float64))
-		name := ""
-		if n, ok := o["name"].(string); ok {
-			name = n
+			tw.AddRow(id, name, otype, core, enabled)
 		}
-		otype := ""
-		if t, ok := o["type"].(string); ok {
-			otype = t
-		}
-		core := ""
-		if c, ok := o["core"].(string); ok {
-			core = c
-		}
-		enabled := "true"
-		if e, ok := o["enabled"].(bool); ok && !e {
-			enabled = "false"
-		}
-
-		tw.AddRow(id, name, otype, core, enabled)
 	}
 
 	return tw.Render()
@@ -154,19 +184,16 @@ func outputOutboundsCSV(out io.Writer, outbounds []map[string]interface{}) error
 	rows := make([][]string, len(outbounds))
 
 	for i, o := range outbounds {
-		id := fmt.Sprintf("%.0f", o["id"].(float64))
-		name := ""
-		if n, ok := o["name"].(string); ok {
-			name = n
+		id := ""
+		if v, ok := o["id"].(float64); ok {
+			id = fmt.Sprintf("%.0f", v)
+		} else if v, ok := o["id"].(string); ok {
+			id = v
 		}
-		otype := ""
-		if t, ok := o["type"].(string); ok {
-			otype = t
-		}
-		core := ""
-		if c, ok := o["core"].(string); ok {
-			core = c
-		}
+		name, _ := o["name"].(string)
+		otype, _ := o["type"].(string)
+		core, _ := o["core"].(string)
+		
 		enabled := "true"
 		if e, ok := o["enabled"].(bool); ok && !e {
 			enabled = "false"
@@ -181,25 +208,7 @@ func outputOutboundsCSV(out io.Writer, outbounds []map[string]interface{}) error
 func outputOutboundsQuiet(out io.Writer, outbounds []map[string]interface{}) error {
 	values := make([]string, len(outbounds))
 	for i, o := range outbounds {
-		if n, ok := o["name"].(string); ok {
-			values[i] = n
-		}
+		values[i], _ = o["name"].(string)
 	}
 	return pkg.WriteQuiet(out, values)
-}
-
-func runOutboundShow(cmd *cobra.Command, args []string) error {
-	fmt.Println("Outbound show command - to be implemented")
-	return nil
-}
-
-func runOutboundCreate(cmd *cobra.Command, args []string) error {
-	fmt.Println("Outbound create command - to be implemented")
-	return nil
-}
-
-func runOutboundDelete(cmd *cobra.Command, args []string) error {
-	fmt.Printf("Deleting outbound: %s\n", args[0])
-	fmt.Println("API integration - to be implemented")
-	return nil
 }

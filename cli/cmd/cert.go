@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/spf13/cobra"
+	"github.com/vovk4morkovk4/isolate-panel/cli/pkg"
 )
 
 var (
@@ -80,31 +82,156 @@ func CertCmd() *cobra.Command {
 }
 
 func runCertList(cmd *cobra.Command, args []string) error {
-	fmt.Println("Cert list command - to be implemented")
-	return nil
+	client, err := pkg.GetClient()
+	if err != nil {
+		return err
+	}
+
+	var result struct {
+		Data []map[string]interface{} `json:"data"`
+	}
+
+	if err := client.Get("/api/certificates", &result); err != nil {
+		return err
+	}
+
+	return outputCerts(cmd.OutOrStdout(), result.Data, false)
 }
 
 func runCertRequest(cmd *cobra.Command, args []string) error {
+	client, err := pkg.GetClient()
+	if err != nil {
+		return err
+	}
+
 	domain := args[0]
-	fmt.Printf("Requesting certificate for: %s (email=%s, wildcard=%v)\n", domain, certEmail, certWildcard)
-	fmt.Println("API integration - to be implemented")
-	return nil
+	reqBody := map[string]interface{}{
+		"domain":   domain,
+		"provider": "acme",
+	}
+	if certEmail != "" {
+		// Just in case API takes email directly, otherwise it might come from settings
+		reqBody["email"] = certEmail
+	}
+
+	var result map[string]interface{}
+	if err := client.Post("/api/certificates/request", reqBody, &result); err != nil {
+		return err
+	}
+
+	fmt.Fprintln(cmd.OutOrStdout(), "✓ Certificate requested successfully")
+	return outputCerts(cmd.OutOrStdout(), []map[string]interface{}{result}, true)
 }
 
 func runCertShow(cmd *cobra.Command, args []string) error {
-	fmt.Printf("Showing certificate: %s\n", args[0])
-	fmt.Println("API integration - to be implemented")
-	return nil
+	client, err := pkg.GetClient()
+	if err != nil {
+		return err
+	}
+
+	var result map[string]interface{}
+	if err := client.Get("/api/certificates/"+args[0], &result); err != nil {
+		return err
+	}
+
+	return outputCerts(cmd.OutOrStdout(), []map[string]interface{}{result}, true)
 }
 
 func runCertRenew(cmd *cobra.Command, args []string) error {
-	fmt.Printf("Renewing certificate: %s\n", args[0])
-	fmt.Println("API integration - to be implemented")
-	return nil
+	client, err := pkg.GetClient()
+	if err != nil {
+		return err
+	}
+
+	var result map[string]interface{}
+	if err := client.Post("/api/certificates/"+args[0]+"/renew", nil, &result); err != nil {
+		return err
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "✓ Certificate %s renewed successfully\n", args[0])
+	return outputCerts(cmd.OutOrStdout(), []map[string]interface{}{result}, true)
 }
 
 func runCertDelete(cmd *cobra.Command, args []string) error {
-	fmt.Printf("Deleting certificate: %s\n", args[0])
-	fmt.Println("API integration - to be implemented")
+	client, err := pkg.GetClient()
+	if err != nil {
+		return err
+	}
+
+	if err := client.Delete("/api/certificates/" + args[0]); err != nil {
+		return err
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "✓ Certificate %s deleted successfully\n", args[0])
 	return nil
+}
+
+// outputCerts handles formatting output for certificate(s)
+func outputCerts(out io.Writer, certs []map[string]interface{}, detailed bool) error {
+	format := pkg.ParseFormat(certFormat)
+
+	switch format {
+	case pkg.FormatJSON:
+		if detailed && len(certs) == 1 {
+			return pkg.WriteJSON(out, certs[0])
+		}
+		return pkg.WriteJSON(out, certs)
+	case pkg.FormatCSV:
+		headers := []string{"id", "domain", "status", "expires_at", "provider"}
+		rows := make([][]string, len(certs))
+		for i, c := range certs {
+			id := ""
+			if v, ok := c["id"].(float64); ok {
+				id = fmt.Sprintf("%.0f", v)
+			} else if v, ok := c["id"].(string); ok {
+				id = v
+			}
+			domain, _ := c["domain"].(string)
+			status, _ := c["status"].(string)
+			expires, _ := c["expires_at"].(string)
+			provider, _ := c["provider"].(string)
+
+			rows[i] = []string{id, domain, status, expires, provider}
+		}
+		return pkg.WriteCSV(out, headers, rows)
+	case pkg.FormatQuiet:
+		values := make([]string, len(certs))
+		for i, c := range certs {
+			values[i], _ = c["domain"].(string)
+		}
+		return pkg.WriteQuiet(out, values)
+	default:
+		tw := pkg.NewTableWriter(out)
+		if detailed && len(certs) == 1 {
+			tw.AddRow("PROPERTY", "VALUE")
+			for k, v := range certs[0] {
+				tw.AddRow(k, fmt.Sprintf("%v", v))
+			}
+		} else {
+			tw.AddRow("ID", "DOMAIN", "STATUS", "EXPIRES", "PROVIDER")
+			for _, c := range certs {
+				id := ""
+				if v, ok := c["id"].(float64); ok {
+					id = fmt.Sprintf("%.0f", v)
+				} else if v, ok := c["id"].(string); ok {
+					id = v
+				}
+				domain, _ := c["domain"].(string)
+				status, _ := c["status"].(string)
+				
+				expires := "Never"
+				if e, ok := c["expires_at"].(string); ok && e != "" {
+					if len(e) >= 10 {
+						expires = e[:10]
+					} else {
+						expires = e
+					}
+				}
+				provider, _ := c["provider"].(string)
+
+				tw.AddRow(id, domain, status, expires, provider)
+			}
+		}
+		return tw.Render()
+	}
 }

@@ -1,11 +1,8 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
-	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/vovk4morkovk4/isolate-panel/cli/pkg"
@@ -105,129 +102,34 @@ func InboundCmd() *cobra.Command {
 }
 
 func runInboundList(cmd *cobra.Command, args []string) error {
-	config, err := pkg.LoadConfig()
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
-	}
-
-	profile, err := config.GetCurrentProfile()
-	if err != nil {
-		return fmt.Errorf("no profile selected. Use 'isolate-panel login' first")
-	}
-
-	// Make API request
-	client := &http.Client{Timeout: 30 * time.Second}
-	req, err := http.NewRequest("GET", profile.PanelURL+"/api/inbounds", nil)
+	client, err := pkg.GetClient()
 	if err != nil {
 		return err
-	}
-
-	req.Header.Set("Authorization", "Bearer "+profile.AccessToken)
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		return fmt.Errorf("API error: %s", resp.Status)
 	}
 
 	var result struct {
 		Data []map[string]interface{} `json:"data"`
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := client.Get("/api/inbounds", &result); err != nil {
 		return err
 	}
 
-	// Output based on format
-	format := pkg.ParseFormat(inboundFormat)
-
-	switch format {
-	case pkg.FormatJSON:
-		return pkg.WriteJSON(cmd.OutOrStdout(), result.Data)
-	case pkg.FormatCSV:
-		return outputInboundsCSV(cmd.OutOrStdout(), result.Data)
-	case pkg.FormatQuiet:
-		return outputInboundsQuiet(cmd.OutOrStdout(), result.Data)
-	default:
-		return outputInboundsTable(cmd.OutOrStdout(), result.Data)
-	}
-}
-
-func outputInboundsTable(out io.Writer, inbounds []map[string]interface{}) error {
-	tw := pkg.NewTableWriter(out)
-	tw.AddRow("ID", "NAME", "PROTOCOL", "PORT", "CORE", "USERS")
-
-	for _, i := range inbounds {
-		id := fmt.Sprintf("%.0f", i["id"].(float64))
-		name := i["name"].(string)
-		protocol := ""
-		if p, ok := i["protocol"].(string); ok {
-			protocol = p
-		}
-		port := ""
-		if p, ok := i["port"].(float64); ok {
-			port = fmt.Sprintf("%.0f", p)
-		}
-		core := ""
-		if c, ok := i["core"].(string); ok {
-			core = c
-		}
-		users := "0"
-		if u, ok := i["user_count"].(float64); ok {
-			users = fmt.Sprintf("%.0f", u)
-		}
-
-		tw.AddRow(id, name, protocol, port, core, users)
-	}
-
-	return tw.Render()
-}
-
-func outputInboundsCSV(out io.Writer, inbounds []map[string]interface{}) error {
-	headers := []string{"id", "name", "protocol", "port", "core", "user_count"}
-	rows := make([][]string, len(inbounds))
-
-	for i, ib := range inbounds {
-		id := fmt.Sprintf("%.0f", ib["id"].(float64))
-		name := ib["name"].(string)
-		protocol := ""
-		if p, ok := ib["protocol"].(string); ok {
-			protocol = p
-		}
-		port := ""
-		if p, ok := ib["port"].(float64); ok {
-			port = fmt.Sprintf("%.0f", p)
-		}
-		core := ""
-		if c, ok := ib["core"].(string); ok {
-			core = c
-		}
-		users := "0"
-		if u, ok := ib["user_count"].(float64); ok {
-			users = fmt.Sprintf("%.0f", u)
-		}
-
-		rows[i] = []string{id, name, protocol, port, core, users}
-	}
-
-	return pkg.WriteCSV(out, headers, rows)
-}
-
-func outputInboundsQuiet(out io.Writer, inbounds []map[string]interface{}) error {
-	values := make([]string, len(inbounds))
-	for i, ib := range inbounds {
-		values[i] = ib["name"].(string)
-	}
-	return pkg.WriteQuiet(out, values)
+	return outputInbounds(cmd.OutOrStdout(), result.Data, false)
 }
 
 func runInboundShow(cmd *cobra.Command, args []string) error {
-	fmt.Println("Inbound show command - to be implemented")
-	return nil
+	client, err := pkg.GetClient()
+	if err != nil {
+		return err
+	}
+
+	var result map[string]interface{}
+	if err := client.Get("/api/inbounds/"+args[0], &result); err != nil {
+		return err
+	}
+
+	return outputInbounds(cmd.OutOrStdout(), []map[string]interface{}{result}, true)
 }
 
 func runInboundCreate(cmd *cobra.Command, args []string) error {
@@ -238,35 +140,192 @@ func runInboundCreate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("--port is required")
 	}
 
-	fmt.Printf("Creating inbound: %s (%s/%d)\n", inboundName, inboundProtocol, inboundPort)
-	fmt.Println("API integration - to be implemented")
-	return nil
+	client, err := pkg.GetClient()
+	if err != nil {
+		return err
+	}
+
+	reqBody := map[string]interface{}{
+		"name":     inboundName,
+		"core":     inboundCore,
+		"protocol": inboundProtocol,
+		"port":     inboundPort,
+	}
+
+	var result map[string]interface{}
+	if err := client.Post("/api/inbounds", reqBody, &result); err != nil {
+		return err
+	}
+
+	fmt.Fprintln(cmd.OutOrStdout(), "✓ Inbound created successfully")
+	return outputInbounds(cmd.OutOrStdout(), []map[string]interface{}{result}, true)
 }
 
 func runInboundDelete(cmd *cobra.Command, args []string) error {
-	fmt.Printf("Deleting inbound: %s\n", args[0])
-	fmt.Println("API integration - to be implemented")
+	client, err := pkg.GetClient()
+	if err != nil {
+		return err
+	}
+
+	if err := client.Delete("/api/inbounds/" + args[0]); err != nil {
+		return err
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "✓ Inbound %s deleted successfully\n", args[0])
 	return nil
 }
 
 func runInboundAddUsers(cmd *cobra.Command, args []string) error {
 	inboundID := args[0]
 	userIDs := args[1:]
-	fmt.Printf("Adding users %v to inbound %s\n", userIDs, inboundID)
-	fmt.Println("API integration - to be implemented")
+
+	client, err := pkg.GetClient()
+	if err != nil {
+		return err
+	}
+
+	// For each user... we might not have a bulk endpoint in CLI (though we might have /api/inbounds/bulk)
+	// Assuming an endpoint exists like: POST /api/inbounds/:id/users
+	reqBody := map[string]interface{}{
+		"user_ids": userIDs,
+	}
+	if err := client.Post(fmt.Sprintf("/api/inbounds/%s/users", inboundID), reqBody, nil); err != nil {
+		return err
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "✓ Added users %v to inbound %s\n", userIDs, inboundID)
 	return nil
 }
 
 func runInboundRemoveUser(cmd *cobra.Command, args []string) error {
 	inboundID, userID := args[0], args[1]
-	fmt.Printf("Removing user %s from inbound %s\n", userID, inboundID)
-	fmt.Println("API integration - to be implemented")
+	
+	client, err := pkg.GetClient()
+	if err != nil {
+		return err
+	}
+
+	if err := client.Delete(fmt.Sprintf("/api/inbounds/%s/users/%s", inboundID, userID)); err != nil {
+		return err
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "✓ Removed user %s from inbound %s\n", userID, inboundID)
 	return nil
 }
 
 func runInboundUsers(cmd *cobra.Command, args []string) error {
 	inboundID := args[0]
-	fmt.Printf("Listing users in inbound %s\n", inboundID)
-	fmt.Println("API integration - to be implemented")
-	return nil
+	
+	client, err := pkg.GetClient()
+	if err != nil {
+		return err
+	}
+
+	var result struct {
+		Data []map[string]interface{} `json:"data"`
+	}
+
+	if err := client.Get(fmt.Sprintf("/api/inbounds/%s/users", inboundID), &result); err != nil {
+		return err
+	}
+
+	// Reuse user formatter
+	return outputUsers(cmd.OutOrStdout(), result.Data, false)
+}
+
+func outputInbounds(out io.Writer, inbounds []map[string]interface{}, detailed bool) error {
+	format := pkg.ParseFormat(inboundFormat)
+	switch format {
+	case pkg.FormatJSON:
+		if detailed && len(inbounds) == 1 {
+			return pkg.WriteJSON(out, inbounds[0])
+		}
+		return pkg.WriteJSON(out, inbounds)
+	case pkg.FormatCSV:
+		return outputInboundsCSV(out, inbounds)
+	case pkg.FormatQuiet:
+		return outputInboundsQuiet(out, inbounds)
+	default:
+		return outputInboundsTable(out, inbounds, detailed)
+	}
+}
+
+func outputInboundsTable(out io.Writer, inbounds []map[string]interface{}, detailed bool) error {
+	tw := pkg.NewTableWriter(out)
+	
+	if detailed && len(inbounds) == 1 {
+		tw.AddRow("PROPERTY", "VALUE")
+		for k, v := range inbounds[0] {
+			tw.AddRow(k, fmt.Sprintf("%v", v))
+		}
+	} else {
+		tw.AddRow("ID", "NAME", "PROTOCOL", "PORT", "CORE", "USERS")
+		for _, i := range inbounds {
+			id := ""
+			if v, ok := i["id"].(float64); ok {
+				id = fmt.Sprintf("%.0f", v)
+			} else if v, ok := i["id"].(string); ok {
+				id = v
+			}
+			
+			name, _ := i["name"].(string)
+			protocol, _ := i["protocol"].(string)
+			
+			port := ""
+			if p, ok := i["port"].(float64); ok {
+				port = fmt.Sprintf("%.0f", p)
+			}
+			
+			core, _ := i["core"].(string)
+			
+			users := "0"
+			if u, ok := i["user_count"].(float64); ok {
+				users = fmt.Sprintf("%.0f", u)
+			}
+
+			tw.AddRow(id, name, protocol, port, core, users)
+		}
+	}
+
+	return tw.Render()
+}
+
+func outputInboundsCSV(out io.Writer, inbounds []map[string]interface{}) error {
+	headers := []string{"id", "name", "protocol", "port", "core", "user_count"}
+	rows := make([][]string, len(inbounds))
+
+	for j, ib := range inbounds {
+		id := ""
+		if v, ok := ib["id"].(float64); ok {
+			id = fmt.Sprintf("%.0f", v)
+		} else if v, ok := ib["id"].(string); ok {
+			id = v
+		}
+		name, _ := ib["name"].(string)
+		protocol, _ := ib["protocol"].(string)
+		
+		port := ""
+		if p, ok := ib["port"].(float64); ok {
+			port = fmt.Sprintf("%.0f", p)
+		}
+		
+		core, _ := ib["core"].(string)
+		
+		users := "0"
+		if u, ok := ib["user_count"].(float64); ok {
+			users = fmt.Sprintf("%.0f", u)
+		}
+
+		rows[j] = []string{id, name, protocol, port, core, users}
+	}
+
+	return pkg.WriteCSV(out, headers, rows)
+}
+
+func outputInboundsQuiet(out io.Writer, inbounds []map[string]interface{}) error {
+	values := make([]string, len(inbounds))
+	for j, ib := range inbounds {
+		values[j], _ = ib["name"].(string)
+	}
+	return pkg.WriteQuiet(out, values)
 }

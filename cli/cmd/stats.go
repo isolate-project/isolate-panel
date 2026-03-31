@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/vovk4morkovk4/isolate-panel/cli/pkg"
 )
 
 var (
@@ -27,6 +28,7 @@ var connectionsCmd = &cobra.Command{
 func init() {
 	// Stats flags
 	statsCmd.Flags().StringVar(&statsFormat, "format", "table", "Output format (table, json, csv, quiet)")
+	connectionsCmd.Flags().StringVar(&statsFormat, "format", "table", "Output format (table, json, csv, quiet)")
 }
 
 // StatsCmd returns the stats command
@@ -40,11 +42,58 @@ func ConnectionsCmd() *cobra.Command {
 }
 
 func runStats(cmd *cobra.Command, args []string) error {
-	fmt.Println("Stats command - to be implemented")
-	return nil
+	client, err := pkg.GetClient()
+	if err != nil {
+		return err
+	}
+
+	var result struct {
+		Data map[string]interface{} `json:"data"`
+	}
+
+	if err := client.Get("/api/traffic/overview", &result); err != nil {
+		return err
+	}
+
+	format := pkg.ParseFormat(statsFormat)
+	if format == pkg.FormatJSON {
+		return pkg.WriteJSON(cmd.OutOrStdout(), result.Data)
+	}
+
+	tw := pkg.NewTableWriter(cmd.OutOrStdout())
+	tw.AddRow("METRIC", "VALUE")
+	for k, v := range result.Data {
+		tw.AddRow(k, fmt.Sprintf("%v", v))
+	}
+	return tw.Render()
 }
 
 func runConnections(cmd *cobra.Command, args []string) error {
-	fmt.Println("Connections command - to be implemented")
-	return nil
+	client, err := pkg.GetClient()
+	if err != nil {
+		return err
+	}
+
+	var result struct {
+		Data []map[string]interface{} `json:"data"`
+	}
+
+	if err := client.Get("/api/connections", &result); err != nil {
+		return err
+	}
+
+	format := pkg.ParseFormat(statsFormat)
+	if format == pkg.FormatJSON {
+		return pkg.WriteJSON(cmd.OutOrStdout(), result.Data)
+	}
+
+	tw := pkg.NewTableWriter(cmd.OutOrStdout())
+	tw.AddRow("USER_ID", "IP", "REMOTE_ADDR")
+	for _, c := range result.Data {
+		userID := fmt.Sprintf("%v", c["user_id"])
+		ip := fmt.Sprintf("%v", c["ip"])
+		remote := fmt.Sprintf("%v", c["remote_addr"])
+		tw.AddRow(userID, ip, remote)
+	}
+	return tw.Render()
 }

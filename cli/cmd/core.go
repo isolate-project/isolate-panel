@@ -1,11 +1,9 @@
 package cmd
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
 	"io"
-	"net/http"
-	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/vovk4morkovk4/isolate-panel/cli/pkg"
@@ -31,10 +29,10 @@ var coreListCmd = &cobra.Command{
 }
 
 var coreStatusCmd = &cobra.Command{
-	Use:   "status [core]",
+	Use:   "status <core>",
 	Short: "Show core status",
-	Long:  `Show status of a specific core or all cores.`,
-	Args:  cobra.MaximumNArgs(1),
+	Long:  `Show status of a specific core.`,
+	Args:  cobra.ExactArgs(1),
 	RunE:  runCoreStatus,
 }
 
@@ -93,81 +91,139 @@ func CoreCmd() *cobra.Command {
 }
 
 func runCoreList(cmd *cobra.Command, args []string) error {
-	config, err := pkg.LoadConfig()
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
-	}
-
-	profile, err := config.GetCurrentProfile()
-	if err != nil {
-		return fmt.Errorf("no profile selected. Use 'isolate-panel login' first")
-	}
-
-	// Make API request
-	client := &http.Client{Timeout: 30 * time.Second}
-	req, err := http.NewRequest("GET", profile.PanelURL+"/api/cores", nil)
+	client, err := pkg.GetClient()
 	if err != nil {
 		return err
-	}
-
-	req.Header.Set("Authorization", "Bearer "+profile.AccessToken)
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		return fmt.Errorf("API error: %s", resp.Status)
 	}
 
 	var result struct {
 		Data []map[string]interface{} `json:"data"`
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := client.Get("/api/cores", &result); err != nil {
 		return err
 	}
 
-	// Output based on format
+	return outputCores(cmd.OutOrStdout(), result.Data, false)
+}
+
+func runCoreStatus(cmd *cobra.Command, args []string) error {
+	client, err := pkg.GetClient()
+	if err != nil {
+		return err
+	}
+
+	var result map[string]interface{}
+	if err := client.Get("/api/cores/"+args[0]+"/status", &result); err != nil {
+		return err
+	}
+
+	return outputCores(cmd.OutOrStdout(), []map[string]interface{}{result}, true)
+}
+
+func runCoreStart(cmd *cobra.Command, args []string) error {
+	client, err := pkg.GetClient()
+	if err != nil {
+		return err
+	}
+
+	var result map[string]interface{}
+	if err := client.Post("/api/cores/"+args[0]+"/start", nil, &result); err != nil {
+		return err
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "Core %s started successfully.\n", args[0])
+	return nil
+}
+
+func runCoreStop(cmd *cobra.Command, args []string) error {
+	client, err := pkg.GetClient()
+	if err != nil {
+		return err
+	}
+
+	var result map[string]interface{}
+	if err := client.Post("/api/cores/"+args[0]+"/stop", nil, &result); err != nil {
+		return err
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "Core %s stopped successfully.\n", args[0])
+	return nil
+}
+
+func runCoreRestart(cmd *cobra.Command, args []string) error {
+	client, err := pkg.GetClient()
+	if err != nil {
+		return err
+	}
+
+	var result map[string]interface{}
+	if err := client.Post("/api/cores/"+args[0]+"/restart", nil, &result); err != nil {
+		return err
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "Core %s restarted successfully.\n", args[0])
+	return nil
+}
+
+func runCoreLogs(cmd *cobra.Command, args []string) error {
+	client, err := pkg.GetClient()
+	if err != nil {
+		return err
+	}
+
+	return client.StreamCoreLogs(context.Background(), args[0], coreTail, coreFollow, cmd.OutOrStdout())
+}
+
+// outputCores handles formatting output for core(s)
+func outputCores(out io.Writer, cores []map[string]interface{}, detailed bool) error {
 	format := pkg.ParseFormat(coreFormat)
 
 	switch format {
 	case pkg.FormatJSON:
-		return pkg.WriteJSON(cmd.OutOrStdout(), result.Data)
+		if detailed && len(cores) == 1 {
+			return pkg.WriteJSON(out, cores[0])
+		}
+		return pkg.WriteJSON(out, cores)
 	case pkg.FormatCSV:
-		return outputCoresCSV(cmd.OutOrStdout(), result.Data)
+		return outputCoresCSV(out, cores)
 	case pkg.FormatQuiet:
-		return outputCoresQuiet(cmd.OutOrStdout(), result.Data)
+		return outputCoresQuiet(out, cores)
 	default:
-		return outputCoresTable(cmd.OutOrStdout(), result.Data)
+		return outputCoresTable(out, cores, detailed)
 	}
 }
 
-func outputCoresTable(out io.Writer, cores []map[string]interface{}) error {
+func outputCoresTable(out io.Writer, cores []map[string]interface{}, detailed bool) error {
 	tw := pkg.NewTableWriter(out)
-	tw.AddRow("NAME", "STATUS", "UPTIME", "VERSION")
 
-	for _, c := range cores {
-		name := ""
-		if n, ok := c["name"].(string); ok {
-			name = n
+	if detailed && len(cores) == 1 {
+		tw.AddRow("PROPERTY", "VALUE")
+		for k, v := range cores[0] {
+			tw.AddRow(k, fmt.Sprintf("%v", v))
 		}
-		status := "stopped"
-		if s, ok := c["status"].(string); ok {
-			status = s
-		}
-		uptime := ""
-		if u, ok := c["uptime"].(string); ok {
-			uptime = u
-		}
-		version := ""
-		if v, ok := c["version"].(string); ok {
-			version = v
-		}
+	} else {
+		tw.AddRow("NAME", "STATUS", "UPTIME", "VERSION")
+		for _, c := range cores {
+			name := ""
+			if n, ok := c["name"].(string); ok {
+				name = n
+			}
+			status := "stopped"
+			if s, ok := c["status"].(string); ok {
+				status = s
+			}
+			uptime := "0"
+			if u, ok := c["uptime"].(string); ok {
+				uptime = u
+			}
+			version := ""
+			if v, ok := c["version"].(string); ok {
+				version = v
+			}
 
-		tw.AddRow(name, status, uptime, version)
+			tw.AddRow(name, status, uptime, version)
+		}
 	}
 
 	return tw.Render()
@@ -209,37 +265,4 @@ func outputCoresQuiet(out io.Writer, cores []map[string]interface{}) error {
 		}
 	}
 	return pkg.WriteQuiet(out, values)
-}
-
-func runCoreStatus(cmd *cobra.Command, args []string) error {
-	fmt.Println("Core status command - to be implemented")
-	return nil
-}
-
-func runCoreStart(cmd *cobra.Command, args []string) error {
-	coreName := args[0]
-	fmt.Printf("Starting core: %s\n", coreName)
-	fmt.Println("API integration - to be implemented")
-	return nil
-}
-
-func runCoreStop(cmd *cobra.Command, args []string) error {
-	coreName := args[0]
-	fmt.Printf("Stopping core: %s\n", coreName)
-	fmt.Println("API integration - to be implemented")
-	return nil
-}
-
-func runCoreRestart(cmd *cobra.Command, args []string) error {
-	coreName := args[0]
-	fmt.Printf("Restarting core: %s\n", coreName)
-	fmt.Println("API integration - to be implemented")
-	return nil
-}
-
-func runCoreLogs(cmd *cobra.Command, args []string) error {
-	coreName := args[0]
-	fmt.Printf("Showing logs for core: %s (tail=%d, follow=%v)\n", coreName, coreTail, coreFollow)
-	fmt.Println("API integration - to be implemented")
-	return nil
 }

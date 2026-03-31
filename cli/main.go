@@ -47,6 +47,7 @@ func init() {
 	rootCmd.AddCommand(cmd.CertCmd())
 	rootCmd.AddCommand(cmd.BackupCmd())
 	rootCmd.AddCommand(cmd.CompletionCmd())
+	rootCmd.AddCommand(cmd.DocsCmd())
 }
 
 var versionCmd = &cobra.Command{
