@@ -1,6 +1,7 @@
 package mihomo
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -266,6 +267,99 @@ func convertInboundToProxy(db *gorm.DB, inbound models.Inbound) (*Proxy, error) 
 		proxy.Type = "masque"
 		// MASQUE typically uses URL-based configuration
 		// Extra settings from ConfigJSON will be applied
+	}
+
+	// Add TLS if enabled
+	if inbound.TLSEnabled {
+		if proxy.Extra == nil {
+			proxy.Extra = make(map[string]interface{})
+		}
+		proxy.Extra["tls"] = true
+		proxy.Extra["skip-cert-verify"] = false
+
+		// Load certificate info from DB if bound
+		if inbound.TLSCertID != nil {
+			var cert models.Certificate
+			if err := db.First(&cert, *inbound.TLSCertID).Error; err == nil {
+				proxy.Extra["servername"] = cert.Domain
+			}
+		}
+	}
+
+	// Add Reality settings if enabled
+	if inbound.RealityEnabled && inbound.RealityConfigJSON != "" {
+		if proxy.Extra == nil {
+			proxy.Extra = make(map[string]interface{})
+		}
+
+		var realitySettings map[string]interface{}
+		if err := json.Unmarshal([]byte(inbound.RealityConfigJSON), &realitySettings); err == nil {
+			realityOpts := make(map[string]interface{})
+			if pk, ok := realitySettings["publicKey"].(string); ok {
+				realityOpts["public-key"] = pk
+			}
+			if shortId, ok := realitySettings["shortIds"].([]interface{}); ok && len(shortId) > 0 {
+				if s, ok := shortId[0].(string); ok {
+					realityOpts["short-id"] = s
+				}
+			}
+			proxy.Extra["reality-opts"] = realityOpts
+
+			// Set server names for SNI
+			if serverNames, ok := realitySettings["serverNames"].([]interface{}); ok && len(serverNames) > 0 {
+				if sn, ok := serverNames[0].(string); ok {
+					proxy.Extra["servername"] = sn
+				}
+			}
+		}
+	}
+
+	// Apply transport settings from ConfigJSON
+	if inbound.ConfigJSON != "" {
+		var cfgSettings map[string]interface{}
+		if err := json.Unmarshal([]byte(inbound.ConfigJSON), &cfgSettings); err == nil {
+			if transport, ok := cfgSettings["transport"].(string); ok && transport != "" && transport != "tcp" {
+				if proxy.Extra == nil {
+					proxy.Extra = make(map[string]interface{})
+				}
+				proxy.Extra["network"] = transport
+
+				switch transport {
+				case "ws":
+					wsOpts := make(map[string]interface{})
+					if p, ok := cfgSettings["ws_path"].(string); ok && p != "" {
+						wsOpts["path"] = p
+					} else {
+						wsOpts["path"] = "/ws"
+					}
+					if host, ok := cfgSettings["ws_host"].(string); ok && host != "" {
+						wsOpts["headers"] = map[string]string{"Host": host}
+					}
+					proxy.Extra["ws-opts"] = wsOpts
+
+				case "grpc":
+					grpcOpts := make(map[string]interface{})
+					if sn, ok := cfgSettings["grpc_service_name"].(string); ok && sn != "" {
+						grpcOpts["grpc-service-name"] = sn
+					} else {
+						grpcOpts["grpc-service-name"] = "grpc"
+					}
+					proxy.Extra["grpc-opts"] = grpcOpts
+
+				case "h2":
+					h2Opts := make(map[string]interface{})
+					if p, ok := cfgSettings["h2_path"].(string); ok && p != "" {
+						h2Opts["path"] = p
+					} else {
+						h2Opts["path"] = "/"
+					}
+					if host, ok := cfgSettings["h2_host"].(string); ok && host != "" {
+						h2Opts["host"] = []string{host}
+					}
+					proxy.Extra["h2-opts"] = h2Opts
+				}
+			}
+		}
 	}
 
 	return proxy, nil

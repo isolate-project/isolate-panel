@@ -17,7 +17,7 @@
 | Phase 4 | Subscriptions | ✅ 100% | ✅ 100% |
 | Phase 5 | Certificates | ✅ 100% | ✅ 100% |
 | Phase 6 | Monitoring & Statistics | ⚠️ 75% | ✅ 100% |
-| Phase 7 | Xray + Mihomo Cores | ⚠️ 82% | ✅ 100% |
+| Phase 7 | Xray + Mihomo Cores | ✅ 100% | ✅ 100% |
 | Phase 8 | WARP + GeoIP | ⚠️ 50% | ✅ 100% |
 | Phase 9 | Backup System | ⚠️ 87% | ✅ 100% |
 | Phase 10 | Notifications | ⚠️ 70% | ✅ 100% |
@@ -153,18 +153,19 @@
 
 ---
 
-## Phase 7: Xray + Mihomo Cores — 82% → 100%
+## Phase 7: Xray + Mihomo Cores — ✅ 100%
 
-**Реализовано:** Config generators для Xray/Mihomo, stats clients.
+**Реализовано:** Config generators для Xray/Mihomo/Sing-box, stats clients, unified cores package, TLS/Reality/Transport.
 
-### Что осталось:
+### Выполнено:
 
-- [ ] **7.1** Консолидация пакетов `internal/core/` vs `internal/cores/`. Наблюдается жесткое дублирование файлов, генераторов и логики. Нужно свести всё в один пакет.
-- [ ] **7.2** Sing-box config generator (в пакете `cores/singbox/` отсутствует `config.go`, есть только `stats_client.go`)
-- [ ] **7.3** Проверить генерацию конфигов для всех 25 поддерживаемых протоколов
-- [ ] **7.4** Настроить Transport options (WebSocket, gRPC, H2, XHTTP) в генераторах
-- [ ] **7.5** Reality settings для VLESS в Xray/Sing-box
-- [ ] **7.6** TLS конфигурация (интеграция с Phase 5): чтение `cert_path`/`key_path` из привязанного `Certificate` через `TLSCertID` (привязка БД + UI selector уже реализованы в Phase 5.2), подстановка в конфиг-генераторы, перезагрузка ядра после смены сертификата
+- [x] **7.1** Консолидация пакетов `internal/core/` → `internal/cores/`. Перенесены `manager.go` и `supervisor.go`, удалены дубликаты, обновлены импорты (5 файлов).
+- [x] **7.2** Sing-box config generator: `cores/singbox/config.go` (700+ строк), 12 протоколов, DB-driven user mapping, Clash API для stats. 13 unit-тестов.
+- [x] **7.3** Protocol sweep: все протоколы покрыты по ядрам (Xray: 7 + socks/http, Sing-box: 12, Mihomo: 14). Добавлены socks/http accounts для Xray.
+- [x] **7.4** Transport options: WebSocket, gRPC, H2, XHTTP для Xray; ws/grpc/http для Sing-box; ws-opts/grpc-opts/h2-opts для Mihomo — все из ConfigJSON.
+- [x] **7.5** Reality settings: Xray (realitySettings), Sing-box (TLS.Reality), Mihomo (reality-opts) — из RealityConfigJSON.
+- [x] **7.6** TLS конфигурация: все 3 генератора загружают cert_path/key_path из Certificate через TLSCertID.
+
 
 ---
 

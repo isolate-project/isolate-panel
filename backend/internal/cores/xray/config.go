@@ -79,7 +79,7 @@ type StreamConfig struct {
 	Network       string      `json:"network"`
 	Security      string      `json:"security,omitempty"`
 	TLSConfig     *TLSConfig  `json:"tlsSettings,omitempty"`
-	RealityConfig interface{} `json:"realitySettings,omitempty"`
+	RealityConfig *RealityConfig `json:"realitySettings,omitempty"`
 	WSConfig      *WSConfig   `json:"wsSettings,omitempty"`
 	HTTPConfig    *HTTPConfig `json:"httpSettings,omitempty"`
 	GRPCConfig    *GRPCConfig `json:"grpcSettings,omitempty"`
@@ -90,6 +90,16 @@ type TLSConfig struct {
 	ServerName string `json:"serverName"`
 	CertFile   string `json:"certificateFile,omitempty"`
 	KeyFile    string `json:"keyFile,omitempty"`
+}
+
+// RealityConfig represents Xray Reality settings
+type RealityConfig struct {
+	Show        bool     `json:"show,omitempty"`
+	Dest        string   `json:"dest"`
+	Xver        int      `json:"xver,omitempty"`
+	ServerNames []string `json:"serverNames"`
+	PrivateKey  string   `json:"privateKey"`
+	ShortIds    []string `json:"shortIds"`
 }
 
 // WSConfig represents WebSocket settings
@@ -270,7 +280,109 @@ func convertInbound(db *gorm.DB, inbound models.Inbound) (*InboundConfig, error)
 
 	// Add stream settings if TLS is enabled
 	if inbound.TLSEnabled {
-		// TLS settings would be added here
+		streamConfig := &StreamConfig{
+			Network:  "tcp",
+			Security: "tls",
+			TLSConfig: &TLSConfig{},
+		}
+
+		// Load certificate paths from DB if bound
+		if inbound.TLSCertID != nil {
+			var cert models.Certificate
+			if err := db.First(&cert, *inbound.TLSCertID).Error; err == nil {
+				streamConfig.TLSConfig.CertFile = cert.CertPath
+				streamConfig.TLSConfig.KeyFile = cert.KeyPath
+				streamConfig.TLSConfig.ServerName = cert.Domain
+			}
+		}
+
+		config.StreamSettings = streamConfig
+	}
+
+	// Add Reality settings if enabled (overrides TLS)
+	if inbound.RealityEnabled && inbound.RealityConfigJSON != "" {
+		var realitySettings map[string]interface{}
+		if err := json.Unmarshal([]byte(inbound.RealityConfigJSON), &realitySettings); err == nil {
+			realityConfig := &RealityConfig{}
+
+			if dest, ok := realitySettings["dest"].(string); ok {
+				realityConfig.Dest = dest
+			}
+			if serverNames, ok := realitySettings["serverNames"].([]interface{}); ok {
+				for _, sn := range serverNames {
+					if s, ok := sn.(string); ok {
+						realityConfig.ServerNames = append(realityConfig.ServerNames, s)
+					}
+				}
+			}
+			if pk, ok := realitySettings["privateKey"].(string); ok {
+				realityConfig.PrivateKey = pk
+			}
+			if shortIds, ok := realitySettings["shortIds"].([]interface{}); ok {
+				for _, si := range shortIds {
+					if s, ok := si.(string); ok {
+						realityConfig.ShortIds = append(realityConfig.ShortIds, s)
+					}
+				}
+			}
+
+			if config.StreamSettings == nil {
+				config.StreamSettings = &StreamConfig{Network: "tcp"}
+			}
+		config.StreamSettings.Security = "reality"
+			config.StreamSettings.TLSConfig = nil // Reality replaces TLS
+			config.StreamSettings.RealityConfig = realityConfig
+		}
+	}
+
+	// Apply transport settings from ConfigJSON
+	if inbound.ConfigJSON != "" {
+		var cfgSettings map[string]interface{}
+		if err := json.Unmarshal([]byte(inbound.ConfigJSON), &cfgSettings); err == nil {
+			if transport, ok := cfgSettings["transport"].(string); ok && transport != "" && transport != "tcp" {
+				if config.StreamSettings == nil {
+					config.StreamSettings = &StreamConfig{Network: "tcp"}
+				}
+
+				switch transport {
+				case "ws":
+					config.StreamSettings.Network = "ws"
+					wsPath := "/ws"
+					if p, ok := cfgSettings["ws_path"].(string); ok && p != "" {
+						wsPath = p
+					}
+					wsConfig := &WSConfig{Path: wsPath}
+					if host, ok := cfgSettings["ws_host"].(string); ok && host != "" {
+						wsConfig.Host = host
+					}
+					config.StreamSettings.WSConfig = wsConfig
+
+				case "grpc":
+					config.StreamSettings.Network = "grpc"
+					serviceName := "grpc"
+					if sn, ok := cfgSettings["grpc_service_name"].(string); ok && sn != "" {
+						serviceName = sn
+					}
+					config.StreamSettings.GRPCConfig = &GRPCConfig{ServiceName: serviceName}
+
+				case "h2":
+					config.StreamSettings.Network = "h2"
+					h2Path := "/"
+					if p, ok := cfgSettings["h2_path"].(string); ok && p != "" {
+						h2Path = p
+					}
+					h2Config := &HTTPConfig{Path: h2Path}
+					if host, ok := cfgSettings["h2_host"].(string); ok && host != "" {
+						h2Config.Host = []string{host}
+					}
+					config.StreamSettings.HTTPConfig = h2Config
+
+				case "xhttp":
+					// XHTTP is Xray-exclusive, uses splithttp network
+					config.StreamSettings.Network = "splithttp"
+				}
+			}
+		}
 	}
 
 	// Add sniffing for most protocols
@@ -295,7 +407,40 @@ func buildInboundSettings(protocol string, baseSettings json.RawMessage, users [
 		settings = make(map[string]interface{})
 	}
 
-	// Add clients based on protocol
+	// Handle socks/http which use accounts instead of clients
+	switch protocol {
+	case "socks":
+		if len(users) > 0 {
+			settings["auth"] = "password"
+			accounts := make([]map[string]string, 0, len(users))
+			for _, user := range users {
+				accounts = append(accounts, map[string]string{
+					"user": fmt.Sprintf("user_%d", user.ID),
+					"pass": user.UUID,
+				})
+			}
+			settings["accounts"] = accounts
+		} else {
+			settings["auth"] = "noauth"
+		}
+		settings["udp"] = true
+		return json.Marshal(settings)
+
+	case "http":
+		if len(users) > 0 {
+			accounts := make([]map[string]string, 0, len(users))
+			for _, user := range users {
+				accounts = append(accounts, map[string]string{
+					"user": fmt.Sprintf("user_%d", user.ID),
+					"pass": user.UUID,
+				})
+			}
+			settings["accounts"] = accounts
+		}
+		return json.Marshal(settings)
+	}
+
+	// Add clients based on protocol (vmess, vless, trojan, etc.)
 	clients := buildClients(protocol, users)
 	if len(clients) > 0 {
 		settings["clients"] = clients

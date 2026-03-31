@@ -1,16 +1,14 @@
 package services
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"gorm.io/gorm"
 
-	"github.com/vovk4morkovk4/isolate-panel/internal/core"
-	"github.com/vovk4morkovk4/isolate-panel/internal/core/singbox"
+	"github.com/vovk4morkovk4/isolate-panel/internal/cores"
 	mihomocore "github.com/vovk4morkovk4/isolate-panel/internal/cores/mihomo"
+	singboxcore "github.com/vovk4morkovk4/isolate-panel/internal/cores/singbox"
 	xraycore "github.com/vovk4morkovk4/isolate-panel/internal/cores/xray"
 	"github.com/vovk4morkovk4/isolate-panel/internal/cache"
 	"github.com/vovk4morkovk4/isolate-panel/internal/models"
@@ -19,13 +17,13 @@ import (
 // ConfigService handles configuration generation and management
 type ConfigService struct {
 	db          *gorm.DB
-	coreManager *core.CoreManager
+	coreManager *cores.CoreManager
 	configDir   string
 	cache       *cache.Cache
 }
 
 // NewConfigService creates a new config service
-func NewConfigService(db *gorm.DB, coreManager *core.CoreManager, configDir string, cacheManager ...*cache.CacheManager) *ConfigService {
+func NewConfigService(db *gorm.DB, coreManager *cores.CoreManager, configDir string, cacheManager ...*cache.CacheManager) *ConfigService {
 	var configCache *cache.Cache
 	if len(cacheManager) > 0 && cacheManager[0] != nil {
 		configCache = cacheManager[0].GetConfigCache()
@@ -115,31 +113,26 @@ func (s *ConfigService) RegenerateAndReload(coreName string) error {
 
 // generateSingboxConfig generates Sing-box configuration
 func (s *ConfigService) generateSingboxConfig(inbounds []models.Inbound, outbounds []models.Outbound, path string) error {
-	config, err := singbox.GenerateConfig(inbounds, outbounds)
+	if len(inbounds) == 0 {
+		return fmt.Errorf("no inbounds provided")
+	}
+
+	// Use the first inbound's core ID
+	coreID := inbounds[0].CoreID
+
+	config, err := singboxcore.GenerateConfig(s.db, coreID)
 	if err != nil {
 		return err
 	}
 
-	// Marshal to JSON
-	data, err := json.MarshalIndent(config, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal config: %w", err)
-	}
-
-	// Create directory if not exists
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return fmt.Errorf("failed to create directory: %w", err)
-	}
-
-	// Write to file
-	if err := os.WriteFile(path, data, 0644); err != nil {
-		return fmt.Errorf("failed to write config: %w", err)
-	}
-
-	// Validate config
-	if err := singbox.ValidateConfig(path); err != nil {
+	// Validate config first
+	if err := singboxcore.ValidateConfig(config); err != nil {
 		return fmt.Errorf("config validation failed: %w", err)
+	}
+
+	// Write config using built-in function
+	if err := singboxcore.WriteConfig(config, path); err != nil {
+		return err
 	}
 
 	return nil

@@ -16,7 +16,7 @@ import (
 	"github.com/vovk4morkovk4/isolate-panel/internal/auth"
 	"github.com/vovk4morkovk4/isolate-panel/internal/cache"
 	appconfig "github.com/vovk4morkovk4/isolate-panel/internal/config"
-	"github.com/vovk4morkovk4/isolate-panel/internal/core"
+	"github.com/vovk4morkovk4/isolate-panel/internal/cores"
 	"github.com/vovk4morkovk4/isolate-panel/internal/database"
 	"github.com/vovk4morkovk4/isolate-panel/internal/database/seeds"
 	applogger "github.com/vovk4morkovk4/isolate-panel/internal/logger"
@@ -102,7 +102,7 @@ func main() {
 	}
 
 	// Initialize Core Manager
-	coreManager := core.NewCoreManager(db.DB, cfg.Cores.SupervisorURL)
+	coreManager := cores.NewCoreManager(db.DB, cfg.Cores.SupervisorURL)
 
 	// Initialize Core Lifecycle Manager (lazy loading)
 	lifecycleManager := services.NewCoreLifecycleManager(db.DB, coreManager)

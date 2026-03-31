@@ -5,20 +5,20 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/vovk4morkovk4/isolate-panel/internal/core"
+	"github.com/vovk4morkovk4/isolate-panel/internal/cores"
 	"github.com/vovk4morkovk4/isolate-panel/internal/models"
 )
 
 // CoreLifecycleManager manages automatic starting/stopping of cores based on inbounds
 type CoreLifecycleManager struct {
 	db                  *gorm.DB
-	coreManager         *core.CoreManager
+	coreManager         *cores.CoreManager
 	configService       *ConfigService
 	notificationService *NotificationService
 }
 
 // NewCoreLifecycleManager creates a new lifecycle manager
-func NewCoreLifecycleManager(db *gorm.DB, coreManager *core.CoreManager) *CoreLifecycleManager {
+func NewCoreLifecycleManager(db *gorm.DB, coreManager *cores.CoreManager) *CoreLifecycleManager {
 	clm := &CoreLifecycleManager{
 		db:          db,
 		coreManager: coreManager,

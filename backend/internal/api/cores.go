@@ -3,14 +3,14 @@ package api
 import (
 	"github.com/gofiber/fiber/v3"
 
-	"github.com/vovk4morkovk4/isolate-panel/internal/core"
+	"github.com/vovk4morkovk4/isolate-panel/internal/cores"
 )
 
 type CoresHandler struct {
-	coreManager *core.CoreManager
+	coreManager *cores.CoreManager
 }
 
-func NewCoresHandler(coreManager *core.CoreManager) *CoresHandler {
+func NewCoresHandler(coreManager *cores.CoreManager) *CoresHandler {
 	return &CoresHandler{
 		coreManager: coreManager,
 	}
