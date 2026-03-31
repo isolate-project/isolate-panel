@@ -1,4 +1,4 @@
-version: '3.8'
+name: isolate-panel-dev
 
 services:
   isolate-panel:
@@ -15,6 +15,10 @@ services:
       - ../frontend:/app/frontend
       - ../data:/app/data
       - ../logs:/var/log/supervisor
+      # Prevent host mount from overwriting node_modules
+      - frontend_node_modules:/app/frontend/node_modules
+    env_file:
+      - .env
     environment:
       - APP_ENV=development
       - PORT=8080
@@ -27,6 +31,9 @@ services:
     tty: true
     networks:
       - isolate-network
+
+volumes:
+  frontend_node_modules:
 
 networks:
   isolate-network:

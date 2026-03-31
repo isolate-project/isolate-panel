@@ -1,6 +1,6 @@
 # Multi-stage Dockerfile for Isolate Panel
 # Stage 1: Go builder
-FROM golang:1.23-alpine AS go-builder
+FROM golang:1.25-alpine AS go-builder
 
 WORKDIR /app
 
@@ -54,11 +54,11 @@ RUN wget -q https://github.com/MetaCubeX/mihomo/releases/download/v1.19.21/mihom
     mihomo -v
 
 # Download and install Sing-box
-RUN wget -q https://github.com/SagerNet/sing-box/releases/download/v1.11.2/sing-box-1.11.2-linux-amd64.tar.gz -O /tmp/singbox.tar.gz && \
+RUN wget -q https://github.com/SagerNet/sing-box/releases/download/v1.13.3/sing-box-1.13.3-linux-amd64.tar.gz -O /tmp/singbox.tar.gz && \
     tar -xzf /tmp/singbox.tar.gz -C /tmp && \
-    mv /tmp/sing-box-1.11.2-linux-amd64/sing-box /usr/local/bin/ && \
+    mv /tmp/sing-box-1.13.3-linux-amd64/sing-box /usr/local/bin/ && \
     chmod +x /usr/local/bin/sing-box && \
-    rm -rf /tmp/singbox.tar.gz /tmp/sing-box-1.11.2-linux-amd64 && \
+    rm -rf /tmp/singbox.tar.gz /tmp/sing-box-1.13.3-linux-amd64 && \
     sing-box version
 
 # Download and install wgcf (WARP client)
@@ -77,7 +77,7 @@ ENV GOPATH="/go"
 RUN mkdir -p /app/backend /app/frontend /app/data /var/log/supervisor
 
 # Copy supervisord config
-COPY docker/supervisord.conf /etc/supervisord.conf
+COPY docker/supervisord.dev.conf /etc/supervisord.conf
 
 # Expose ports
 EXPOSE 8080 5173

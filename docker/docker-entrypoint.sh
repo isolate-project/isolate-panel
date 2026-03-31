@@ -182,13 +182,18 @@ isolate-migrate -db "$DB_PATH" -cmd setup
 echo "  ✅ Database initialization complete"
 
 # Set proper permissions
-chown -R root:root /app/data
+chown -R isolate:isolate /app/data
 chmod 755 /app/data
 
 echo ""
 echo "🌐 Starting Isolate Panel..."
 echo "   Panel URL: http://localhost:8080"
-echo "   Default login: admin / admin"
+if [ -n "$ADMIN_PASSWORD" ]; then
+    echo "   Login: admin / <ADMIN_PASSWORD from .env>"
+else
+    echo "   Default login: admin / admin"
+    echo "   ⚠️  WARNING: Change default password immediately!"
+fi
 echo "   Logs: /var/log/isolate-panel/"
 echo ""
 

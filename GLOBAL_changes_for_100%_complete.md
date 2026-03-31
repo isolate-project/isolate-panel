@@ -22,7 +22,7 @@
 | Phase 9 | Backup System | ⚠️ 87% | ✅ 100% |
 | Phase 10 | Notifications | ⚠️ 70% | ✅ 100% |
 | Phase 11 | CLI Interface | ✅ 100% | ✅ 100% |
-| Phase 12 | Docker Deployment | ⚠️ 82% | ✅ 100% |
+| Phase 12 | Docker Deployment | ✅ 100% | ✅ 100% |
 | Phase 13 | Testing | ⚠️ 58% | ✅ 100% |
 | Phase 14 | Optimization & Polish | ⚠️ 35% | ✅ 100% |
 
@@ -226,18 +226,19 @@
 
 ---
 
-## Phase 12: Docker Deployment — 82% → 100%
+## Phase 12: Docker Deployment — ✅ 100%
 
-**Реализовано:** Dockerfile (production multi-stage), docker-compose.yml, entrypoint.sh, Dockerfile.dev c hot reload (Air/Vite).
+**Реализовано:** Dockerfile (production multi-stage), docker-compose.yml, entrypoint.sh, Dockerfile.dev c hot reload (Air/Vite), supervisord.dev.conf, docker-healthcheck.sh, non-root user, log rotation.
 
-### Что осталось:
+### Выполнено:
 
-- [ ] **12.1** Обновить версии зависимостей контеинеров (Go 1.25, новые релизы Sing-box и Mihomo)
-- [ ] **12.2** Разместить `supervisord.dev.conf` (файл отсутствует) для корректной работы hot-reload окружения
-- [ ] **12.3** Настроить Health check для процессов ядер (сейчас он проверяет только панель)
-- [ ] **12.4** Лог ротация в контейнере
-- [ ] **12.5** Выполнение от имени non-root user (security hardening у supervisord/процессов)
-- [ ] **12.6** Убрать `version: '3.8'` из compose-файлов ввиду deprecation
+- [x] **12.1** Обновить версии зависимостей контейнеров (Go 1.25 в Dockerfile.dev, Sing-box v1.13.3 синхронизирован с seeds.go, ARG VERSION в Dockerfile)
+- [x] **12.2** Разместить `supervisord.dev.conf` для корректной работы hot-reload окружения (air + vite dev server)
+- [x] **12.3** Настроить Health check для процессов ядер (docker-healthcheck.sh проверяет FATAL/BACKOFF состояния)
+- [x] **12.4** Лог ротация в контейнере (stdout_logfile_maxbytes=50MB, 3 backups для всех программ)
+- [x] **12.5** Выполнение от имени non-root user `isolate` (setcap cap_net_bind_service для портов <1024)
+- [x] **12.6** Убрать `version: '3.8'` из compose-файлов, добавлен `name:`
+- [x] **12.7** Исправить hardcoded `admin / admin` в docker-entrypoint.sh (условная печать на основе ADMIN_PASSWORD env)
 
 ---
 
