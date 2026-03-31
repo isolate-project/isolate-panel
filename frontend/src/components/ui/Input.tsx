@@ -16,6 +16,8 @@ interface InputProps {
   onChange?: (e: Event) => void
   onBlur?: (e: Event) => void
   className?: string
+  min?: string | number
+  max?: string | number
 }
 
 export function Input({
@@ -33,6 +35,8 @@ export function Input({
   onChange,
   onBlur,
   className,
+  min,
+  max,
 }: InputProps) {
   const hasError = error || isInvalid
 
@@ -70,6 +74,8 @@ export function Input({
         required={required}
         onChange={onChange}
         onBlur={onBlur}
+        min={min}
+        max={max}
         className={inputStyles}
         aria-invalid={hasError ? 'true' : undefined}
         aria-describedby={

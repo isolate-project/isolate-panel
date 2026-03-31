@@ -195,7 +195,7 @@ func main() {
 	geoService.StartAutoUpdate(7 * 24 * time.Hour)
 
 	// Initialize Backup service
-	backupService := services.NewBackupService(db.DB, "/app/data/backups", "/app/data")
+	backupService := services.NewBackupService(db.DB, settingsService, "/app/data/backups", "/app/data")
 	if err := backupService.Initialize(); err != nil {
 		log.Warn().Err(err).Msg("Failed to initialize Backup service")
 	}

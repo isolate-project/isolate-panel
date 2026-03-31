@@ -96,14 +96,33 @@ docker compose exec isolate-panel supervisorctl status
 - Path: `/app/data/isolate-panel.db` (inside container)
 - Mapped to: `./data/isolate-panel.db` (on host)
 
-## 📝 Backup
+## 📝 Backup & Disaster Recovery
 
-Backup the `data` directory:
+### Built-in Backup System
+The Isolate Panel includes a redundant backup system that performs:
+- **Database Snapshots**: Full export of the SQLite database.
+- **Configuration**: All core configs, certificates, and WARP keys.
+- **Security**: AES-256-GCM streaming encryption (64KB chunks).
+- **Optimization**: Gzip compression for minimal storage footprint.
+
+### Retention Policy
+By default, the panel keeps the **3 most recent backups**. You can change this in the **Backups -> Schedule** section of the UI. Older backups are automatically rotated to save disk space.
+
+### Manual Backup (External)
+Backup the entire persistent `data` directory from the host:
 ```bash
-tar -czf isolate-panel-backup-$(date +%Y%m%d).tar.gz ./data
+tar -czf isolate-panel-data-$(date +%Y%m%d).tar.gz ./data
 ```
 
-To restore:
-```bash
-tar -xzf isolate-panel-backup-*.tar.gz -C /path/to/isolate-panel/
-```
+### Disaster Recovery: Manual Decryption
+If the panel is inaccessible and you need to manually restore from an encrypted `.enc` backup:
+
+1. **Locate your encryption key**: Found at `./data/.backup_key` on the host.
+2. **Format**: The file is encrypted in **64KB chunks** [4-byte Length][12-byte Nonce][Ciphertext + 16-byte Tag].
+3. **Decryption**: Use the panel UI for easy restoration, or use the `isolate-panel` CLI tool inside the container:
+   ```bash
+   docker compose exec isolate-panel isolate-panel restore --file /app/data/backups/manual_xyz.enc
+   ```
+
+> [!IMPORTANT]
+> Always keep a copy of `./data/.backup_key` in a secure, off-site location (e.g., a password manager). Without this key, all your system-generated backups are impossible to recover.

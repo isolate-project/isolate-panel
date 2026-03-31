@@ -1,5 +1,13 @@
 import { useState, useEffect, useRef } from 'preact/hooks'
-import { backupApi } from '../api/endpoints'
+import { backupApi, systemApi } from '../api/endpoints'
+import { Modal } from '../components/ui/Modal'
+import { Button } from '../components/ui/Button'
+import { Input } from '../components/ui/Input'
+import { Badge } from '../components/ui/Badge'
+import { Card } from '../components/ui/Card'
+import { Alert } from '../components/ui/Alert'
+import { Spinner } from '../components/ui/Spinner'
+import { Download, RefreshCw, Trash2, Calendar, Shield, Database, Globe, HardDrive } from 'lucide-preact'
 
 interface Backup {
   id: number
@@ -33,6 +41,8 @@ export function Backups() {
   const [schedule, setSchedule] = useState<ScheduleData>({ schedule: '', next_run: '' })
   const [showScheduleForm, setShowScheduleForm] = useState(false)
   const [cronExpression, setCronExpression] = useState('')
+  const [retentionCount, setRetentionCount] = useState(3)
+  const [savingRetention, setSavingRetention] = useState(false)
   const [backupOptions, setBackupOptions] = useState({
     encryption_enabled: true,
     include_cores: true,
@@ -41,12 +51,28 @@ export function Backups() {
     include_geo: false,
   })
 
+  // Modal State
+  const [modal, setModal] = useState<{
+    show: boolean
+    title: string
+    content: string
+    onConfirm: () => void
+    type: 'danger' | 'secondary' | 'primary'
+    loading: boolean
+  }>({
+    show: false,
+    title: '',
+    content: '',
+    onConfirm: () => {},
+    type: 'primary',
+    loading: false,
+  })
+
   const mountedRef = useRef(true)
 
   useEffect(() => {
     mountedRef.current = true
     loadData()
-    // Refresh every 10 seconds to track backup progress
     const interval = setInterval(loadData, 10000)
     return () => {
       mountedRef.current = false
@@ -56,9 +82,10 @@ export function Backups() {
 
   const loadData = async () => {
     try {
-      const [backupsRes, scheduleRes] = await Promise.all([
+      const [backupsRes, scheduleRes, settingsRes] = await Promise.all([
         backupApi.list(),
         backupApi.getSchedule(),
+        systemApi.getSettings()
       ])
 
       if (!mountedRef.current) return
@@ -67,6 +94,13 @@ export function Backups() {
       setSchedule(scheduleRes.data.data || { schedule: '', next_run: '' })
       if (scheduleRes.data.data?.schedule) {
         setCronExpression(scheduleRes.data.data.schedule)
+      }
+
+      // Handle retention setting
+      const settings = settingsRes.data.data || []
+      const retentionSetting = settings.find((s: any) => s.key === 'backup_retention_count')
+      if (retentionSetting) {
+        setRetentionCount(parseInt(retentionSetting.value) || 3)
       }
     } catch (error) {
       if (!mountedRef.current) return
@@ -85,42 +119,56 @@ export function Backups() {
         type: 'manual',
         ...backupOptions,
       })
-      alert('Backup creation started! Check status in a few seconds.')
       loadData()
-    } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: string } }; message?: string }
-      alert('Failed to create backup: ' + (error.response?.data?.error || error.message))
+    } catch (err: any) {
+      alert('Failed to create backup: ' + (err.response?.data?.error || err.message))
     } finally {
       setCreating(false)
     }
   }
 
-  const handleRestoreBackup = async (id: number, filename: string) => {
-    const confirmed = confirm(
-      `⚠️ WARNING: Restore will overwrite all data!\n\nRestore from ${filename}?`
-    )
-    if (!confirmed) return
-
-    try {
-      await backupApi.restore(id, true)
-      alert('Restore operation started! The panel will restart after completion.')
-    } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: string } }; message?: string }
-      alert('Failed to restore: ' + (error.response?.data?.error || error.message))
-    }
+  const handleRestoreBackup = (id: number, filename: string) => {
+    setModal({
+      show: true,
+      title: 'Confirm System Restore',
+      content: `⚠️ WARNING: Restore will completely overwrite current configuration and database!\n\nAre you sure you want to restore from "${filename}"?`,
+      type: 'danger',
+      loading: false,
+      onConfirm: async () => {
+        setModal(prev => ({ ...prev, loading: true }))
+        try {
+          await backupApi.restore(id, true)
+          setModal(prev => ({ ...prev, show: false }))
+          alert('Restore operation started! The panel will restart after completion.')
+        } catch (err: any) {
+          alert('Failed to restore: ' + (err.response?.data?.error || err.message))
+        } finally {
+          setModal(prev => ({ ...prev, loading: false }))
+        }
+      }
+    })
   }
 
-  const handleDeleteBackup = async (id: number) => {
-    if (!confirm('Delete this backup?')) return
-
-    try {
-      await backupApi.delete(id)
-      alert('Backup deleted')
-      loadData()
-    } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: string } }; message?: string }
-      alert('Failed to delete: ' + (error.response?.data?.error || error.message))
-    }
+  const handleDeleteBackup = (id: number) => {
+    setModal({
+      show: true,
+      title: 'Delete Backup',
+      content: 'Are you sure you want to permanently delete this backup file?',
+      type: 'danger',
+      loading: false,
+      onConfirm: async () => {
+        setModal(prev => ({ ...prev, loading: true }))
+        try {
+          await backupApi.delete(id)
+          loadData()
+          setModal(prev => ({ ...prev, show: false }))
+        } catch (err: any) {
+          alert('Failed to delete: ' + (err.response?.data?.error || err.message))
+        } finally {
+          setModal(prev => ({ ...prev, loading: false }))
+        }
+      }
+    })
   }
 
   const handleDownloadBackup = async (id: number, filename: string) => {
@@ -135,21 +183,32 @@ export function Backups() {
       link.click()
       document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
-    } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: string } }; message?: string }
-      alert('Failed to download: ' + (error.response?.data?.error || error.message))
+    } catch (err: any) {
+      alert('Failed to download: ' + (err.response?.data?.error || err.message))
     }
   }
 
   const handleSetSchedule = async () => {
     try {
       await backupApi.setSchedule(cronExpression || '')
-      alert('Schedule updated')
       setShowScheduleForm(false)
       loadData()
-    } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: string } }; message?: string }
-      alert('Failed to set schedule: ' + (error.response?.data?.error || error.message))
+    } catch (err: any) {
+      alert('Failed to set schedule: ' + (err.response?.data?.error || err.message))
+    }
+  }
+
+  const handleUpdateRetention = async () => {
+    setSavingRetention(true)
+    try {
+      await systemApi.updateSettings({
+        'backup_retention_count': retentionCount.toString()
+      })
+      alert('Retention policy updated')
+    } catch (err: any) {
+      alert('Failed to update retention: ' + (err.response?.data?.error || err.message))
+    } finally {
+      setSavingRetention(false)
     }
   }
 
@@ -161,249 +220,300 @@ export function Backups() {
     return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i]
   }
 
-  const getStatusColor = (status: string) => {
+  const getStatusBadge = (status: string) => {
     switch (status) {
       case 'completed':
-        return 'bg-green-100 text-green-800'
+        return <Badge variant="success">Completed</Badge>
       case 'running':
-        return 'bg-blue-100 text-blue-800'
-      case 'failed':
-        return 'bg-red-100 text-red-800'
+        return <Badge variant="info">Running</Badge>
       case 'restoring':
-        return 'bg-yellow-100 text-yellow-800'
+        return <Badge variant="warning">Restoring</Badge>
+      case 'failed':
+        return <Badge variant="danger">Failed</Badge>
       default:
-        return 'bg-gray-100 text-gray-800'
+        return <Badge variant="secondary">{status}</Badge>
     }
   }
 
-  const getCronDescription = (cron: string) => {
-    if (!cron) return 'Not scheduled'
-    // Simple cron parser for common patterns
-    if (cron === '0 0 * * *') return 'Daily at midnight'
-    if (cron === '0 3 * * *') return 'Daily at 3 AM'
-    if (cron === '0 0 * * 0') return 'Weekly on Sunday'
-    if (cron === '0 */6 * * *') return 'Every 6 hours'
-    return cron
-  }
-
   return (
-    <div class="p-6">
-      <div class="mb-6">
-        <h1 class="text-2xl font-bold text-gray-900">Backups</h1>
-        <p class="text-gray-600 mt-1">Manage system backups and restore points</p>
+    <div className="p-6 max-w-7xl mx-auto space-y-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-text-primary tracking-tight">Backups</h1>
+          <p className="text-text-secondary mt-2">Manage system security and data disaster recovery</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Button 
+            onClick={loadData} 
+            variant="ghost" 
+            size="icon" 
+            disabled={loading}
+            title="Refresh list"
+          >
+            <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
       </div>
 
-      {/* Schedule Info */}
-      <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-        <div class="flex items-center justify-between">
-          <div>
-            <h3 class="font-semibold text-blue-900">Backup Schedule</h3>
-            <p class="text-sm text-blue-700 mt-1">
-              {getCronDescription(schedule.schedule)}
-              {schedule.next_run && (
-                <span class="ml-2">
-                  • Next run: {new Date(schedule.next_run).toLocaleString()}
-                </span>
-              )}
-            </p>
-          </div>
-          <button
-            onClick={() => setShowScheduleForm(!showScheduleForm)}
-            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            {showScheduleForm ? 'Cancel' : 'Edit Schedule'}
-          </button>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column: Schedule & Retention */}
+        <div className="space-y-6">
+          <Card className="overflow-hidden border-l-4 border-l-brand-primary">
+            <div className="p-6 space-y-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-brand-primary/10 rounded-lg">
+                  <Calendar className="h-5 w-5 text-brand-primary" />
+                </div>
+                <h3 className="font-bold text-lg text-text-primary">Automation</h3>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-medium text-text-secondary">Backup Schedule</span>
+                    <Badge variant={schedule.schedule ? 'info' : 'secondary'}>
+                      {schedule.schedule ? 'Active' : 'Disabled'}
+                    </Badge>
+                  </div>
+                  <div className="p-3 bg-bg-secondary rounded-xl border border-border-primary">
+                    <p className="text-sm font-mono text-text-primary">
+                      {schedule.schedule || 'Not scheduled'}
+                    </p>
+                    {schedule.next_run && (
+                      <p className="text-xs text-text-muted mt-1">
+                        Next: {new Date(schedule.next_run).toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {showScheduleForm ? (
+                  <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <Input
+                      label="Cron Expression"
+                      placeholder="0 3 * * *"
+                      value={cronExpression}
+                      onChange={(e) => setCronExpression((e.target as HTMLInputElement).value)}
+                      helperText="Example: 0 3 * * * (Daily at 3 AM)"
+                    />
+                    <div className="flex gap-2">
+                      <Button onClick={handleSetSchedule} className="flex-1">Save</Button>
+                      <Button variant="secondary" onClick={() => setShowScheduleForm(false)}>Cancel</Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button variant="outline" className="w-full" onClick={() => setShowScheduleForm(true)}>
+                    Change Schedule
+                  </Button>
+                )}
+
+                <div className="pt-4 border-t border-border-primary">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-medium text-text-secondary">Retention Policy</span>
+                    <Badge variant="secondary">{retentionCount} Copies</Badge>
+                  </div>
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      min="1"
+                      max="50"
+                      value={retentionCount}
+                      onChange={(e) => setRetentionCount(parseInt((e.target as HTMLInputElement).value) || 1)}
+                      className="w-20"
+                    />
+                    <Button 
+                      variant="outline" 
+                      onClick={handleUpdateRetention} 
+                      disabled={savingRetention}
+                      className="flex-1"
+                    >
+                      {savingRetention ? <Spinner size="sm" /> : 'Update'}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          <Alert variant="warning">
+            <div className="space-y-1">
+              <strong className="block mb-1">Security Notice</strong>
+              <p className="text-sm">
+                Backups are encrypted using AES-256-GCM. Ensure you have a copy of the private key located at <code className="bg-yellow-100 dark:bg-yellow-900/40 px-1 rounded">/app/data/.backup_key</code>. Without it, your backups are useless.
+              </p>
+            </div>
+          </Alert>
         </div>
 
-        {showScheduleForm && (
-          <div class="mt-4 pt-4 border-t border-blue-200">
-            <label class="block text-sm font-medium text-blue-900 mb-2">
-              Cron Expression (e.g., "0 3 * * *" for daily at 3 AM)
-            </label>
-            <div class="flex gap-2">
-              <input
-                type="text"
-                value={cronExpression}
-                onChange={(e) => setCronExpression((e.target as HTMLInputElement).value)}
-                placeholder="0 3 * * *"
-                class="flex-1 px-3 py-2 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <button
-                onClick={handleSetSchedule}
-                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+        {/* Right Column: Build & List */}
+        <div className="lg:col-span-2 space-y-6">
+          <Card>
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-green-500/10 rounded-lg">
+                    <Database className="h-5 w-5 text-green-500" />
+                  </div>
+                  <h3 className="font-bold text-lg">Create Instant Backup</h3>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 text-sm">
+                <Card className={`p-3 cursor-pointer transition-all border-2 ${backupOptions.encryption_enabled ? 'border-brand-primary bg-brand-primary/5' : 'border-transparent'}`}
+                      onClick={() => setBackupOptions(prev => ({ ...prev, encryption_enabled: !prev.encryption_enabled }))}>
+                  <div className="flex items-center gap-2">
+                    <Shield className={`h-4 w-4 ${backupOptions.encryption_enabled ? 'text-brand-primary' : 'text-text-muted'}`} />
+                    <span>Encryption</span>
+                  </div>
+                </Card>
+                <Card className={`p-3 cursor-pointer transition-all border-2 ${backupOptions.include_cores ? 'border-brand-primary bg-brand-primary/5' : 'border-transparent'}`}
+                      onClick={() => setBackupOptions(prev => ({ ...prev, include_cores: !prev.include_cores }))}>
+                  <div className="flex items-center gap-2">
+                    <HardDrive className={`h-4 w-4 ${backupOptions.include_cores ? 'text-brand-primary' : 'text-text-muted'}`} />
+                    <span>Cores</span>
+                  </div>
+                </Card>
+                <Card className={`p-3 cursor-pointer transition-all border-2 ${backupOptions.include_certs ? 'border-brand-primary bg-brand-primary/5' : 'border-transparent'}`}
+                      onClick={() => setBackupOptions(prev => ({ ...prev, include_certs: !prev.include_certs }))}>
+                  <div className="flex items-center gap-2">
+                    <Shield className={`h-4 w-4 ${backupOptions.include_certs ? 'text-brand-primary' : 'text-text-muted'}`} />
+                    <span>Certs</span>
+                  </div>
+                </Card>
+                <Card className={`p-3 cursor-pointer transition-all border-2 ${backupOptions.include_geo ? 'border-brand-primary bg-brand-primary/5' : 'border-transparent'}`}
+                      onClick={() => setBackupOptions(prev => ({ ...prev, include_geo: !prev.include_geo }))}>
+                  <div className="flex items-center gap-2">
+                    <Globe className={`h-4 w-4 ${backupOptions.include_geo ? 'text-brand-primary' : 'text-text-muted'}`} />
+                    <span>Geo Data</span>
+                  </div>
+                </Card>
+              </div>
+
+              <Button 
+                onClick={handleCreateBackup} 
+                className="w-full py-6 text-lg font-bold" 
+                disabled={creating}
               >
-                Save
-              </button>
-              {cronExpression && (
-                <button
-                  onClick={() => {
-                    setCronExpression('')
-                    handleSetSchedule()
-                  }}
-                  class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-                >
-                  Clear
-                </button>
+                {creating ? <><Spinner className="mr-2" /> Creating...</> : 'Initiate Secure Backup'}
+              </Button>
+            </div>
+          </Card>
+
+          <Card className="overflow-hidden">
+            <div className="p-6 border-b border-border-primary bg-bg-secondary/50">
+              <h3 className="font-bold">Recent Backups</h3>
+            </div>
+            <div className="overflow-x-auto">
+              {loading ? (
+                <div className="p-12 flex flex-col items-center justify-center gap-4 text-text-muted">
+                  <Spinner size="lg" />
+                  <p>Querying backup repository...</p>
+                </div>
+              ) : backups.length === 0 ? (
+                <div className="p-12 text-center text-text-muted">
+                  <Database className="h-12 w-12 mx-auto mb-4 opacity-20" />
+                  <p>Your backup vault is empty</p>
+                </div>
+              ) : (
+                <table className="w-full text-left">
+                  <thead className="bg-bg-secondary/50 border-b border-border-primary">
+                    <tr>
+                      <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-text-muted">Details</th>
+                      <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-text-muted">Status</th>
+                      <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-text-muted">Created</th>
+                      <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-text-muted">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border-primary">
+                    {backups.map((backup) => (
+                      <tr key={backup.id} className="hover:bg-bg-secondary/30 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col">
+                            <span className="font-mono text-sm text-text-primary font-medium">{backup.filename}</span>
+                            <span className="text-xs text-text-muted mt-1">
+                              {formatBytes(backup.file_size_bytes)} • {backup.backup_type}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          {getStatusBadge(backup.status)}
+                          {backup.error_message && (
+                            <p className="text-[10px] text-red-500 mt-1 max-w-[150px] truncate" title={backup.error_message}>
+                              {backup.error_message}
+                            </p>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="text-sm text-text-secondary">
+                            {new Date(backup.created_at).toLocaleString()}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={() => handleDownloadBackup(backup.id, backup.filename)}
+                              disabled={backup.status !== 'completed'}
+                              title="Download"
+                            >
+                              <Download className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="text-yellow-500 hover:text-yellow-600 hover:bg-yellow-500/10"
+                              onClick={() => handleRestoreBackup(backup.id, backup.filename)}
+                              disabled={backup.status !== 'completed'}
+                              title="Restore System"
+                            >
+                              <RefreshCw className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="text-red-500 hover:text-red-600 hover:bg-red-500/10"
+                              onClick={() => handleDeleteBackup(backup.id)}
+                              title="Delete permanently"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               )}
             </div>
-            <p class="text-xs text-blue-600 mt-2">
-              Examples: "0 0 * * *" (daily midnight), "0 0 * * 0" (weekly Sunday), "0 */6 * * *" (every 6 hours)
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Create Backup Button */}
-      <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
-        <h3 class="font-semibold text-gray-900 mb-3">Create New Backup</h3>
-        
-        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
-          <label class="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={backupOptions.encryption_enabled}
-              onChange={(e) => setBackupOptions({ ...backupOptions, encryption_enabled: (e.target as HTMLInputElement).checked })}
-              class="rounded border-gray-300"
-            />
-            Encrypt
-          </label>
-          <label class="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={backupOptions.include_cores}
-              onChange={(e) => setBackupOptions({ ...backupOptions, include_cores: (e.target as HTMLInputElement).checked })}
-              class="rounded border-gray-300"
-            />
-            Cores
-          </label>
-          <label class="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={backupOptions.include_certs}
-              onChange={(e) => setBackupOptions({ ...backupOptions, include_certs: (e.target as HTMLInputElement).checked })}
-              class="rounded border-gray-300"
-            />
-            Certs
-          </label>
-          <label class="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={backupOptions.include_warp}
-              onChange={(e) => setBackupOptions({ ...backupOptions, include_warp: (e.target as HTMLInputElement).checked })}
-              class="rounded border-gray-300"
-            />
-            WARP
-          </label>
-          <label class="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={backupOptions.include_geo}
-              onChange={(e) => setBackupOptions({ ...backupOptions, include_geo: (e.target as HTMLInputElement).checked })}
-              class="rounded border-gray-300"
-            />
-            Geo
-          </label>
+          </Card>
         </div>
-
-        <button
-          onClick={handleCreateBackup}
-          disabled={creating}
-          class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400"
-        >
-          {creating ? 'Creating...' : 'Create Backup'}
-        </button>
       </div>
 
-      {/* Backups List */}
-      <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
-        <div class="px-4 py-3 bg-gray-50 border-b border-gray-200">
-          <h3 class="font-semibold text-gray-900">Backup History</h3>
-        </div>
-
-        {loading ? (
-          <div class="p-8 text-center text-gray-500">Loading...</div>
-        ) : backups.length === 0 ? (
-          <div class="p-8 text-center text-gray-500">No backups yet</div>
-        ) : (
-          <div class="overflow-x-auto">
-            <table class="w-full">
-              <thead class="bg-gray-50">
-                <tr>
-                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Filename</th>
-                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Size</th>
-                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
-                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {backups.map((backup) => (
-                  <tr key={backup.id} class="border-t border-gray-200 hover:bg-gray-50">
-                    <td class="px-4 py-3 text-sm text-gray-900">#{backup.id}</td>
-                    <td class="px-4 py-3 text-sm text-gray-900 font-mono">{backup.filename}</td>
-                    <td class="px-4 py-3 text-sm text-gray-600">
-                      {formatBytes(backup.file_size_bytes)}
-                    </td>
-                    <td class="px-4 py-3 text-sm text-gray-600 capitalize">{backup.backup_type}</td>
-                    <td class="px-4 py-3">
-                      <span class={`px-2 py-1 text-xs rounded-full ${getStatusColor(backup.status)}`}>
-                        {backup.status}
-                      </span>
-                      {backup.error_message && (
-                        <p class="text-xs text-red-600 mt-1">{backup.error_message}</p>
-                      )}
-                    </td>
-                    <td class="px-4 py-3 text-sm text-gray-600">
-                      {new Date(backup.created_at).toLocaleString()}
-                    </td>
-                    <td class="px-4 py-3 text-sm">
-                      <div class="flex gap-2">
-                        <button
-                          onClick={() => handleDownloadBackup(backup.id, backup.filename)}
-                          disabled={backup.status !== 'completed'}
-                          class="text-blue-600 hover:text-blue-800 disabled:text-gray-400"
-                          title="Download"
-                        >
-                          Download
-                        </button>
-                        <button
-                          onClick={() => handleRestoreBackup(backup.id, backup.filename)}
-                          disabled={backup.status !== 'completed'}
-                          class="text-yellow-600 hover:text-yellow-800 disabled:text-gray-400"
-                          title="Restore"
-                        >
-                          Restore
-                        </button>
-                        <button
-                          onClick={() => handleDeleteBackup(backup.id)}
-                          class="text-red-600 hover:text-red-800"
-                          title="Delete"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      <Modal
+        isOpen={modal.show}
+        onClose={() => setModal(prev => ({ ...prev, show: false }))}
+        title={modal.title}
+        footer={
+          <div className="flex justify-end gap-3">
+            <Button variant="secondary" onClick={() => setModal(prev => ({ ...prev, show: false }))}>
+              Cancel
+            </Button>
+            <Button 
+              variant={modal.type === 'danger' ? 'danger' : 'primary'} 
+              onClick={modal.onConfirm}
+              disabled={modal.loading}
+            >
+              {modal.loading ? <Spinner size="sm" className="mr-2" /> : null}
+              {modal.loading ? 'Processing...' : 'Confirm'}
+            </Button>
           </div>
-        )}
-      </div>
-
-      {/* Info Box */}
-      <div class="mt-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-        <h4 class="font-semibold text-yellow-900 mb-2">Important Notes</h4>
-        <ul class="text-sm text-yellow-800 space-y-1">
-          <li>• Backups include database, core configurations, certificates, and WARP keys</li>
-          <li>• Encryption uses AES-256-GCM with a key stored in /app/data/.backup_key</li>
-          <li>• Keep the encryption key safe - without it, backups cannot be restored</li>
-          <li>• Only 3 most recent backups are kept (automatic rotation)</li>
-          <li>• Restore operation will completely overwrite the current system state</li>
-        </ul>
-      </div>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-text-secondary leading-relaxed whitespace-pre-wrap">{modal.content}</p>
+        </div>
+      </Modal>
     </div>
   )
 }

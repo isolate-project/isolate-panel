@@ -32,7 +32,8 @@ func TestBackupService_Initialize(t *testing.T) {
 	backupDir := filepath.Join(tmpDir, "backups")
 	dataDir := tmpDir
 
-	service := NewBackupService(db, backupDir, dataDir)
+	settingsService := NewSettingsService(db)
+	service := NewBackupService(db, settingsService, backupDir, dataDir)
 
 	err := service.Initialize()
 	if err != nil {
@@ -57,7 +58,8 @@ func TestBackupService_GetEncryptionKey(t *testing.T) {
 	backupDir := filepath.Join(tmpDir, "backups")
 	dataDir := tmpDir
 
-	service := NewBackupService(db, backupDir, dataDir)
+	settingsService := NewSettingsService(db)
+	service := NewBackupService(db, settingsService, backupDir, dataDir)
 	service.Initialize()
 
 	key := service.GetEncryptionKey()
@@ -77,7 +79,8 @@ func TestBackupService_ListBackups(t *testing.T) {
 	backupDir := filepath.Join(tmpDir, "backups")
 	dataDir := tmpDir
 
-	service := NewBackupService(db, backupDir, dataDir)
+	settingsService := NewSettingsService(db)
+	service := NewBackupService(db, settingsService, backupDir, dataDir)
 	service.Initialize()
 
 	// Create test backups
@@ -106,7 +109,8 @@ func TestBackupService_GetBackup(t *testing.T) {
 	backupDir := filepath.Join(tmpDir, "backups")
 	dataDir := tmpDir
 
-	service := NewBackupService(db, backupDir, dataDir)
+	settingsService := NewSettingsService(db)
+	service := NewBackupService(db, settingsService, backupDir, dataDir)
 	service.Initialize()
 
 	// Create test backup
@@ -140,7 +144,8 @@ func TestBackupService_DeleteBackup(t *testing.T) {
 	backupDir := filepath.Join(tmpDir, "backups")
 	dataDir := tmpDir
 
-	service := NewBackupService(db, backupDir, dataDir)
+	settingsService := NewSettingsService(db)
+	service := NewBackupService(db, settingsService, backupDir, dataDir)
 	service.Initialize()
 
 	// Create test backup file
@@ -179,7 +184,8 @@ func TestBackupService_Schedule(t *testing.T) {
 	backupDir := filepath.Join(tmpDir, "backups")
 	dataDir := tmpDir
 
-	service := NewBackupService(db, backupDir, dataDir)
+	settingsService := NewSettingsService(db)
+	service := NewBackupService(db, settingsService, backupDir, dataDir)
 	service.Initialize()
 
 	// Test GetSchedule when empty
@@ -226,8 +232,9 @@ func TestBackupService_RotateBackups(t *testing.T) {
 	tmpDir := t.TempDir()
 	backupDir := filepath.Join(tmpDir, "backups")
 	dataDir := tmpDir
+	settingsService := NewSettingsService(db)
 
-	service := NewBackupService(db, backupDir, dataDir)
+	service := NewBackupService(db, settingsService, backupDir, dataDir)
 	service.Initialize()
 
 	// Create 5 test backups

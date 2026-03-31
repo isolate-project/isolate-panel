@@ -125,6 +125,7 @@ func (s *Seeder) SeedDefaultSettings() error {
 		{Key: "jwt_refresh_token_ttl", Value: "604800", ValueType: "int", Description: "JWT refresh token TTL in seconds (7 days)"},
 		{Key: "monitoring_mode", Value: "lite", ValueType: "string", Description: "Monitoring mode: lite or full"},
 		{Key: "backup_enabled", Value: "false", ValueType: "bool", Description: "Automatic backups enabled"},
+		{Key: "backup_retention_count", Value: "3", ValueType: "int", Description: "Number of backups to keep"},
 		{Key: "warp_enabled", Value: "false", ValueType: "bool", Description: "WARP integration enabled"},
 	}
 

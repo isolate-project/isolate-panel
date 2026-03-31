@@ -184,17 +184,17 @@
 
 ---
 
-## Phase 9: Backup System — 87% → 100%
+## Phase 9: Backup System — ✅ 100%
 
 **Реализовано:** backup API, Backup Scheduler, UI страница со списком бэкапов, restore API (`/restore`).
 
-### Что осталось:
+### Выполнено:
 
-- [ ] **9.1** Реализовать заявленное шифрование бэкапов (AES-256-GCM) — сейчас данные сжимаются в tar/gz, но не шифруются.
-- [ ] **9.2** Восстановление из бэкапа через UI (API готово, нужен dialog confirmation на фронтенде)
-- [ ] **9.3** Retention policy (настроить автоудаление старых бэкапов)
-- [ ] **9.4** Integration тест: backup → restore → verify data integrity
-- [ ] **9.5** Документация по процедуре восстановления в DEPLOYMENT.md
+- [x] **9.1** Реализовать заявленное шифрование бэкапов (AES-256-GCM) — внедрено потоковое шифрование (64KB chunks) для оптимизации памяти (1GB RAM).
+- [x] **9.2** Восстановление из бэкапа через UI (добавлен Confirmation Modal на фронтенде).
+- [x] **9.3** Retention policy (динамическая настройка через SettingsService).
+- [x] **9.4** Integration тест: `backup_integration_test.go` (integrity + compression + encryption).
+- [x] **9.5** Документация по процедуре восстановления в DEPLOYMENT.md.
 
 ---
 

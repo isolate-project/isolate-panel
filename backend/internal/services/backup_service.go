@@ -3,11 +3,13 @@ package services
 import (
 	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -23,10 +25,11 @@ import (
 
 // BackupService manages backup and restore operations
 type BackupService struct {
-	db            *gorm.DB
-	backupDir     string
-	dataDir       string
-	encryptionKey []byte
+	db              *gorm.DB
+	settingsService *SettingsService
+	backupDir       string
+	dataDir         string
+	encryptionKey   []byte
 }
 
 // BackupRequest represents a backup creation request
@@ -46,11 +49,12 @@ type RestoreRequest struct {
 }
 
 // NewBackupService creates a new backup service
-func NewBackupService(db *gorm.DB, backupDir string, dataDir string) *BackupService {
+func NewBackupService(db *gorm.DB, settingsService *SettingsService, backupDir string, dataDir string) *BackupService {
 	return &BackupService{
-		db:        db,
-		backupDir: backupDir,
-		dataDir:   dataDir,
+		db:              db,
+		settingsService: settingsService,
+		backupDir:       backupDir,
+		dataDir:         dataDir,
 	}
 }
 
@@ -393,16 +397,17 @@ func (s *BackupService) createMetadata(tmpDir string, backup *models.Backup) err
 
 // createTarArchive creates a tar.gz archive from directory
 func (s *BackupService) createTarArchive(srcDir, dstPath string) error {
-	file, err := os.Create(dstPath)
+	tarGzFile, err := os.Create(dstPath)
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer tarGzFile.Close()
 
-	gw := &writeCounter{}
-	writer := io.MultiWriter(file, gw)
+	// Add GZIP compression
+	gzipWriter := gzip.NewWriter(tarGzFile)
+	defer gzipWriter.Close()
 
-	tarWriter := tar.NewWriter(writer)
+	tarWriter := tar.NewWriter(gzipWriter)
 	defer tarWriter.Close()
 
 	return filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
@@ -446,100 +451,127 @@ func (s *BackupService) createTarArchive(srcDir, dstPath string) error {
 	})
 }
 
-// encryptFile encrypts a file using AES-256-GCM
+// encryptFile encrypts a file using chunked AES-256-GCM (streaming support)
 func (s *BackupService) encryptFile(srcPath, dstPath string) error {
-	// Open source file
+	const (
+		chunkSize = 64 * 1024 // 64KB chunks
+		nonceSize = 12
+	)
+
 	srcFile, err := os.Open(srcPath)
 	if err != nil {
 		return err
 	}
 	defer srcFile.Close()
 
-	// Create destination file
 	dstFile, err := os.Create(dstPath)
 	if err != nil {
 		return err
 	}
 	defer dstFile.Close()
 
-	// Create cipher block
 	block, err := aes.NewCipher(s.encryptionKey)
 	if err != nil {
 		return err
 	}
 
-	// Create GCM mode
-	gcm, err := cipher.NewGCM(block)
+	aesGcm, err := cipher.NewGCM(block)
 	if err != nil {
 		return err
 	}
 
-	// Generate nonce
-	nonce := make([]byte, gcm.NonceSize())
-	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-		return err
+	buffer := make([]byte, chunkSize)
+	for {
+		n, err := srcFile.Read(buffer)
+		if n > 0 {
+			nonce := make([]byte, nonceSize)
+			if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+				return err
+			}
+
+			// Seal chunk: [nonce][sealed_chunk (ciphertext + tag)]
+			sealed := aesGcm.Seal(nil, nonce, buffer[:n], nil)
+
+			// Write chunk length (uint32) to support variable chunk size (if last chunk < chunkSize)
+			if err := binary.Write(dstFile, binary.LittleEndian, uint32(len(sealed))); err != nil {
+				return err
+			}
+			if _, err := dstFile.Write(nonce); err != nil {
+				return err
+			}
+			if _, err := dstFile.Write(sealed); err != nil {
+				return err
+			}
+		}
+
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
 	}
 
-	// Write nonce first
-	if _, err := dstFile.Write(nonce); err != nil {
-		return err
-	}
-
-	// Read source file
-	srcData, err := io.ReadAll(srcFile)
-	if err != nil {
-		return err
-	}
-
-	// Encrypt data
-	encrypted := gcm.Seal(nil, nonce, srcData, nil)
-
-	// Write encrypted data
-	_, err = dstFile.Write(encrypted)
-	return err
+	return nil
 }
 
-// decryptFile decrypts a file using AES-256-GCM
+// decryptFile decrypts a file using chunked AES-256-GCM (streaming support)
 func (s *BackupService) decryptFile(srcPath, dstPath string) error {
-	// Open source file
+	const nonceSize = 12
+
 	srcFile, err := os.Open(srcPath)
 	if err != nil {
 		return err
 	}
 	defer srcFile.Close()
 
-	// Read nonce
-	nonce := make([]byte, 12) // GCM standard nonce size
-	if _, err := io.ReadFull(srcFile, nonce); err != nil {
-		return err
-	}
-
-	// Read encrypted data
-	encryptedData, err := io.ReadAll(srcFile)
+	dstFile, err := os.Create(dstPath)
 	if err != nil {
 		return err
 	}
+	defer dstFile.Close()
 
-	// Create cipher block
 	block, err := aes.NewCipher(s.encryptionKey)
 	if err != nil {
 		return err
 	}
 
-	// Create GCM mode
-	gcm, err := cipher.NewGCM(block)
+	aesGcm, err := cipher.NewGCM(block)
 	if err != nil {
 		return err
 	}
 
-	// Decrypt data
-	decrypted, err := gcm.Open(nil, nonce, encryptedData, nil)
-	if err != nil {
-		return fmt.Errorf("decryption failed: %w", err)
+	for {
+		var sealedLen uint32
+		err := binary.Read(srcFile, binary.LittleEndian, &sealedLen)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+
+		nonce := make([]byte, nonceSize)
+		if _, err := io.ReadFull(srcFile, nonce); err != nil {
+			return err
+		}
+
+		sealed := make([]byte, sealedLen)
+		if _, err := io.ReadFull(srcFile, sealed); err != nil {
+			return err
+		}
+
+		decrypted, err := aesGcm.Open(nil, nonce, sealed, nil)
+		if err != nil {
+			return fmt.Errorf("decryption failed: %w", err)
+		}
+
+		if _, err := dstFile.Write(decrypted); err != nil {
+			return err
+		}
 	}
 
-	// Write decrypted data
-	return os.WriteFile(dstPath, decrypted, 0644)
+	return nil
 }
 
 // calculateChecksum calculates SHA256 checksum of a file
@@ -581,16 +613,29 @@ func (s *BackupService) createMetaFile(metaPath string, backup *models.Backup) e
 	return os.WriteFile(metaPath, metaJSON, 0644)
 }
 
-// rotateBackups removes old backups keeping only the last 3
+// rotateBackups removes old backups keeping only the configured count
 func (s *BackupService) rotateBackups() error {
+	// Get retention count from settings
+	retentionCount := 3 // Default
+	if s.settingsService != nil {
+		val, err := s.settingsService.GetSettingValue("backup_retention_count")
+		if err == nil && val != "" {
+			var count int
+			fmt.Sscanf(val, "%d", &count)
+			if count > 0 {
+				retentionCount = count
+			}
+		}
+	}
+
 	var backups []models.Backup
 	if err := s.db.Order("created_at DESC").Find(&backups).Error; err != nil {
 		return err
 	}
 
-	// Keep only 3 most recent backups
-	if len(backups) > 3 {
-		for i := 3; i < len(backups); i++ {
+	// Keep only configured most recent backups
+	if len(backups) > retentionCount {
+		for i := retentionCount; i < len(backups); i++ {
 			// Delete file
 			os.Remove(backups[i].FilePath)
 			os.Remove(strings.TrimSuffix(backups[i].FilePath, ".enc") + ".meta.json")
@@ -717,13 +762,20 @@ func (s *BackupService) performRestore(backup *models.Backup) error {
 
 // extractTarArchive extracts a tar.gz archive
 func (s *BackupService) extractTarArchive(srcPath, dstDir string) error {
-	file, err := os.Open(srcPath)
+	tarGzFile, err := os.Open(srcPath)
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer tarGzFile.Close()
 
-	tarReader := tar.NewReader(file)
+	// Use GZIP reader
+	gzipReader, err := gzip.NewReader(tarGzFile)
+	if err != nil {
+		return err
+	}
+	defer gzipReader.Close()
+
+	tarReader := tar.NewReader(gzipReader)
 
 	for {
 		header, err := tarReader.Next()
