@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/vovk4morkovk4/isolate-panel/cli/pkg"
+	"github.com/isolate-project/isolate-panel/cli/pkg"
 )
 
 func TestUserList(t *testing.T) {

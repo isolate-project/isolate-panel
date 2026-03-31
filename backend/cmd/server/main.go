@@ -12,17 +12,17 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"gorm.io/gorm/logger"
 
-	"github.com/vovk4morkovk4/isolate-panel/internal/api"
-	"github.com/vovk4morkovk4/isolate-panel/internal/auth"
-	"github.com/vovk4morkovk4/isolate-panel/internal/cache"
-	appconfig "github.com/vovk4morkovk4/isolate-panel/internal/config"
-	"github.com/vovk4morkovk4/isolate-panel/internal/cores"
-	"github.com/vovk4morkovk4/isolate-panel/internal/database"
-	"github.com/vovk4morkovk4/isolate-panel/internal/database/seeds"
-	applogger "github.com/vovk4morkovk4/isolate-panel/internal/logger"
-	"github.com/vovk4morkovk4/isolate-panel/internal/middleware"
-	"github.com/vovk4morkovk4/isolate-panel/internal/scheduler"
-	"github.com/vovk4morkovk4/isolate-panel/internal/services"
+	"github.com/isolate-project/isolate-panel/internal/api"
+	"github.com/isolate-project/isolate-panel/internal/auth"
+	"github.com/isolate-project/isolate-panel/internal/cache"
+	appconfig "github.com/isolate-project/isolate-panel/internal/config"
+	"github.com/isolate-project/isolate-panel/internal/cores"
+	"github.com/isolate-project/isolate-panel/internal/database"
+	"github.com/isolate-project/isolate-panel/internal/database/seeds"
+	applogger "github.com/isolate-project/isolate-panel/internal/logger"
+	"github.com/isolate-project/isolate-panel/internal/middleware"
+	"github.com/isolate-project/isolate-panel/internal/scheduler"
+	"github.com/isolate-project/isolate-panel/internal/services"
 )
 
 func main() {

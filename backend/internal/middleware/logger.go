@@ -6,7 +6,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
-	"github.com/vovk4morkovk4/isolate-panel/internal/logger"
+	"github.com/isolate-project/isolate-panel/internal/logger"
 )
 
 // RequestLogger creates a middleware for logging HTTP requests

@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/vovk4morkovk4/isolate-panel/internal/models"
+	"github.com/isolate-project/isolate-panel/internal/models"
 	"gorm.io/gorm"
 )
 

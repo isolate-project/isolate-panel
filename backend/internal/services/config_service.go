@@ -6,12 +6,12 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/vovk4morkovk4/isolate-panel/internal/cores"
-	mihomocore "github.com/vovk4morkovk4/isolate-panel/internal/cores/mihomo"
-	singboxcore "github.com/vovk4morkovk4/isolate-panel/internal/cores/singbox"
-	xraycore "github.com/vovk4morkovk4/isolate-panel/internal/cores/xray"
-	"github.com/vovk4morkovk4/isolate-panel/internal/cache"
-	"github.com/vovk4morkovk4/isolate-panel/internal/models"
+	"github.com/isolate-project/isolate-panel/internal/cores"
+	mihomocore "github.com/isolate-project/isolate-panel/internal/cores/mihomo"
+	singboxcore "github.com/isolate-project/isolate-panel/internal/cores/singbox"
+	xraycore "github.com/isolate-project/isolate-panel/internal/cores/xray"
+	"github.com/isolate-project/isolate-panel/internal/cache"
+	"github.com/isolate-project/isolate-panel/internal/models"
 )
 
 // ConfigService handles configuration generation and management

@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/go-acme/lego/v4/certificate"
-	"github.com/vovk4morkovk4/isolate-panel/internal/acme"
-	"github.com/vovk4morkovk4/isolate-panel/internal/models"
+	"github.com/isolate-project/isolate-panel/internal/acme"
+	"github.com/isolate-project/isolate-panel/internal/models"
 	"gorm.io/gorm"
 )
 

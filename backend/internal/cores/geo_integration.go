@@ -3,7 +3,7 @@ package cores
 import (
 	"fmt"
 
-	"github.com/vovk4morkovk4/isolate-panel/internal/models"
+	"github.com/isolate-project/isolate-panel/internal/models"
 )
 
 // GeoRulesData holds geo routing rules for a core

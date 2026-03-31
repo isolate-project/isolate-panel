@@ -16,7 +16,7 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"gorm.io/gorm"
 
-	"github.com/vovk4morkovk4/isolate-panel/internal/models"
+	"github.com/isolate-project/isolate-panel/internal/models"
 )
 
 // WARPService manages WARP configuration and routing

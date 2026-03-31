@@ -6,10 +6,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/vovk4morkovk4/isolate-panel/internal/cores/mihomo"
-	"github.com/vovk4morkovk4/isolate-panel/internal/cores/singbox"
-	"github.com/vovk4morkovk4/isolate-panel/internal/cores/xray"
-	"github.com/vovk4morkovk4/isolate-panel/internal/models"
+	"github.com/isolate-project/isolate-panel/internal/cores/mihomo"
+	"github.com/isolate-project/isolate-panel/internal/cores/singbox"
+	"github.com/isolate-project/isolate-panel/internal/cores/xray"
+	"github.com/isolate-project/isolate-panel/internal/models"
 	"gorm.io/gorm"
 )
 

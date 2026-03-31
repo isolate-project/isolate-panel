@@ -3,7 +3,7 @@ package api
 import (
 	"github.com/gofiber/fiber/v3"
 
-	"github.com/vovk4morkovk4/isolate-panel/internal/protocol"
+	"github.com/isolate-project/isolate-panel/internal/protocol"
 )
 
 type ProtocolsHandler struct{}

@@ -12,10 +12,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/vovk4morkovk4/isolate-panel/internal/api"
-	"github.com/vovk4morkovk4/isolate-panel/internal/models"
-	"github.com/vovk4morkovk4/isolate-panel/internal/services"
-	"github.com/vovk4morkovk4/isolate-panel/tests/testutil"
+	"github.com/isolate-project/isolate-panel/internal/api"
+	"github.com/isolate-project/isolate-panel/internal/models"
+	"github.com/isolate-project/isolate-panel/internal/services"
+	"github.com/isolate-project/isolate-panel/tests/testutil"
 )
 
 func setupSubscriptionApp(t *testing.T) (*fiber.App, string) {

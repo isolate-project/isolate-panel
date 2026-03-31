@@ -27,6 +27,9 @@ vendor/
 # Logs
 *.log
 logs/
+build.log
+docker-build.log
+docker-build-final.log
 
 # Node.js
 node_modules/

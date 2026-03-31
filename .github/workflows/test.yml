@@ -10,28 +10,31 @@ jobs:
   backend-test:
     name: Backend Tests
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: '1.25'
           cache: true
           cache-dependency-path: backend/go.sum
-      
+
+      - name: Install CGO dependencies
+        run: sudo apt-get install -y gcc libc6-dev
+
       - name: Install dependencies
         run: |
           cd backend
           go mod download
-      
+
       - name: Run tests
         run: |
           cd backend
-          go test ./... -v -coverprofile=coverage.out
-      
+          go test ./... -v -coverprofile=coverage.out -covermode=atomic -timeout=120s
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
@@ -43,35 +46,49 @@ jobs:
   frontend-test:
     name: Frontend Tests
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
-      
+
       - name: Install dependencies
         run: |
           cd frontend
           npm ci
-          npx playwright install chromium
-      
+
+      - name: TypeScript check
+        run: |
+          cd frontend
+          npm run type-check
+
+      - name: ESLint check
+        run: |
+          cd frontend
+          npm run lint
+
       - name: Run component tests
         run: |
           cd frontend
-          npm run test -- --coverage
-      
+          npm run test -- --coverage --reporter=verbose
+
+      - name: Install Playwright browsers
+        run: |
+          cd frontend
+          npx playwright install chromium --with-deps
+
       - name: Run E2E tests (only on main branch merge)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           cd frontend
           npm run test:e2e
-      
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
@@ -79,9 +96,9 @@ jobs:
           flags: frontend
           name: frontend-coverage
           fail_ci_if_error: false
-      
+
       - name: Upload E2E report
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
@@ -91,33 +108,28 @@ jobs:
   cli-test:
     name: CLI Tests
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: '1.25'
           cache: true
           cache-dependency-path: cli/go.sum
-      
+
       - name: Install dependencies
         run: |
           cd cli
           go mod download
-      
-      - name: Run smoke tests
+
+      - name: Run unit tests
         run: |
           cd cli
-          go test ./cmd/smoke_test.go -v
-      
-      - name: Run integration tests
-        run: |
-          cd cli
-          go test ./cmd/integration_test.go -v
-      
+          go test ./cmd/... -v -coverprofile=coverage.out -timeout=60s
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
@@ -126,76 +138,86 @@ jobs:
           name: cli-coverage
           fail_ci_if_error: false
 
-  build-verification:
-    name: Build Verification
-    runs-on: ubuntu-latest
-    needs: [backend-test, frontend-test, cli-test]
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.23'
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      
-      - name: Build backend
-        run: |
-          cd backend
-          go build -o bin/server ./cmd/server/main.go
-      
-      - name: Build frontend
-        run: |
-          cd frontend
-          npm ci
-          npm run build
-      
-      - name: Build CLI
-        run: |
-          cd cli
-          go build -o bin/isolate-panel .
-      
-      - name: Build Docker image
-        run: |
-          docker build -f docker/Dockerfile -t isolate-panel:test .
-
   lint:
     name: Linting
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
-      
+          go-version: '1.25'
+          cache: true
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-      
-      - name: Install Go linters
-        run: |
-          go install golang.org/x/lint/golint@latest
-          go install honnef.co/go/tools/cmd/staticcheck@latest
-      
-      - name: Lint backend
-        run: |
-          cd backend
-          go vet ./...
-          golint ./...
-      
+          node-version: '22'
+
+      - name: Install CGO dependencies
+        run: sudo apt-get install -y gcc libc6-dev
+
+      - name: Run golangci-lint (backend)
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          working-directory: backend
+          args: --timeout=5m
+
+      - name: Run golangci-lint (CLI)
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          working-directory: cli
+          args: --timeout=5m
+
       - name: Lint frontend
         run: |
           cd frontend
           npm ci
           npm run lint
+
+  build-verification:
+    name: Build Verification
+    runs-on: ubuntu-latest
+    needs: [backend-test, frontend-test, cli-test]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install CGO dependencies
+        run: sudo apt-get install -y gcc libc6-dev
+
+      - name: Build backend
+        run: |
+          cd backend
+          go build -o bin/server ./cmd/server/main.go
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+
+      - name: Build CLI
+        run: |
+          cd cli
+          go build -o bin/isolate ./
+
+      - name: Build Docker image
+        run: |
+          docker build -f docker/Dockerfile -t isolate-panel:ci-test .

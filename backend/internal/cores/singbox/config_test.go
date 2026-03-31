@@ -10,9 +10,9 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
-	"github.com/vovk4morkovk4/isolate-panel/internal/cores"
-	"github.com/vovk4morkovk4/isolate-panel/internal/cores/singbox"
-	"github.com/vovk4morkovk4/isolate-panel/internal/models"
+	"github.com/isolate-project/isolate-panel/internal/cores"
+	"github.com/isolate-project/isolate-panel/internal/cores/singbox"
+	"github.com/isolate-project/isolate-panel/internal/models"
 )
 
 func testCtx(db *gorm.DB) *cores.ConfigContext {

@@ -5,7 +5,7 @@ import (
 	"io"
 
 	"github.com/spf13/cobra"
-	"github.com/vovk4morkovk4/isolate-panel/cli/pkg"
+	"github.com/isolate-project/isolate-panel/cli/pkg"
 )
 
 var (

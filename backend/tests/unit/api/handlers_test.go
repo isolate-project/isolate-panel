@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/vovk4morkovk4/isolate-panel/internal/api"
-	"github.com/vovk4morkovk4/isolate-panel/internal/services"
+	"github.com/isolate-project/isolate-panel/internal/api"
+	"github.com/isolate-project/isolate-panel/internal/services"
 	"gorm.io/gorm"
 )
 

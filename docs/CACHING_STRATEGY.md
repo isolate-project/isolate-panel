@@ -40,7 +40,7 @@ Isolate Panel uses a multi-layer caching strategy to improve performance and red
 package main
 
 import (
-    "github.com/vovk4morkovk4/isolate-panel/internal/cache"
+    "github.com/isolate-project/isolate-panel/internal/cache"
 )
 
 func main() {

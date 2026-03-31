@@ -22,7 +22,7 @@ isolate-panel/
 ```
 
 ### 2. Backend Setup ✓
-- **Go module:** `github.com/vovk4morkovk4/isolate-panel`
+- **Go module:** `github.com/isolate-project/isolate-panel`
 - **Dependencies installed:**
   - Fiber v3.1.0 (Web framework)
   - GORM v1.31.1 (ORM)

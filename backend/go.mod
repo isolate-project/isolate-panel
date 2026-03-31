@@ -1,4 +1,4 @@
-module github.com/vovk4morkovk4/isolate-panel
+module github.com/isolate-project/isolate-panel
 
 go 1.25.5
 

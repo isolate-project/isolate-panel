@@ -6,8 +6,8 @@ import (
 	"sync"
 
 	"github.com/rs/zerolog"
-	"github.com/vovk4morkovk4/isolate-panel/internal/logger"
-	"github.com/vovk4morkovk4/isolate-panel/internal/models"
+	"github.com/isolate-project/isolate-panel/internal/logger"
+	"github.com/isolate-project/isolate-panel/internal/models"
 	"gorm.io/gorm"
 )
 

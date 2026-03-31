@@ -5,7 +5,7 @@ import (
 	"runtime/debug"
 
 	"github.com/gofiber/fiber/v3"
-	"github.com/vovk4morkovk4/isolate-panel/internal/logger"
+	"github.com/isolate-project/isolate-panel/internal/logger"
 )
 
 // Recovery returns a middleware that recovers from panics

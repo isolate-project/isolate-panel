@@ -8,9 +8,9 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"gorm.io/gorm"
 
-	"github.com/vovk4morkovk4/isolate-panel/internal/auth"
-	"github.com/vovk4morkovk4/isolate-panel/internal/models"
-	"github.com/vovk4morkovk4/isolate-panel/internal/services"
+	"github.com/isolate-project/isolate-panel/internal/auth"
+	"github.com/isolate-project/isolate-panel/internal/models"
+	"github.com/isolate-project/isolate-panel/internal/services"
 )
 
 type AuthHandler struct {

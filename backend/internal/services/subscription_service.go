@@ -12,8 +12,8 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/vovk4morkovk4/isolate-panel/internal/cache"
-	"github.com/vovk4morkovk4/isolate-panel/internal/models"
+	"github.com/isolate-project/isolate-panel/internal/cache"
+	"github.com/isolate-project/isolate-panel/internal/models"
 )
 
 // SubscriptionService generates subscription configs in 3 formats

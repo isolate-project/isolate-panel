@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/vovk4morkovk4/isolate-panel/cli/pkg"
+	"github.com/isolate-project/isolate-panel/cli/pkg"
 )
 
 func setupTestEnvironment(t *testing.T, handler http.HandlerFunc) (*httptest.Server, func()) {

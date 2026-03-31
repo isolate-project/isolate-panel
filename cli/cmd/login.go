@@ -13,7 +13,7 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
-	"github.com/vovk4morkovk4/isolate-panel/cli/pkg"
+	"github.com/isolate-project/isolate-panel/cli/pkg"
 )
 
 var (

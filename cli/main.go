@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/vovk4morkovk4/isolate-panel/cli/cmd"
+	"github.com/isolate-project/isolate-panel/cli/cmd"
 )
 
 var (

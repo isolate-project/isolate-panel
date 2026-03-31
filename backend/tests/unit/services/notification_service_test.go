@@ -4,9 +4,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/vovk4morkovk4/isolate-panel/internal/models"
-	"github.com/vovk4morkovk4/isolate-panel/internal/services"
-	"github.com/vovk4morkovk4/isolate-panel/tests/testutil"
+	"github.com/isolate-project/isolate-panel/internal/models"
+	"github.com/isolate-project/isolate-panel/internal/services"
+	"github.com/isolate-project/isolate-panel/tests/testutil"
 )
 
 func TestNotificationService(t *testing.T) {

@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vovk4morkovk4/isolate-panel/internal/models"
-	"github.com/vovk4morkovk4/isolate-panel/internal/services"
-	"github.com/vovk4morkovk4/isolate-panel/tests/testutil"
+	"github.com/isolate-project/isolate-panel/internal/models"
+	"github.com/isolate-project/isolate-panel/internal/services"
+	"github.com/isolate-project/isolate-panel/tests/testutil"
 )
 
 // TestUserService_EmptyUsername tests edge case: empty username

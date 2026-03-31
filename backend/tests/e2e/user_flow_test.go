@@ -5,8 +5,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/vovk4morkovk4/isolate-panel/internal/services"
-	"github.com/vovk4morkovk4/isolate-panel/tests/testutil"
+	"github.com/isolate-project/isolate-panel/internal/services"
+	"github.com/isolate-project/isolate-panel/tests/testutil"
 )
 
 // TestCompleteUserFlow tests the complete user lifecycle

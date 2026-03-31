@@ -6,8 +6,8 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/vovk4morkovk4/isolate-panel/internal/models"
-	"github.com/vovk4morkovk4/isolate-panel/internal/protocol"
+	"github.com/isolate-project/isolate-panel/internal/models"
+	"github.com/isolate-project/isolate-panel/internal/protocol"
 )
 
 // OutboundService handles outbound management operations

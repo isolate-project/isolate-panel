@@ -9,7 +9,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/skip2/go-qrcode"
 
-	"github.com/vovk4morkovk4/isolate-panel/internal/services"
+	"github.com/isolate-project/isolate-panel/internal/services"
 )
 
 type SubscriptionsHandler struct {

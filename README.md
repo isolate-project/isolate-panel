@@ -37,7 +37,7 @@ Isolate Panel is a minimalist web-based management interface for proxy cores, de
 
 ```bash
 # Clone the repository
-git clone https://github.com/vovk4morkovk4/isolate-panel.git
+git clone https://github.com/isolate-project/isolate-panel.git
 cd isolate-panel
 
 # Start development environment

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/vovk4morkovk4/isolate-panel/internal/models"
+	"github.com/isolate-project/isolate-panel/internal/models"
 )
 
 // TelegramNotifier sends notifications via Telegram Bot API

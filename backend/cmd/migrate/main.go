@@ -8,8 +8,8 @@ import (
 	"os"
 
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/vovk4morkovk4/isolate-panel/internal/database"
-	"github.com/vovk4morkovk4/isolate-panel/internal/database/seeds"
+	"github.com/isolate-project/isolate-panel/internal/database"
+	"github.com/isolate-project/isolate-panel/internal/database/seeds"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )

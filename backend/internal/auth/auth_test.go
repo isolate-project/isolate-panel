@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vovk4morkovk4/isolate-panel/internal/auth"
+	"github.com/isolate-project/isolate-panel/internal/auth"
 )
 
 func TestHashPassword(t *testing.T) {

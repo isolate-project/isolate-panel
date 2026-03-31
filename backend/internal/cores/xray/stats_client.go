@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/vovk4morkovk4/isolate-panel/internal/stats"
+	"github.com/isolate-project/isolate-panel/internal/stats"
 	"github.com/xtls/xray-core/app/proxyman/command"
 	statscommand "github.com/xtls/xray-core/app/stats/command"
 	"github.com/xtls/xray-core/common/protocol"

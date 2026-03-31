@@ -3,7 +3,7 @@ package services
 import (
 	"context"
 
-	"github.com/vovk4morkovk4/isolate-panel/internal/stats"
+	"github.com/isolate-project/isolate-panel/internal/stats"
 )
 
 // TrafficSample is an alias for stats.TrafficSample for backward compatibility

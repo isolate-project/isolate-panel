@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v3"
-	"github.com/vovk4morkovk4/isolate-panel/internal/auth"
-	"github.com/vovk4morkovk4/isolate-panel/internal/middleware"
+	"github.com/isolate-project/isolate-panel/internal/auth"
+	"github.com/isolate-project/isolate-panel/internal/middleware"
 )
 
 func TestAuthMiddleware_ValidToken(t *testing.T) {

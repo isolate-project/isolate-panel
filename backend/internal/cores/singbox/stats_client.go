@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/vovk4morkovk4/isolate-panel/internal/stats"
+	"github.com/isolate-project/isolate-panel/internal/stats"
 )
 
 // StatsClient provides access to Sing-box stats via Clash API

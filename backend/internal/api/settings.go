@@ -2,7 +2,7 @@ package api
 
 import (
 	"github.com/gofiber/fiber/v3"
-	"github.com/vovk4morkovk4/isolate-panel/internal/services"
+	"github.com/isolate-project/isolate-panel/internal/services"
 )
 
 // SettingsHandler handles settings-related HTTP requests
