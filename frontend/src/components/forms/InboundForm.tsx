@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'preact/hooks'
+import { useState, useEffect, useRef } from 'preact/hooks'
 import { useForm } from '../../hooks/useForm'
 import { inboundSchema, InboundFormData } from '../../utils/validators'
 import { FormField } from './FormField'
@@ -9,6 +9,7 @@ import type { Inbound, Core } from '../../types'
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent } from '../ui/Card'
 import { Save } from 'lucide-preact'
+import { inboundApi } from '../../api/endpoints'
 
 interface InboundFormProps {
   inbound?: Inbound | null
@@ -34,6 +35,8 @@ export function InboundForm({ inbound, onSuccess, onCancel }: InboundFormProps) 
     : []
 
   const [selectedCoreType, setSelectedCoreType] = useState<string>('')
+  const [portError, setPortError] = useState<string | null>(null)
+  const portCheckTimeout = useRef<number | null>(null)
 
   const {
     values,
@@ -76,6 +79,7 @@ export function InboundForm({ inbound, onSuccess, onCancel }: InboundFormProps) 
   })
 
   const isLoading = Boolean(isSubmitting || isCreating || isUpdating)
+  const isInvalid = !!portError || Object.keys(errors).length > 0
 
   const onChange = (name: string, value: string | number | boolean) => {
     handleChange(name as keyof InboundFormData, value)
@@ -91,6 +95,32 @@ export function InboundForm({ inbound, onSuccess, onCancel }: InboundFormProps) 
           handleChange('protocol', (supportedProtocols[0] || 'vless') as InboundFormData['protocol'])
         }
       }
+    }
+
+    // Debounced port check
+    if (name === 'port') {
+      const newPort = Number(value)
+      setPortError(null)
+
+      if (portCheckTimeout.current) {
+        window.clearTimeout(portCheckTimeout.current)
+      }
+
+      if (newPort < 1024 || newPort > 65535) {
+        setPortError(t('inbounds.portOutOfRange') || 'Port must be between 1024 and 65535')
+        return
+      }
+
+      portCheckTimeout.current = window.setTimeout(async () => {
+        try {
+          const res = await inboundApi.checkPort(newPort, inbound?.id)
+          if (!res.data.available) {
+            setPortError(res.data.reason)
+          }
+        } catch (err) {
+          console.error('Failed to check port:', err)
+        }
+      }, 500)
     }
   }
   
@@ -198,9 +228,11 @@ export function InboundForm({ inbound, onSuccess, onCancel }: InboundFormProps) 
                 required
                 disabled={isLoading}
                 placeholder="443"
+                className={portError ? 'border-red-500' : ''}
                 onChange={onChange}
                 onBlur={onBlur}
               />
+              {portError && <p className="text-xs text-red-500 mt-1">{portError}</p>}
             </div>
           </CardContent>
         </Card>
@@ -246,7 +278,7 @@ export function InboundForm({ inbound, onSuccess, onCancel }: InboundFormProps) 
         <Button
           type="submit"
           loading={isLoading}
-          disabled={isLoading}
+          disabled={isLoading || isInvalid}
           className="min-w-[120px]"
         >
           {inbound ? <><Save className="w-4 h-4 mr-2" /> Save Changes</> : 'Create Inbound'}

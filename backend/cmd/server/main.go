@@ -125,12 +125,12 @@ func main() {
 		log.Warn().Err(err).Msg("Failed to initialize Notification service")
 	}
 
-	// Initialize settings service
-	settingsService := services.NewSettingsService(db.DB)
+	// Initialize port manager
+	portManager := services.NewPortManager(db.DB)
 
 	// Initialize services
 	userService := services.NewUserService(db.DB, notificationService)
-	inboundService := services.NewInboundService(db.DB, lifecycleManager)
+	inboundService := services.NewInboundService(db.DB, lifecycleManager, portManager)
 	outboundService := services.NewOutboundService(db.DB, configService)
 	subscriptionService := services.NewSubscriptionService(db.DB, "")
 
@@ -232,7 +232,7 @@ func main() {
 	authHandler := api.NewAuthHandler(db.DB, tokenService, notificationService)
 	coresHandler := api.NewCoresHandler(coreManager)
 	usersHandler := api.NewUsersHandler(userService)
-	inboundsHandler := api.NewInboundsHandler(inboundService)
+	inboundsHandler := api.NewInboundsHandler(inboundService, portManager)
 	outboundsHandler := api.NewOutboundsHandler(outboundService)
 	protocolsHandler := api.NewProtocolsHandler()
 	subscriptionsHandler := api.NewSubscriptionsHandler(subscriptionService)
@@ -379,6 +379,7 @@ func main() {
 	inboundsGroup.Post("/unassign", inboundsHandler.UnassignInboundFromUser)
 	inboundsGroup.Get("/:id/users", inboundsHandler.GetInboundUsers)
 	inboundsGroup.Post("/:id/users/bulk", inboundsHandler.BulkAssignUsers)
+	inboundsGroup.Get("/check-port", inboundsHandler.CheckPort)
 
 	// Outbound management routes (protected)
 	outboundsGroup := protectedGroup.Group("/outbounds")

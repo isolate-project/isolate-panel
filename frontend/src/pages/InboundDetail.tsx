@@ -1,4 +1,4 @@
-import { useState } from 'preact/hooks'
+import { useState, useMemo } from 'preact/hooks'
 import { route } from 'preact-router'
 
 import { PageLayout } from '../components/layout/PageLayout'
@@ -9,11 +9,12 @@ import { Badge } from '../components/ui/Badge'
 import { Spinner } from '../components/ui/Spinner'
 import { Modal } from '../components/ui/Modal'
 import { Alert } from '../components/ui/Alert'
+import { Input } from '../components/ui/Input'
 import { useInbound, useDeleteInbound } from '../hooks/useInbounds'
 import { useInboundUsers, useBulkAssignUsers } from '../hooks/useInboundUsers'
 import { useUsers } from '../hooks/useUsers'
 import type { User } from '../types'
-import { ArrowLeft, Edit, Trash2, Users as UsersIcon, UserPlus, UserMinus, Shield, Globe } from 'lucide-preact'
+import { ArrowLeft, Edit, Trash2, Users as UsersIcon, UserPlus, UserMinus, Shield, Globe, Search, CheckSquare, Square } from 'lucide-preact'
 import { useTranslation } from 'react-i18next'
 
 type Tab = 'overview' | 'users' | 'config'
@@ -23,6 +24,9 @@ export function InboundDetail({ id }: { id: number }) {
   const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [isAddUsersModalOpen, setIsAddUsersModalOpen] = useState(false)
+  const [selectedRemoveUsers, setSelectedRemoveUsers] = useState<Set<number>>(new Set())
+  const [selectedAddUsers, setSelectedAddUsers] = useState<Set<number>>(new Set())
+  const [searchQuery, setSearchQuery] = useState('')
 
   const { data: inbound, isLoading } = useInbound(id)
   const { data: inboundUsersData, refetch: refetchUsers } = useInboundUsers(id)
@@ -39,20 +43,70 @@ export function InboundDetail({ id }: { id: number }) {
     (u) => !assignedUsers.some((au) => au.id === u.id)
   )
 
+  const filteredUnassigned = useMemo(() => {
+    return unassignedUsers.filter(u => 
+      u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (u.email && u.email.toLowerCase().includes(searchQuery.toLowerCase()))
+    )
+  }, [unassignedUsers, searchQuery])
+
   const handleDelete = async () => {
     await deleteInbound(id)
     setIsDeleteModalOpen(false)
     route('/inbounds')
   }
 
-  const handleAddUser = async (userId: number) => {
-    await bulkAssign({ inboundId: id, addUserIds: [userId], removeUserIds: [] })
+  const handleBulkAssign = async () => {
+    if (selectedAddUsers.size === 0) return
+    await bulkAssign({ 
+      inboundId: id, 
+      addUserIds: Array.from(selectedAddUsers), 
+      removeUserIds: [] 
+    })
+    setSelectedAddUsers(new Set())
+    setIsAddUsersModalOpen(false)
     refetchUsers()
   }
 
-  const handleRemoveUser = async (userId: number) => {
-    await bulkAssign({ inboundId: id, addUserIds: [], removeUserIds: [userId] })
+  const handleBulkRemove = async () => {
+    if (selectedRemoveUsers.size === 0) return
+    await bulkAssign({ 
+      inboundId: id, 
+      addUserIds: [], 
+      removeUserIds: Array.from(selectedRemoveUsers) 
+    })
+    setSelectedRemoveUsers(new Set())
     refetchUsers()
+  }
+
+  const toggleRemoveUser = (userId: number) => {
+    const next = new Set(selectedRemoveUsers)
+    if (next.has(userId)) next.delete(userId)
+    else next.add(userId)
+    setSelectedRemoveUsers(next)
+  }
+
+  const toggleAddUser = (userId: number) => {
+    const next = new Set(selectedAddUsers)
+    if (next.has(userId)) next.delete(userId)
+    else next.add(userId)
+    setSelectedAddUsers(next)
+  }
+
+  const toggleSelectAllRemove = () => {
+    if (selectedRemoveUsers.size === assignedUsers.length) {
+      setSelectedRemoveUsers(new Set())
+    } else {
+      setSelectedRemoveUsers(new Set(assignedUsers.map(u => u.id)))
+    }
+  }
+
+  const toggleSelectAllAdd = () => {
+    if (selectedAddUsers.size === filteredUnassigned.length) {
+      setSelectedAddUsers(new Set())
+    } else {
+      setSelectedAddUsers(new Set(filteredUnassigned.map(u => u.id)))
+    }
   }
 
   if (isLoading) {
@@ -207,10 +261,34 @@ export function InboundDetail({ id }: { id: number }) {
               <UsersIcon className="w-5 h-5 inline mr-2" />
               {t('inboundDetail.assignedUsers')} ({assignedUsers.length})
             </h3>
-            <Button variant="default" size="sm" onClick={() => setIsAddUsersModalOpen(true)}>
-              <UserPlus className="w-4 h-4 mr-1" />
-              {t('inboundDetail.addUsers')}
-            </Button>
+            <div className="flex gap-2">
+              {selectedRemoveUsers.size > 0 && (
+                <Button variant="danger" size="sm" onClick={handleBulkRemove}>
+                  <Trash2 className="w-4 h-4 mr-1" />
+                  {t('common.removeSelected')} ({selectedRemoveUsers.size})
+                </Button>
+              )}
+              <Button variant="default" size="sm" onClick={() => setIsAddUsersModalOpen(true)}>
+                <UserPlus className="w-4 h-4 mr-1" />
+                {t('inboundDetail.addUsers')}
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-secondary rounded-lg">
+            <button 
+              onClick={toggleSelectAllRemove}
+              className="p-1 hover:bg-primary rounded transition-base text-primary"
+            >
+              {selectedRemoveUsers.size === assignedUsers.length && assignedUsers.length > 0 ? (
+                <CheckSquare className="w-4 h-4" />
+              ) : (
+                <Square className="w-4 h-4" />
+              )}
+            </button>
+            <span className="text-xs font-semibold uppercase tracking-wider text-tertiary">
+              {t('common.selectAll')}
+            </span>
           </div>
 
           {assignedUsers.length === 0 ? (
@@ -219,27 +297,46 @@ export function InboundDetail({ id }: { id: number }) {
             </div>
           ) : (
             <div className="space-y-2">
-              {assignedUsers.map((user) => (
-                <div key={user.id} className="flex items-center justify-between p-3 border border-primary rounded-lg">
-                  <div>
-                    <div className="font-medium text-primary">{user.username}</div>
-                    <div className="text-xs text-tertiary">{user.email || '-'}</div>
+              {assignedUsers.map((user) => {
+                const isSelected = selectedRemoveUsers.has(user.id)
+                return (
+                  <div 
+                    key={user.id} 
+                    className={`flex items-center justify-between p-3 border rounded-lg transition-base ${
+                      isSelected ? 'border-red-500 bg-red-50 dark:bg-red-950/20' : 'border-primary'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <button 
+                        onClick={() => toggleRemoveUser(user.id)}
+                        className={`p-1 rounded transition-base ${isSelected ? 'text-red-500' : 'text-tertiary hover:text-primary'}`}
+                      >
+                        {isSelected ? <CheckSquare className="w-5 h-5" /> : <Square className="w-5 h-5" />}
+                      </button>
+                      <div>
+                        <div className="font-medium text-primary">{user.username}</div>
+                        <div className="text-xs text-tertiary">{user.email || '-'}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={user.is_active ? 'success' : 'default'}>
+                        {user.is_active ? t('common.active') : t('common.inactive')}
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedRemoveUsers(new Set([user.id]))
+                          handleBulkRemove()
+                        }}
+                        className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                      >
+                        <UserMinus className="w-3 h-3" />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={user.is_active ? 'success' : 'default'}>
-                      {user.is_active ? t('common.active') : t('common.inactive')}
-                    </Badge>
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      onClick={() => handleRemoveUser(user.id)}
-                    >
-                      <UserMinus className="w-3 h-3 mr-1" />
-                      {t('inboundDetail.removeUser')}
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
               </CardContent>
@@ -286,34 +383,100 @@ export function InboundDetail({ id }: { id: number }) {
         title={t('inboundDetail.addUsers')}
         size="lg"
       >
-        {unassignedUsers.length === 0 ? (
-          <div className="text-center py-8 text-secondary">
-            {t('inbounds.noUsersAvailable')}
+        <div className="space-y-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-tertiary" />
+            <Input
+              value={searchQuery}
+              onChange={(e: Event) => setSearchQuery((e.target as HTMLInputElement).value)}
+              placeholder={t('users.searchPlaceholder')}
+              className="pl-10"
+            />
           </div>
-        ) : (
-          <div className="space-y-2 max-h-80 overflow-y-auto">
-            {unassignedUsers.map((user) => (
-              <div key={user.id} className="flex items-center justify-between p-3 border border-primary rounded-lg">
-                <div>
-                  <div className="font-medium text-primary">{user.username}</div>
-                  <div className="text-xs text-tertiary">{user.email || '-'}</div>
-                </div>
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={() => handleAddUser(user.id)}
-                >
-                  <UserPlus className="w-3 h-3 mr-1" />
-                  {t('inbounds.assign')}
-                </Button>
-              </div>
-            ))}
+
+          <div className="flex items-center gap-2 px-3 py-2 bg-secondary rounded-lg">
+            <button 
+              onClick={toggleSelectAllAdd}
+              className="p-1 hover:bg-primary rounded transition-base text-primary"
+            >
+              {selectedAddUsers.size === filteredUnassigned.length && filteredUnassigned.length > 0 ? (
+                <CheckSquare className="w-4 h-4" />
+              ) : (
+                <Square className="w-4 h-4" />
+              )}
+            </button>
+            <span className="text-xs font-semibold uppercase tracking-wider text-tertiary">
+              {t('common.selectAll')} ({filteredUnassigned.length})
+            </span>
           </div>
-        )}
-        <div className="flex justify-end pt-4">
-          <Button variant="outline" onClick={() => setIsAddUsersModalOpen(false)}>
-            {t('common.close')}
-          </Button>
+
+          {filteredUnassigned.length === 0 ? (
+            <div className="text-center py-8 text-secondary">
+              {searchQuery ? t('users.noResults') : t('inbounds.noUsersAvailable')}
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+              {filteredUnassigned.map((user) => {
+                const isSelected = selectedAddUsers.has(user.id)
+                return (
+                  <div 
+                    key={user.id} 
+                    className={`flex items-center justify-between p-3 border rounded-lg transition-base ${
+                      isSelected ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/20' : 'border-primary'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <button 
+                        onClick={() => toggleAddUser(user.id)}
+                        className={`p-1 rounded transition-base ${isSelected ? 'text-blue-500' : 'text-tertiary hover:text-primary'}`}
+                      >
+                        {isSelected ? <CheckSquare className="w-5 h-5" /> : <Square className="w-5 h-5" />}
+                      </button>
+                      <div>
+                        <div className="font-medium text-primary">{user.username}</div>
+                        <div className="text-xs text-tertiary">{user.email || '-'}</div>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedAddUsers(new Set([user.id]))
+                        handleBulkAssign()
+                      }}
+                      className="text-blue-500 hover:text-blue-600 hover:bg-blue-50"
+                    >
+                      <UserPlus className="w-3 h-3" />
+                    </Button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+        <div className="flex justify-between items-center pt-4 border-t border-primary mt-4">
+          <div className="text-sm text-secondary">
+            {selectedAddUsers.size > 0 && (
+              <span>{t('common.selected')}: <strong>{selectedAddUsers.size}</strong></span>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => {
+              setIsAddUsersModalOpen(false)
+              setSelectedAddUsers(new Set())
+              setSearchQuery('')
+            }}>
+              {t('common.cancel')}
+            </Button>
+            <Button 
+              variant="default" 
+              onClick={handleBulkAssign}
+              disabled={selectedAddUsers.size === 0}
+            >
+              <UserPlus className="w-4 h-4 mr-1" />
+              {t('inboundDetail.addSelected')} ({selectedAddUsers.size})
+            </Button>
+          </div>
         </div>
       </Modal>
     </PageLayout>

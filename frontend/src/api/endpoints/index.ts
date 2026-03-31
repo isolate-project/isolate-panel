@@ -75,6 +75,9 @@ export const inboundApi = {
 
   bulkAssignUsers: (id: number, addUserIds: number[], removeUserIds: number[]) =>
     apiClient.post(`/inbounds/${id}/users/bulk`, { add_user_ids: addUserIds, remove_user_ids: removeUserIds }),
+
+  checkPort: (port: number, excludeId?: number) =>
+    apiClient.get('/inbounds/check-port', { params: { port, exclude_id: excludeId } }),
 }
 
 // Outbound endpoints

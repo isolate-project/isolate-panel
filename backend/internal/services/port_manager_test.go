@@ -204,6 +204,95 @@ func TestPortManager_AllocatePort_AvoidsUsed(t *testing.T) {
 	}
 }
 
+func TestPortManager_ValidatePort(t *testing.T) {
+	db := setupTestDB(t)
+	pm := NewPortManager(db)
+
+	tests := []struct {
+		port    int
+		wantErr bool
+	}{
+		{2000, false},
+		{1024, false},
+		{65535, false},
+		{80, true},   // Reserved
+		{22, true},   // Reserved
+		{1023, true}, // Out of range
+		{65536, true}, // Out of range
+	}
+
+	for _, tt := range tests {
+		err := pm.ValidatePort(tt.port)
+		if (err != nil) != tt.wantErr {
+			t.Errorf("ValidatePort(%d) error = %v, wantErr %v", tt.port, err, tt.wantErr)
+		}
+	}
+}
+
+func TestPortManager_GetUsedPorts(t *testing.T) {
+	db := setupTestDB(t)
+	pm := NewPortManager(db)
+
+	ports := []int{10001, 10002, 10003}
+	for _, p := range ports {
+		db.Create(&models.Inbound{Name: "T", Protocol: "v", Port: p, CoreID: 1})
+	}
+
+	used, err := pm.GetUsedPorts()
+	if err != nil {
+		t.Fatalf("Failed to get used ports: %v", err)
+	}
+
+	if len(used) != len(ports) {
+		t.Errorf("Expected %d used ports, got %d", len(ports), len(used))
+	}
+
+	// Simple check (not exhaustive)
+	for _, p := range ports {
+		found := false
+		for _, u := range used {
+			if u == p {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Port %d not found in used ports", p)
+		}
+	}
+}
+
+func TestPortManager_GetReservedPorts(t *testing.T) {
+	db := setupTestDB(t)
+	pm := NewPortManager(db)
+
+	reserved := pm.GetReservedPorts()
+	if len(reserved) == 0 {
+		t.Error("Expected reserved ports map to be non-empty")
+	}
+
+	if _, ok := reserved[22]; !ok {
+		t.Error("Expected port 22 to be reserved")
+	}
+}
+
+func TestPortManager_BoundaryPorts(t *testing.T) {
+	db := setupTestDB(t)
+	pm := NewPortManager(db)
+
+	// 1024 should be available
+	available, _, err := pm.IsPortAvailable(1024, nil)
+	if err != nil || !available {
+		t.Errorf("Expected port 1024 to be available, err: %v, available: %v", err, available)
+	}
+
+	// 65535 should be available
+	available, _, err = pm.IsPortAvailable(65535, nil)
+	if err != nil || !available {
+		t.Errorf("Expected port 65535 to be available, err: %v, available: %v", err, available)
+	}
+}
+
 func TestMain(m *testing.M) {
 	// Set up test environment
 	code := m.Run()

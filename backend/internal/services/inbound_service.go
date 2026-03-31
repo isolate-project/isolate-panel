@@ -13,13 +13,15 @@ import (
 type InboundService struct {
 	db               *gorm.DB
 	lifecycleManager *CoreLifecycleManager
+	portManager      *PortManager
 }
 
 // NewInboundService creates a new inbound service
-func NewInboundService(db *gorm.DB, lifecycleManager *CoreLifecycleManager) *InboundService {
+func NewInboundService(db *gorm.DB, lifecycleManager *CoreLifecycleManager, portManager *PortManager) *InboundService {
 	return &InboundService{
 		db:               db,
 		lifecycleManager: lifecycleManager,
+		portManager:      portManager,
 	}
 }
 
@@ -40,10 +42,21 @@ func (s *InboundService) CreateInbound(inbound *models.Inbound) error {
 	}
 
 	// Check if port is already in use
-	var existing models.Inbound
-	err := s.db.Where("port = ? AND core_id = ?", inbound.Port, inbound.CoreID).First(&existing).Error
-	if err == nil {
-		return fmt.Errorf("port %d is already in use by this core", inbound.Port)
+	if s.portManager != nil {
+		available, reason, err := s.portManager.IsPortAvailable(inbound.Port, nil)
+		if err != nil {
+			return fmt.Errorf("failed to check port: %w", err)
+		}
+		if !available {
+			return fmt.Errorf("%s", reason)
+		}
+	} else {
+		// Fallback if port manager is not available (should not happen in prod)
+		var existing models.Inbound
+		err := s.db.Where("port = ? AND core_id = ?", inbound.Port, inbound.CoreID).First(&existing).Error
+		if err == nil {
+			return fmt.Errorf("port %d is already in use by this core", inbound.Port)
+		}
 	}
 
 	// Set defaults
@@ -105,11 +118,39 @@ func (s *InboundService) UpdateInbound(id uint, updates map[string]interface{}) 
 	wasEnabled := inbound.IsEnabled
 
 	// Check if port is being changed and if it's available
-	if newPort, ok := updates["port"].(int); ok && newPort != inbound.Port {
-		var existing models.Inbound
-		err := s.db.Where("port = ? AND core_id = ? AND id != ?", newPort, inbound.CoreID, id).First(&existing).Error
-		if err == nil {
-			return nil, fmt.Errorf("port %d is already in use", newPort)
+	if newPortUint, ok := updates["port"].(uint); ok && int(newPortUint) != inbound.Port {
+		newPort := int(newPortUint)
+		if s.portManager != nil {
+			available, reason, err := s.portManager.IsPortAvailable(newPort, &id)
+			if err != nil {
+				return nil, fmt.Errorf("failed to check port: %w", err)
+			}
+			if !available {
+				return nil, fmt.Errorf("%s", reason)
+			}
+		} else {
+			var existing models.Inbound
+			err := s.db.Where("port = ? AND core_id = ? AND id != ?", newPort, inbound.CoreID, id).First(&existing).Error
+			if err == nil {
+				return nil, fmt.Errorf("port %d is already in use", newPort)
+			}
+		}
+	} else if newPortInt, ok := updates["port"].(int); ok && newPortInt != inbound.Port {
+		newPort := newPortInt
+		if s.portManager != nil {
+			available, reason, err := s.portManager.IsPortAvailable(newPort, &id)
+			if err != nil {
+				return nil, fmt.Errorf("failed to check port: %w", err)
+			}
+			if !available {
+				return nil, fmt.Errorf("%s", reason)
+			}
+		} else {
+			var existing models.Inbound
+			err := s.db.Where("port = ? AND core_id = ? AND id != ?", newPort, inbound.CoreID, id).First(&existing).Error
+			if err == nil {
+				return nil, fmt.Errorf("port %d is already in use", newPort)
+			}
 		}
 	}
 

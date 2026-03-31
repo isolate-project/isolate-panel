@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'preact/hooks'
+import { useState, useEffect, useRef } from 'preact/hooks'
 import { route } from 'preact-router'
 import { Zap, ChevronLeft, ChevronRight, Check } from 'lucide-preact'
 
@@ -15,7 +15,7 @@ import { useCores } from '../hooks/useCores'
 import { useProtocols, useProtocolSchema, useProtocolDefaults } from '../hooks/useProtocols'
 import { useCreateInbound } from '../hooks/useInbounds'
 import { useQuery } from '../hooks/useQuery'
-import { certificateApi } from '../api/endpoints'
+import { certificateApi, inboundApi } from '../api/endpoints'
 import type { Core, ProtocolSummary } from '../types'
 
 import { useTranslation } from 'react-i18next'
@@ -54,6 +54,8 @@ export function InboundCreate() {
     tls_cert_id: null,
     is_enabled: true,
   })
+  const [portError, setPortError] = useState<string | null>(null)
+  const portCheckTimeout = useRef<number | null>(null)
 
   const { data: cores, isLoading: coresLoading } = useCores()
   const { data: protocolsData } = useProtocols(
@@ -122,6 +124,31 @@ export function InboundCreate() {
     }))
   }
 
+  const handlePortChange = (newPort: number) => {
+    setData((prev) => ({ ...prev, port: newPort }))
+    setPortError(null)
+
+    if (portCheckTimeout.current) {
+      window.clearTimeout(portCheckTimeout.current)
+    }
+
+    if (newPort < 1024 || newPort > 65535) {
+      setPortError(t('wizard.portOutOfRange'))
+      return
+    }
+
+    portCheckTimeout.current = window.setTimeout(async () => {
+      try {
+        const res = await inboundApi.checkPort(newPort)
+        if (!res.data.available) {
+          setPortError(res.data.reason)
+        }
+      } catch (err) {
+        console.error('Failed to check port:', err)
+      }
+    }, 500)
+  }
+
   const handleCreate = async () => {
     const payload: Record<string, unknown> = {
       name: data.name,
@@ -148,7 +175,7 @@ export function InboundCreate() {
     switch (step) {
       case 1: return data.core_id > 0
       case 2: return !!data.protocol
-      case 3: return !!data.name && data.port > 0
+      case 3: return !!data.name && data.port > 0 && !portError
       case 4: return true
       case 5: return true
       default: return false
@@ -296,9 +323,11 @@ export function InboundCreate() {
                 <Input
                   type="number"
                   value={data.port.toString()}
-                  onChange={(e: Event) => setData((prev) => ({ ...prev, port: Number((e.target as HTMLInputElement).value) }))}
+                  onChange={(e: Event) => handlePortChange(Number((e.target as HTMLInputElement).value))}
                   placeholder="443"
+                  className={portError ? 'border-red-500' : ''}
                 />
+                {portError && <p className="text-xs text-red-500 mt-1">{portError}</p>}
               </div>
               <div>
                 <label className="block text-sm font-medium text-primary mb-1">{t('inbounds.listenAddress')}</label>

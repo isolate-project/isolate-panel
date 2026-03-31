@@ -13,7 +13,7 @@
 | Phase 0 | Setup & Infrastructure | ✅ 100% | ✅ 100% |
 | Phase 1 | MVP Backend | ⚠️ 92% | ✅ 100% |
 | Phase 2 | MVP Frontend | ✅ 100% | ✅ 100% |
-| Phase 3 | Inbound/Outbound Management | ✅ 96% | ✅ 100% |
+| Phase 3 | Inbound/Outbound Management | ✅ 100% | ✅ 100% |
 | Phase 4 | Subscriptions | ⚠️ 88% | ✅ 100% |
 | Phase 5 | Certificates | ⚠️ 83% | ✅ 100% |
 | Phase 6 | Monitoring & Statistics | ⚠️ 75% | ✅ 100% |
@@ -90,16 +90,16 @@
 
 ---
 
-## Phase 3: Inbound/Outbound Management — 96% → 100%
+## Phase 3: Inbound/Outbound Management — ✅ 100%
 
 **Реализовано:** Protocol Schema Registry (25 протоколов), dynamic form generation, port manager, outbound service tests, bulk assign API (`/bulk`).
 
-### Что осталось:
+### Что осталось (Выполнено):
 
-- [ ] **3.1** Unit тесты для Protocol Schema Registry
-- [ ] **3.2** Unit тесты для Port Manager (уже частично: `port_manager_test.go`)
-- [ ] **3.3** Валидация конфликтов портов при создании inbound через UI (показать ошибку, а не crash)
-- [ ] **3.4** Интегрировать Bulk assign/unassign пользователей к inbound со стороны UI (в бекенде API `/bulk` уже готово)
+- [x] **3.1** Unit тесты для Protocol Schema Registry
+- [x] **3.2** Unit тесты для Port Manager (уже частично: `port_manager_test.go`)
+- [x] **3.3** Валидация конфликтов портов при создании inbound через UI (показать ошибку, а не crash)
+- [x] **3.4** Интегрировать Bulk assign/unassign пользователей к inbound со стороны UI (в бекенде API `/bulk` уже готово)
 
 ---
 

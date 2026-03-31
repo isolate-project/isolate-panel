@@ -197,3 +197,94 @@ func TestValidateProtocolForCore(t *testing.T) {
 		t.Error("Expected nonexistent protocol to be invalid")
 	}
 }
+
+func TestRegistryCompleteness(t *testing.T) {
+	protocols := GetAllProtocols()
+
+	// We expect 25 protocols as per the analysis
+	if len(protocols) < 20 {
+		t.Errorf("Expected at least 20 protocols, got %d", len(protocols))
+	}
+}
+
+func TestAllProtocolsHaveRequiredFields(t *testing.T) {
+	protocols := GetAllProtocols()
+
+	for _, p := range protocols {
+		if p.Label == "" {
+			t.Errorf("Protocol %s has no label", p.Protocol)
+		}
+		if len(p.Core) == 0 {
+			t.Errorf("Protocol %s has no assigned cores", p.Protocol)
+		}
+		if p.Direction == "" {
+			t.Errorf("Protocol %s has no direction", p.Protocol)
+		}
+		if p.Category == "" {
+			t.Errorf("Protocol %s has no category", p.Protocol)
+		}
+	}
+}
+
+func TestAutoGenFuncsAreValid(t *testing.T) {
+	// Access the internal registry map directly since we are in the same package
+	for _, p := range registry {
+		for key, param := range p.Parameters {
+			if param.AutoGenerate && param.AutoGenFunc != "" {
+				result, err := AutoGenerate(param.AutoGenFunc)
+				if err != nil {
+					t.Errorf("Protocol %s, param %s: AutoGenFunc %s failed: %v", p.Protocol, key, param.AutoGenFunc, err)
+				}
+				if result == nil {
+					t.Errorf("Protocol %s, param %s: AutoGenFunc %s returned nil", p.Protocol, key, param.AutoGenFunc)
+				}
+			}
+		}
+	}
+}
+
+func TestDependsOnReferencesExist(t *testing.T) {
+	// Access the internal registry map directly since we are in the same package
+	for _, p := range registry {
+		for key, param := range p.Parameters {
+			if param.DependsOn != nil {
+				for _, dep := range param.DependsOn {
+					depField := dep.Field
+					if _, ok := p.Parameters[depField]; !ok {
+						t.Errorf("Protocol %s, param %s: DependsOn field %s does not exist", p.Protocol, key, depField)
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestProtocolCategories(t *testing.T) {
+	validCategories := map[string]bool{
+		"proxy":   true,
+		"tunnel":  true,
+		"utility": true,
+	}
+
+	protocols := GetAllProtocols()
+	for _, p := range protocols {
+		if !validCategories[p.Category] {
+			t.Errorf("Protocol %s has invalid category: %s", p.Protocol, p.Category)
+		}
+	}
+}
+
+func TestProtocolDirections(t *testing.T) {
+	validDirections := map[string]bool{
+		"inbound":  true,
+		"outbound": true,
+		"both":     true,
+	}
+
+	protocols := GetAllProtocols()
+	for _, p := range protocols {
+		if !validDirections[string(p.Direction)] {
+			t.Errorf("Protocol %s has invalid direction: %s", p.Protocol, p.Direction)
+		}
+	}
+}

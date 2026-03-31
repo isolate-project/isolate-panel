@@ -11,11 +11,13 @@ import (
 
 type InboundsHandler struct {
 	inboundService *services.InboundService
+	portManager    *services.PortManager
 }
 
-func NewInboundsHandler(inboundService *services.InboundService) *InboundsHandler {
+func NewInboundsHandler(inboundService *services.InboundService, portManager *services.PortManager) *InboundsHandler {
 	return &InboundsHandler{
 		inboundService: inboundService,
+		portManager:    portManager,
 	}
 }
 
@@ -256,5 +258,43 @@ func (h *InboundsHandler) BulkAssignUsers(c fiber.Ctx) error {
 		"message": "Bulk operation completed",
 		"added":   added,
 		"removed": removed,
+	})
+}
+
+// CheckPort checks if a port is available
+func (h *InboundsHandler) CheckPort(c fiber.Ctx) error {
+	portStr := c.Query("port")
+	if portStr == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Port parameter is required",
+		})
+	}
+
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid port number",
+		})
+	}
+
+	var excludeID *uint
+	if excludeIDStr := c.Query("exclude_id"); excludeIDStr != "" {
+		id, err := strconv.ParseUint(excludeIDStr, 10, 32)
+		if err == nil {
+			idVal := uint(id)
+			excludeID = &idVal
+		}
+	}
+
+	available, reason, err := h.portManager.IsPortAvailable(port, excludeID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"available": available,
+		"reason":    reason,
 	})
 }
