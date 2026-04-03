@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -98,6 +99,26 @@ func LoginRateLimiter(limiter *RateLimiter) fiber.Handler {
 			})
 		}
 
+		return c.Next()
+	}
+}
+
+// AuthRateLimiter creates a rate limiter middleware for authenticated endpoints.
+// Key is the admin ID extracted from JWT context (set by AuthMiddleware).
+// Falls back to IP when admin_id is not in context.
+func AuthRateLimiter(limiter *RateLimiter) fiber.Handler {
+	return func(c fiber.Ctx) error {
+		var key string
+		if adminID, ok := c.Locals("admin_id").(uint); ok && adminID > 0 {
+			key = fmt.Sprintf("auth:%d", adminID)
+		} else {
+			key = "auth:" + c.IP()
+		}
+		if !limiter.Allow(key) {
+			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
+				"error": "Too many requests. Please slow down.",
+			})
+		}
 		return c.Next()
 	}
 }

@@ -148,6 +148,28 @@ func (s *SettingsService) UpdateMonitoringMode(mode string) error {
 	return s.UpdateSetting("monitoring_mode", mode)
 }
 
+// GetTrafficResetSchedule returns the traffic auto-reset schedule
+func (s *SettingsService) GetTrafficResetSchedule() (string, error) {
+	value, err := s.GetSettingValue("traffic_reset_schedule")
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return "disabled", nil
+		}
+		return "", err
+	}
+	return value, nil
+}
+
+// SetTrafficResetSchedule saves the traffic auto-reset schedule
+func (s *SettingsService) SetTrafficResetSchedule(schedule string) error {
+	switch schedule {
+	case "disabled", "weekly", "monthly":
+	default:
+		return fmt.Errorf("invalid traffic reset schedule: %s", schedule)
+	}
+	return s.UpdateSetting("traffic_reset_schedule", schedule)
+}
+
 // GetAllSettings returns all settings
 func (s *SettingsService) GetAllSettings() ([]models.Setting, error) {
 	var settings []models.Setting

@@ -27,7 +27,7 @@ func TestCacheManager_SettingsCache(t *testing.T) {
 	defer cm.Close()
 
 	sc := cm.GetSettingsCache()
-	sc.Set("key1", "value1", 1)
+	sc.Set("key1", "value1")
 	time.Sleep(10 * time.Millisecond)
 
 	val, ok := sc.Get("key1")
@@ -41,7 +41,7 @@ func TestCacheManager_ConfigCache(t *testing.T) {
 	defer cm.Close()
 
 	cc := cm.GetConfigCache()
-	cc.Set("cfg:core1", map[string]string{"port": "1080"}, 1)
+	cc.Set("cfg:core1", map[string]string{"port": "1080"})
 	time.Sleep(10 * time.Millisecond)
 
 	val, ok := cc.Get("cfg:core1")
@@ -55,7 +55,7 @@ func TestCacheManager_SubscriptionCache(t *testing.T) {
 	defer cm.Close()
 
 	sub := cm.GetSubscriptionCache()
-	sub.Set("sub:user:1:v2ray", "vmess://...", 1)
+	sub.Set("sub:user:1:v2ray", "vmess://...")
 	time.Sleep(10 * time.Millisecond)
 
 	val, ok := sub.Get("sub:user:1:v2ray")
@@ -69,7 +69,7 @@ func TestCacheManager_UserCache(t *testing.T) {
 	defer cm.Close()
 
 	uc := cm.GetUserCache()
-	uc.Set("user:42", struct{ Name string }{"Alice"}, 1)
+	uc.Set("user:42", struct{ Name string }{"Alice"})
 	time.Sleep(10 * time.Millisecond)
 
 	val, ok := uc.Get("user:42")
@@ -82,8 +82,8 @@ func TestCacheManager_ClearAll(t *testing.T) {
 	require.NoError(t, err)
 	defer cm.Close()
 
-	cm.GetSettingsCache().Set("k", "v", 1)
-	cm.GetConfigCache().Set("k", "v", 1)
+	cm.GetSettingsCache().Set("k", "v")
+	cm.GetConfigCache().Set("k", "v")
 	time.Sleep(10 * time.Millisecond)
 
 	cm.ClearAll()
@@ -98,7 +98,7 @@ func TestCacheManager_ClearConfig(t *testing.T) {
 	require.NoError(t, err)
 	defer cm.Close()
 
-	cm.GetConfigCache().Set("cfg:x", "data", 1)
+	cm.GetConfigCache().Set("cfg:x", "data")
 	time.Sleep(10 * time.Millisecond)
 
 	cm.ClearConfig()
@@ -116,7 +116,7 @@ func TestCacheManager_ClearSubscription(t *testing.T) {
 	sc := cm.GetSubscriptionCache()
 	var userID uint = 7
 	for _, format := range []string{"v2ray", "clash", "singbox"} {
-		sc.Set(getSubscriptionKey(userID, format), "data:"+format, 1)
+		sc.Set(getSubscriptionKey(userID, format), "data:"+format)
 	}
 	time.Sleep(10 * time.Millisecond)
 

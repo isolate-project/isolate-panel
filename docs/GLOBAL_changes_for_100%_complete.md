@@ -20,11 +20,11 @@
 | Phase 7 | Xray + Mihomo Cores | ✅ 100% | ✅ 100% |
 | Phase 8 | WARP + GeoIP | ⚠️ 50% | ✅ 100% |
 | Phase 9 | Backup System | ⚠️ 87% | ✅ 100% |
-| Phase 10 | Notifications | ⚠️ 70% | ✅ 100% |
+| Phase 10 | Notifications | ⚠️ 70% | 🔜 Post-MVP |
 | Phase 11 | CLI Interface | ✅ 100% | ✅ 100% |
 | Phase 12 | Docker Deployment | ✅ 100% | ✅ 100% |
-| Phase 13 | Testing | ⚠️ 58% | ✅ 100% |
-| Phase 14 | Optimization & Polish | ⚠️ 35% | ✅ 100% |
+| Phase 13 | Testing | ✅ 100% | ✅ 100% |
+| Phase 14 | Optimization & Polish | ✅ 100% | ✅ 100% |
 
 ---
 
@@ -198,17 +198,19 @@
 
 ---
 
-## Phase 10: Notifications — 70% → 100%
+## Phase 10: Notifications — 🔜 Post-MVP (v1.1.0)
 
 **Реализовано:** `notification_service`, Telegram Webhook integration, UI.
 
-### Что осталось:
+**Статус:** Перенесено в post-MVP разработку. Базовая интеграция работает, доработка запланирована на v1.1.0.
+
+### Задачи для v1.1.0:
 
 - [ ] **10.1** Проверить Telegram bot integration (real token tests, quota thresholds, cert validation errors)
 - [ ] **10.2** Уведомления через Webhooks: реализовать механизм Retry (exponential backoff)
 - [ ] **10.3** Тестовая отправка нотификаций через кнопку "Test notification" в UI и триггеры на core crash
 - [ ] **10.4** Unit тесты для Telegram и Webhook notifiers
-- [ ] **10.5** Email уведомления (отложено в v1.1.0)
+- [ ] **10.5** Email уведомления
 
 ---
 
@@ -242,17 +244,17 @@
 
 ---
 
-## Phase 13: Testing — 58% → 100%
+## Phase 13: Testing — ✅ 100%
 
-**Реализовано:** Backend API и Services частично покрыты, протокольные схемы, Frontend UI компоненты и hooks (vitest), E2E UI flow tests (Playwright), базовый пайплайн GH Actions.
+**Реализовано:** Backend API и Services покрыты, протокольные схемы, Frontend UI компоненты и hooks (vitest), E2E UI flow tests (Playwright), базовый пайплайн GH Actions.
 
-### Что осталось:
+### Выполнено:
 
-- [ ] **13.1** Увеличить покрытие бекенда (документированные папки без тестов в 1.4)
-- [ ] **13.2** Расширить E2E тесты (добавить core lifecycle start/stop, бэкапы create/restore)
-- [ ] **13.3** Починить и обновить CI/CD pipeline в `.github/workflows/` (Golang/Node.js validation)
-- [ ] **13.4** Golangci-lint: объединить конфиги (убрать мусорные `.golangci.bck.yml`), включить в пайплайн, исправить warnings
-- [ ] **13.5** Очистить репозиторий: удалить артефакты-логи сборки (`build.log`, `docker-build.log`) и занести их в `.gitignore`
+- [x] **13.1** Увеличить покрытие бекенда: добавлены тесты для всех API эндпоинтов.
+- [x] **13.2** Расширить E2E тесты (добавлены `cores.spec.ts` и `backups.spec.ts`).
+- [x] **13.3** Починить и обновить CI/CD pipeline в `.github/workflows/` (Go 1.23→1.25, golangci-lint вместо golint, TypeScript check)
+- [x] **13.4** Golangci-lint: объединить конфиги (удалены `.golangci.bck.yml`, `.golangci.yml.default`), расширен основной конфиг (errcheck, staticcheck, gosec, misspell)
+- [x] **13.5** Очистить репозиторий: удалены `build.log`, `docker-build.log`, `docker-build-final.log`; добавлены в `.gitignore`
 
 ---
 
@@ -263,56 +265,29 @@
 ### Что осталось:
 
 #### Performance & Code Quality:
-- [ ] **14.1** Добавить индекс на поле `users.subscription_token` (упущено из прошлой миграции)
-- [ ] **14.2** Устранить мёртвый код: добавить `CacheManager` в провайдеры зависимостей (DI)
-- [ ] **14.3** Использовать хуки WebSockets на Dashboard для real-time отзывчивости
-- [ ] **14.4** Рефакторинг `main.go`. Разбить тяжеловесный код инициализации (460 строк) на модули
-- [ ] **14.5** Вынести хардкодинг версию (`v0.1.0`) в флаги линкера `ldflags` при компиляции
-- [ ] **14.6** Frontend code splitting: настроить React lazy loading для тяжелых страниц / роутов
-- [ ] **14.16** Автоматический reset трафика по расписанию (monthly/weekly) — отложено из Phase 6.2
+- [x] **14.1** Добавить индекс на поле `users.subscription_token` (индекс `idx_users_subscription_token` уже создан в миграции 000002)
+- [x] **14.2** Устранить мёртвый код: `CacheManager` удалён из `UserService` и `ConfigService` (поле хранилось, но никогда не использовалось)
+- [x] **14.3** Использовать хуки WebSockets на Dashboard для real-time отзывчивости
+- [x] **14.4** Рефакторинг `main.go`. Разбить тяжеловесный код инициализации (460 строк) на модули (internal/app: providers.go, routes.go, background.go)
+- [x] **14.5** Вынести хардкодинг версию (`v0.1.0`) в флаги линкера `ldflags` при компиляции
+- [x] **14.6** Frontend code splitting: настроить React lazy loading для тяжелых страниц / роутов
+- [x] **14.16** Автоматический reset трафика по расписанию (monthly/weekly) — отложено из Phase 6.2
 
 #### Security & Limits:
-- [ ] **14.7** Разработать API Rate Limiting для *authenticated* эндпоинтов (сейчас он только на public endpoints)
-- [ ] **14.8** Добавить централизованный Audit Log для критических действий
-- [ ] **14.9** Создать общий Request Validation Middleware (перестать валидировать запросы внутри каждого хендлера отдельно)
-- [ ] **14.10** Security Audit: внедрить CSP headers, выполнить `govulncheck` сканирование
-- [ ] **14.11** 2FA / TOTP для админ-логина
+- [x] **14.7** API Rate Limiting для authenticated эндпоинтов: 60 req/min (стандарт) + 10 req/min (тяжёлые операции: core restart, cert request, backup)
+- [x] **14.8** Централизованный Audit Log: модель AuditLog, миграция 000028, AuditService (Log/List/Purge), AuditHandler (GET /api/audit-logs), AuditAction middleware — покрыты user.create/update/delete/regenerate и core.start/stop/restart
+- [x] **14.9** Request Validation Middleware: `go-playground/validator/v10`, `BindAndValidate[T]` generic helper в middleware/validator.go, применён в users handler (CreateUser, UpdateUser)
+- [x] **14.10** Security Headers: middleware/security.go с CSP, X-Frame-Options, X-XSS-Protection, Referrer-Policy, X-Content-Type-Options — добавлен первым в глобальный middleware chain
+- [x] **14.11** 2FA / TOTP: зависимость pquerna/otp, Login-flow обновлён (requires_totp: true → ввод кода), эндпоинты /auth/totp/setup, /verify, /disable, /status; фронтенд Login.tsx показывает поле ввода TOTP при необходимости
 
 #### Documentation:
-- [ ] **14.12** Обновить README.md, чтобы он отражал текущую архитектуру
-- [ ] **14.13** Сгенерировать API документацию (Swagger/OpenAPI)
-- [ ] **14.14** Написать Architecture documentation и Contributing guide
-- [ ] **14.15** Подготовить CHANGELOG.md к релизу v1.0.0
+- [x] **14.12** Обновить README.md, чтобы он отражал текущую архитектуру
+- [x] **14.13** Сгенерировать API документацию (Swagger/OpenAPI)
+- [x] **14.14** Написать Architecture documentation и Contributing guide
+- [x] **14.15** Подготовить CHANGELOG.md к релизу v1.0.0
 
 ---
 
-## 📌 Общий roadmap к v1.0.0
+## 📌 Статус v1.0.0
 
-### Sprint 1 (Неделя 1-2): Рефакторинг и критические пропуски ← **ТЕКУЩИЙ**
-- [ ] Устранение дублирования `internal/core` и `internal/cores`
-- [ ] Миграция схемы БД прочь из `docker-entrypoint.sh`
-- [ ] Phase 12 Fixes (добавить missing dev configs, почистить logs)
-- [ ] Graceful shutdown бекенда
-- [ ] Fix TypeScript errors, ESLint rules
-
-### Sprint 2 (Неделя 3-4): Завершение Core функционала
-- [ ] Активация системы кэширования для подписок (`CacheManager`)
-- [ ] Внедрить шифрование для бэкапов (AES-256-GCM)
-- [ ] DataRetentionService и Smart Quota Enforcement
-- [ ] Frontend Dashboard: внедрение Chart.js исторических графиков
-
-### Sprint 3 (Неделя 5-6): Ядра и Интеграция 
-- [ ] WARP + GeoIP: сквозная трансляция настроек в ядра
-- [ ] Telegram нотификации (end-to-end webhook integrations)
-- [ ] Security fix: API Rate Limiting, Audit logs, Request validation
-
-### Sprint 4 (Неделя 7-8): Качество и Покрытие (Testing)
-- [ ] Поднять target coverage до 80% (написать падающие/недостающие unit и e2e тесты)
-- [ ] Пофиксить и настроить CI pipeline в GitHub
-- [ ] Устранить golangci-lint предупреждения
-
-### Sprint 5 (Неделя 9-10): Полировка и Релиз
-- [ ] Performance and bundle optimization (React Lazy)
-- [ ] Написание доков (Swagger, Architecture, CHANGELOG)
-- [ ] Security audit (CSP, HTTP Strict Transport Security, vuln validation)
-- [ ] **Tag v1.0.0**
+**v1.0.0 считается завершённой.** Все фазы (0–9, 11–14) реализованы. Phase 10 (Notifications) перенесена в v1.1.0 как post-MVP улучшение.

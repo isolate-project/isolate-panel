@@ -10,7 +10,6 @@ import (
 	mihomocore "github.com/isolate-project/isolate-panel/internal/cores/mihomo"
 	singboxcore "github.com/isolate-project/isolate-panel/internal/cores/singbox"
 	xraycore "github.com/isolate-project/isolate-panel/internal/cores/xray"
-	"github.com/isolate-project/isolate-panel/internal/cache"
 	"github.com/isolate-project/isolate-panel/internal/models"
 )
 
@@ -21,15 +20,10 @@ type ConfigService struct {
 	configDir   string
 	warpDir     string
 	geoDir      string
-	cache       *cache.Cache
 }
 
 // NewConfigService creates a new config service
-func NewConfigService(db *gorm.DB, coreManager *cores.CoreManager, configDir string, cacheManager ...*cache.CacheManager) *ConfigService {
-	var configCache *cache.Cache
-	if len(cacheManager) > 0 && cacheManager[0] != nil {
-		configCache = cacheManager[0].GetConfigCache()
-	}
+func NewConfigService(db *gorm.DB, coreManager *cores.CoreManager, configDir string) *ConfigService {
 	if configDir == "" {
 		configDir = "./data/cores"
 	}
@@ -39,7 +33,6 @@ func NewConfigService(db *gorm.DB, coreManager *cores.CoreManager, configDir str
 		configDir:   configDir,
 		warpDir:     "./data/warp",
 		geoDir:      "./data/geo",
-		cache:       configCache,
 	}
 }
 

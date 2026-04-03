@@ -118,7 +118,7 @@ func TestInboundService_InvalidPort(t *testing.T) {
 
 	// Create core manager - empty struct for testing
 	coreManager := &services.CoreLifecycleManager{}
-	inboundService := services.NewInboundService(db, coreManager)
+	inboundService := services.NewInboundService(db, coreManager, nil)
 
 	inbound := &models.Inbound{
 		Name:       "test_inbound",
@@ -280,7 +280,7 @@ func TestInboundService_EmptyName(t *testing.T) {
 	})
 
 	coreManager := &services.CoreLifecycleManager{}
-	inboundService := services.NewInboundService(db, coreManager)
+	inboundService := services.NewInboundService(db, coreManager, nil)
 
 	inbound := &models.Inbound{
 		Name:       "", // Empty name
@@ -310,7 +310,7 @@ func TestInboundService_EmptyProtocol(t *testing.T) {
 	})
 
 	coreManager := &services.CoreLifecycleManager{}
-	inboundService := services.NewInboundService(db, coreManager)
+	inboundService := services.NewInboundService(db, coreManager, nil)
 
 	inbound := &models.Inbound{
 		Name:       "test_inbound",

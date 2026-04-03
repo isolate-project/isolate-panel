@@ -1,0 +1,2805 @@
+basePath: /api
+definitions:
+  github_com_isolate-project_isolate-panel_internal_models.BackupType:
+    enum:
+    - full
+    - manual
+    - scheduled
+    type: string
+    x-enum-varnames:
+    - BackupTypeFull
+    - BackupTypeManual
+    - BackupTypeScheduled
+  github_com_isolate-project_isolate-panel_internal_models.Core:
+    properties:
+      config_path:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      is_enabled:
+        type: boolean
+      is_running:
+        type: boolean
+      last_error:
+        type: string
+      log_path:
+        type: string
+      name:
+        description: singbox, xray, mihomo
+        type: string
+      pid:
+        type: integer
+      restart_count:
+        type: integer
+      updated_at:
+        type: string
+      uptime_seconds:
+        description: Statistics
+        type: integer
+      version:
+        type: string
+    type: object
+  github_com_isolate-project_isolate-panel_internal_models.GeoRule:
+    properties:
+      action:
+        description: '"proxy", "direct", "block", "warp"'
+        type: string
+      code:
+        description: country code (US, CN) or category (google, netflix)
+        type: string
+      core_id:
+        type: integer
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      is_enabled:
+        type: boolean
+      priority:
+        description: 1-100, higher = more priority
+        type: integer
+      type:
+        description: '"geoip" or "geosite"'
+        type: string
+      updated_at:
+        type: string
+    type: object
+  github_com_isolate-project_isolate-panel_internal_models.Inbound:
+    properties:
+      config_json:
+        type: string
+      core:
+        allOf:
+        - $ref: '#/definitions/github_com_isolate-project_isolate-panel_internal_models.Core'
+        description: Relations
+      core_id:
+        type: integer
+      created_at:
+        description: Metadata
+        type: string
+      id:
+        type: integer
+      is_enabled:
+        description: Status
+        type: boolean
+      listen_address:
+        type: string
+      name:
+        type: string
+      port:
+        type: integer
+      protocol:
+        type: string
+      reality_config_json:
+        type: string
+      reality_enabled:
+        type: boolean
+      tls_cert_id:
+        type: integer
+      tls_enabled:
+        description: TLS/REALITY
+        type: boolean
+      updated_at:
+        type: string
+    type: object
+  github_com_isolate-project_isolate-panel_internal_models.NotificationSettings:
+    properties:
+      notify_cert_renewed:
+        type: boolean
+      notify_core_error:
+        type: boolean
+      notify_expiry_warning:
+        type: boolean
+      notify_failed_login:
+        type: boolean
+      notify_quota_exceeded:
+        description: Event toggles
+        type: boolean
+      notify_user_created:
+        type: boolean
+      notify_user_deleted:
+        type: boolean
+      telegram_bot_token:
+        type: string
+      telegram_chat_id:
+        type: string
+      telegram_enabled:
+        type: boolean
+      webhook_enabled:
+        type: boolean
+      webhook_secret:
+        type: string
+      webhook_url:
+        type: string
+    type: object
+  github_com_isolate-project_isolate-panel_internal_models.Outbound:
+    properties:
+      config_json:
+        type: string
+      core:
+        allOf:
+        - $ref: '#/definitions/github_com_isolate-project_isolate-panel_internal_models.Core'
+        description: Relations
+      core_id:
+        type: integer
+      created_at:
+        type: string
+      id:
+        type: integer
+      is_enabled:
+        type: boolean
+      name:
+        type: string
+      priority:
+        type: integer
+      protocol:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  github_com_isolate-project_isolate-panel_internal_models.WarpRoute:
+    properties:
+      core_id:
+        type: integer
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      is_enabled:
+        type: boolean
+      priority:
+        description: 1-100, higher = more priority
+        type: integer
+      resource_type:
+        description: '"domain", "ip", "cidr"'
+        type: string
+      resource_value:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  github_com_isolate-project_isolate-panel_internal_services.BackupRequest:
+    properties:
+      encryption_enabled:
+        type: boolean
+      include_certs:
+        type: boolean
+      include_cores:
+        type: boolean
+      include_geo:
+        type: boolean
+      include_warp:
+        type: boolean
+      type:
+        $ref: '#/definitions/github_com_isolate-project_isolate-panel_internal_models.BackupType'
+    type: object
+  github_com_isolate-project_isolate-panel_internal_services.CreateUserRequest:
+    properties:
+      email:
+        type: string
+      expiry_days:
+        type: integer
+      inbound_ids:
+        items:
+          type: integer
+        type: array
+      password:
+        minLength: 8
+        type: string
+      traffic_limit_bytes:
+        type: integer
+      username:
+        maxLength: 50
+        minLength: 3
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  github_com_isolate-project_isolate-panel_internal_services.UpdateUserRequest:
+    properties:
+      email:
+        type: string
+      inbound_ids:
+        items:
+          type: integer
+        type: array
+      is_active:
+        type: boolean
+      password:
+        minLength: 8
+        type: string
+      traffic_limit_bytes:
+        type: integer
+      username:
+        maxLength: 50
+        minLength: 3
+        type: string
+    type: object
+  github_com_isolate-project_isolate-panel_internal_services.UserResponse:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      expiry_date:
+        type: string
+      id:
+        type: integer
+      inbound_ids:
+        items:
+          type: integer
+        type: array
+      is_active:
+        type: boolean
+      is_online:
+        type: boolean
+      password:
+        type: string
+      subscription_token:
+        type: string
+      token:
+        type: string
+      traffic_limit_bytes:
+        type: integer
+      traffic_used_bytes:
+        type: integer
+      username:
+        type: string
+      uuid:
+        type: string
+    type: object
+  internal_api.AdminInfo:
+    properties:
+      email:
+        type: string
+      id:
+        type: integer
+      is_super_admin:
+        type: boolean
+      username:
+        type: string
+    type: object
+  internal_api.CertificateRequest:
+    properties:
+      domain:
+        type: string
+      email:
+        description: Optional, uses service default if not provided
+        type: string
+      is_wildcard:
+        type: boolean
+    required:
+    - domain
+    type: object
+  internal_api.LoginRequest:
+    properties:
+      password:
+        type: string
+      totp_code:
+        description: required when TOTP is enabled
+        type: string
+      username:
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  internal_api.LoginResponse:
+    properties:
+      access_token:
+        type: string
+      admin:
+        $ref: '#/definitions/internal_api.AdminInfo'
+      expires_in:
+        type: integer
+      refresh_token:
+        type: string
+    type: object
+  internal_api.RefreshRequest:
+    properties:
+      refresh_token:
+        type: string
+    required:
+    - refresh_token
+    type: object
+  internal_api.UploadCertificateRequest:
+    properties:
+      certificate:
+        type: string
+      domain:
+        type: string
+      is_wildcard:
+        type: boolean
+      issuer:
+        type: string
+      private_key:
+        type: string
+    required:
+    - certificate
+    - domain
+    - private_key
+    type: object
+host: localhost:8080
+info:
+  contact:
+    name: Isolate Panel
+    url: https://github.com/isolate-project/isolate-panel/issues
+  description: Lightweight proxy core management panel for Xray, Sing-box, and Mihomo.
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  title: Isolate Panel API
+  version: 1.0.0
+paths:
+  /audit-logs:
+    get:
+      description: Returns paginated audit log entries. Super-admin only.
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 50
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      - description: Filter by action (e.g. user.delete)
+        in: query
+        name: action
+        type: string
+      - description: Filter by admin ID
+        in: query
+        name: admin_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List audit logs
+      tags:
+      - audit
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate with username and password. If TOTP is enabled, provide
+        totp_code as well. Returns requires_totp:true when TOTP code is missing.
+      parameters:
+      - description: Login credentials
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_api.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.LoginResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Login
+      tags:
+      - auth
+  /auth/logout:
+    post:
+      consumes:
+      - application/json
+      description: Revoke the current refresh token
+      parameters:
+      - description: Refresh token to revoke
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_api.RefreshRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Logout
+      tags:
+      - auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Exchange a valid refresh token for a new access token
+      parameters:
+      - description: Refresh token
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_api.RefreshRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Refresh access token
+      tags:
+      - auth
+  /auth/totp/disable:
+    post:
+      consumes:
+      - application/json
+      description: Disable 2FA after verifying the admin password
+      parameters:
+      - description: 'Admin password: {password}'
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Disable TOTP
+      tags:
+      - auth
+  /auth/totp/setup:
+    post:
+      description: Generate a new TOTP secret and provisioning URI. Call TOTPVerify
+        after to activate.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Setup TOTP
+      tags:
+      - auth
+  /auth/totp/status:
+    get:
+      description: Check if TOTP 2FA is enabled for the current admin account
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: TOTP status
+      tags:
+      - auth
+  /auth/totp/verify:
+    post:
+      consumes:
+      - application/json
+      description: Confirm the TOTP code from the authenticator app and activate 2FA
+      parameters:
+      - description: 'TOTP code: {code}'
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Verify and enable TOTP
+      tags:
+      - auth
+  /backups:
+    get:
+      description: Returns all available backup files with metadata
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List backups
+      tags:
+      - backups
+  /backups/{id}:
+    delete:
+      description: Delete a backup file and its record
+      parameters:
+      - description: Backup ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete backup
+      tags:
+      - backups
+    get:
+      description: Returns metadata for a specific backup
+      parameters:
+      - description: Backup ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get backup
+      tags:
+      - backups
+  /backups/{id}/download:
+    get:
+      description: Download a backup file as a binary stream
+      parameters:
+      - description: Backup ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Download backup
+      tags:
+      - backups
+  /backups/{id}/restore:
+    post:
+      consumes:
+      - application/json
+      description: Restore database and configurations from a backup file
+      parameters:
+      - description: Backup ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: '{force: false}'
+        in: body
+        name: body
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Restore backup
+      tags:
+      - backups
+  /backups/create:
+    post:
+      consumes:
+      - application/json
+      description: Start a new AES-256-GCM encrypted backup of the database and core
+        configurations
+      parameters:
+      - description: Backup options
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_isolate-project_isolate-panel_internal_services.BackupRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create backup
+      tags:
+      - backups
+  /backups/schedule:
+    get:
+      description: Returns current backup cron schedule and next scheduled run time
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get backup schedule
+      tags:
+      - backups
+    post:
+      consumes:
+      - application/json
+      description: Set a cron expression for automatic backups (empty string to disable)
+      parameters:
+      - description: '{cron: ''0 2 * * *''}'
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Set backup schedule
+      tags:
+      - backups
+  /certificates:
+    get:
+      description: Returns all SSL/TLS certificates with current status
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List certificates
+      tags:
+      - certificates
+    post:
+      consumes:
+      - application/json
+      description: Request a new SSL/TLS certificate via Let's Encrypt ACME
+      parameters:
+      - description: Domain and options
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_api.CertificateRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Request certificate
+      tags:
+      - certificates
+  /certificates/{id}:
+    delete:
+      description: Delete a certificate record and its files
+      parameters:
+      - description: Certificate ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete certificate
+      tags:
+      - certificates
+    get:
+      description: Returns a single certificate by ID with current status
+      parameters:
+      - description: Certificate ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get certificate
+      tags:
+      - certificates
+  /certificates/{id}/renew:
+    post:
+      description: Force-renew a certificate via ACME (even if not yet expired)
+      parameters:
+      - description: Certificate ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Renew certificate
+      tags:
+      - certificates
+  /certificates/{id}/revoke:
+    post:
+      description: Revoke a certificate via ACME and mark it as revoked
+      parameters:
+      - description: Certificate ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Revoke certificate
+      tags:
+      - certificates
+  /certificates/dropdown:
+    get:
+      description: Returns active/expiring certificates formatted for UI dropdown
+        selectors
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Certificates dropdown
+      tags:
+      - certificates
+  /certificates/upload:
+    post:
+      consumes:
+      - application/json
+      description: Upload a manually obtained certificate in PEM format
+      parameters:
+      - description: Certificate and private key in PEM format
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_api.UploadCertificateRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Upload certificate
+      tags:
+      - certificates
+  /cores:
+    get:
+      description: Returns all installed proxy cores with their running status
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List cores
+      tags:
+      - cores
+  /cores/{name}:
+    get:
+      description: Returns status and info for a specific proxy core
+      parameters:
+      - description: Core name (xray, sing-box, mihomo)
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get core
+      tags:
+      - cores
+  /cores/{name}/restart:
+    post:
+      description: Restart a proxy core (stop + start)
+      parameters:
+      - description: Core name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Restart core
+      tags:
+      - cores
+  /cores/{name}/start:
+    post:
+      description: Start a proxy core via Supervisord
+      parameters:
+      - description: Core name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Start core
+      tags:
+      - cores
+  /cores/{name}/status:
+    get:
+      description: Returns detailed runtime status of a proxy core (PID, uptime, restarts)
+      parameters:
+      - description: Core name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Core status
+      tags:
+      - cores
+  /cores/{name}/stop:
+    post:
+      description: Stop a running proxy core via Supervisord
+      parameters:
+      - description: Core name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Stop core
+      tags:
+      - cores
+  /geo/categories:
+    get:
+      description: Returns all available GeoSite category codes (cn, google, netflix,
+        etc.)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List GeoSite categories
+      tags:
+      - geo
+  /geo/countries:
+    get:
+      description: Returns all available country codes for use in GeoIP routing rules
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List GeoIP countries
+      tags:
+      - geo
+  /geo/databases:
+    get:
+      description: Returns available GeoIP/GeoSite database files and their last update
+        time
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List Geo databases
+      tags:
+      - geo
+  /geo/rules:
+    get:
+      parameters:
+      - description: Core ID
+        in: query
+        name: core_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List GeoIP/GeoSite rules
+      tags:
+      - geo
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Rule configuration
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_isolate-project_isolate-panel_internal_models.GeoRule'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create GeoIP/GeoSite rule
+      tags:
+      - geo
+  /geo/rules/{id}:
+    delete:
+      parameters:
+      - description: Rule ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Core ID
+        in: query
+        name: core_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete Geo rule
+      tags:
+      - geo
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Rule ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Fields to update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_isolate-project_isolate-panel_internal_models.GeoRule'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update Geo rule
+      tags:
+      - geo
+  /geo/rules/{id}/toggle:
+    post:
+      parameters:
+      - description: Rule ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Core ID
+        in: query
+        name: core_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Toggle Geo rule
+      tags:
+      - geo
+  /geo/update:
+    post:
+      description: Download latest GeoIP and GeoSite database files
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update Geo databases
+      tags:
+      - geo
+  /inbounds:
+    get:
+      description: Returns all inbounds, optionally filtered by core_id or is_enabled
+      parameters:
+      - description: Filter by core ID
+        in: query
+        name: core_id
+        type: integer
+      - description: Filter by enabled state
+        in: query
+        name: is_enabled
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List inbounds
+      tags:
+      - inbounds
+    post:
+      consumes:
+      - application/json
+      description: Create a new proxy inbound (listener) on a core
+      parameters:
+      - description: Inbound configuration
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_isolate-project_isolate-panel_internal_models.Inbound'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create inbound
+      tags:
+      - inbounds
+  /inbounds/{id}:
+    delete:
+      description: Delete an inbound and remove all user assignments
+      parameters:
+      - description: Inbound ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete inbound
+      tags:
+      - inbounds
+    get:
+      description: Returns a single inbound by ID
+      parameters:
+      - description: Inbound ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get inbound
+      tags:
+      - inbounds
+    put:
+      consumes:
+      - application/json
+      description: Update inbound fields (partial update via map)
+      parameters:
+      - description: Inbound ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Fields to update
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update inbound
+      tags:
+      - inbounds
+  /inbounds/{id}/users:
+    get:
+      description: Returns all users that have access to a specific inbound
+      parameters:
+      - description: Inbound ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get inbound users
+      tags:
+      - inbounds
+  /inbounds/{id}/users/bulk:
+    post:
+      consumes:
+      - application/json
+      description: Add or remove multiple users from an inbound in a single request
+      parameters:
+      - description: Inbound ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: '{add_user_ids: [], remove_user_ids: []}'
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Bulk assign users
+      tags:
+      - inbounds
+  /inbounds/assign:
+    post:
+      consumes:
+      - application/json
+      description: Grant a user access to an inbound
+      parameters:
+      - description: '{user_id, inbound_id}'
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Assign inbound to user
+      tags:
+      - inbounds
+  /inbounds/check-port:
+    get:
+      description: Returns whether the given port is available or already in use
+      parameters:
+      - description: Port number to check
+        in: query
+        name: port
+        required: true
+        type: integer
+      - description: Inbound ID to exclude from conflict check
+        in: query
+        name: exclude_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Check port availability
+      tags:
+      - inbounds
+  /inbounds/core/{core_id}:
+    get:
+      description: Returns all inbounds belonging to a specific core
+      parameters:
+      - description: Core ID
+        in: path
+        name: core_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get inbounds by core
+      tags:
+      - inbounds
+  /inbounds/unassign:
+    post:
+      consumes:
+      - application/json
+      description: Revoke a user's access to an inbound
+      parameters:
+      - description: '{user_id, inbound_id}'
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Unassign inbound from user
+      tags:
+      - inbounds
+  /me:
+    get:
+      description: Returns the profile of the currently authenticated admin
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.AdminInfo'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Current admin
+      tags:
+      - auth
+  /notifications:
+    get:
+      description: Returns recent notification history
+      parameters:
+      - default: 50
+        description: Max results
+        in: query
+        name: limit
+        type: integer
+      - description: Skip N results
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List notifications
+      tags:
+      - notifications
+  /notifications/{id}:
+    delete:
+      description: Delete a notification event from history
+      parameters:
+      - description: Notification ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete notification
+      tags:
+      - notifications
+    get:
+      description: Returns a single notification event by ID
+      parameters:
+      - description: Notification ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get notification
+      tags:
+      - notifications
+  /notifications/settings:
+    get:
+      description: Returns current Telegram and Webhook notification configuration
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get notification settings
+      tags:
+      - notifications
+    put:
+      consumes:
+      - application/json
+      description: Configure Telegram bot and Webhook URL, triggers, and enabled state
+      parameters:
+      - description: Notification configuration
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_isolate-project_isolate-panel_internal_models.NotificationSettings'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update notification settings
+      tags:
+      - notifications
+  /notifications/test:
+    post:
+      consumes:
+      - application/json
+      description: Send a test notification to configured channels to verify the integration
+      parameters:
+      - description: '{channel: webhook|telegram|all}'
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Send test notification
+      tags:
+      - notifications
+  /outbounds:
+    get:
+      description: Returns all outbounds, optionally filtered by core_id or protocol
+      parameters:
+      - description: Filter by core ID
+        in: query
+        name: core_id
+        type: integer
+      - description: Filter by protocol name
+        in: query
+        name: protocol
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List outbounds
+      tags:
+      - outbounds
+    post:
+      consumes:
+      - application/json
+      description: Create a new proxy outbound routing rule
+      parameters:
+      - description: Outbound configuration
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_isolate-project_isolate-panel_internal_models.Outbound'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create outbound
+      tags:
+      - outbounds
+  /outbounds/{id}:
+    delete:
+      description: Delete an outbound routing rule
+      parameters:
+      - description: Outbound ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete outbound
+      tags:
+      - outbounds
+    get:
+      description: Returns a single outbound by ID
+      parameters:
+      - description: Outbound ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get outbound
+      tags:
+      - outbounds
+    put:
+      consumes:
+      - application/json
+      description: Update outbound fields (partial update)
+      parameters:
+      - description: Outbound ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Fields to update
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update outbound
+      tags:
+      - outbounds
+  /protocols:
+    get:
+      description: Returns all registered protocol schemas (25+ protocols). Filter
+        by core or direction.
+      parameters:
+      - description: Filter by core (xray, sing-box, mihomo)
+        in: query
+        name: core
+        type: string
+      - description: Filter by direction (inbound, outbound, both)
+        in: query
+        name: direction
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List protocols
+      tags:
+      - protocols
+  /protocols/{name}:
+    get:
+      description: Returns the full parameter schema for a specific protocol (field
+        types, validation, etc.)
+      parameters:
+      - description: Protocol name (e.g. vless, vmess, trojan)
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get protocol schema
+      tags:
+      - protocols
+  /protocols/{name}/defaults:
+    get:
+      description: Returns auto-generated default values for all protocol parameters
+        (UUID, port, etc.)
+      parameters:
+      - description: Protocol name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get protocol defaults
+      tags:
+      - protocols
+  /settings:
+    get:
+      description: Returns all key-value application settings
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get all settings
+      tags:
+      - settings
+    put:
+      consumes:
+      - application/json
+      description: Update one or more application settings (key-value pairs)
+      parameters:
+      - description: '{settings: {key: value}}'
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update settings
+      tags:
+      - settings
+  /settings/monitoring:
+    get:
+      description: Returns current monitoring mode (lite/full) and collection interval
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get monitoring settings
+      tags:
+      - settings
+    put:
+      consumes:
+      - application/json
+      description: Set monitoring mode to 'lite' (traffic only) or 'full' (traffic
+        + connections)
+      parameters:
+      - description: '{mode: lite|full}'
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update monitoring settings
+      tags:
+      - settings
+  /settings/traffic-reset:
+    get:
+      description: Returns the current automatic traffic reset schedule (disabled/weekly/monthly)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get traffic reset schedule
+      tags:
+      - settings
+    put:
+      consumes:
+      - application/json
+      description: 'Set automatic traffic reset schedule. Options: disabled, weekly
+        (Mondays), monthly (1st of month)'
+      parameters:
+      - description: '{schedule: disabled|weekly|monthly}'
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update traffic reset schedule
+      tags:
+      - settings
+  /stats/connections:
+    get:
+      description: Returns current active connections; filter by user_id to get user-specific
+        connections
+      parameters:
+      - description: Filter by user ID
+        in: query
+        name: user_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Active connections
+      tags:
+      - stats
+  /stats/dashboard:
+    get:
+      description: 'Returns summary stats: active connections, total users, traffic,
+        running cores'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Dashboard stats
+      tags:
+      - stats
+  /stats/traffic/overview:
+    get:
+      description: Returns aggregated traffic data for all users over a time period
+        (used by dashboard charts)
+      parameters:
+      - default: 7
+        description: Number of days
+        in: query
+        name: days
+        type: integer
+      - default: daily
+        description: daily or hourly
+        in: query
+        name: granularity
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Traffic overview
+      tags:
+      - stats
+  /stats/traffic/top-users:
+    get:
+      description: Returns users with the highest traffic consumption (used by dashboard
+        top-users chart)
+      parameters:
+      - default: 10
+        description: Maximum number of users to return
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Top users by traffic
+      tags:
+      - stats
+  /stats/user/{user_id}/disconnect:
+    post:
+      description: Close all active connections for a user (soft disconnect)
+      parameters:
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Disconnect user
+      tags:
+      - stats
+  /stats/user/{user_id}/kick:
+    post:
+      description: Force-remove a user from all proxy core inbounds (hard disconnect)
+      parameters:
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Kick user from cores
+      tags:
+      - stats
+  /stats/user/{user_id}/traffic:
+    get:
+      description: Returns per-day traffic statistics for a specific user
+      parameters:
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      - default: 30
+        description: Number of days
+        in: query
+        name: days
+        type: integer
+      - default: daily
+        description: raw, hourly, or daily
+        in: query
+        name: granularity
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: User traffic stats
+      tags:
+      - stats
+  /subscriptions/{user_id}/short-url:
+    get:
+      description: Get or create a short URL for a user's subscription link
+      parameters:
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      - description: Subscription token
+        in: query
+        name: token
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get subscription short URL
+      tags:
+      - subscriptions
+  /users:
+    get:
+      description: Returns paginated list of all proxy users
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: Items per page
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List users
+      tags:
+      - users
+    post:
+      consumes:
+      - application/json
+      description: Create a new proxy user
+      parameters:
+      - description: User data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_isolate-project_isolate-panel_internal_services.CreateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_isolate-project_isolate-panel_internal_services.UserResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create user
+      tags:
+      - users
+  /users/{id}:
+    delete:
+      description: Permanently delete a user and all associated data
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete user
+      tags:
+      - users
+    get:
+      description: Returns a single user by ID
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_isolate-project_isolate-panel_internal_services.UserResponse'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get user
+      tags:
+      - users
+    put:
+      consumes:
+      - application/json
+      description: Update user fields (all fields optional)
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Fields to update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_isolate-project_isolate-panel_internal_services.UpdateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_isolate-project_isolate-panel_internal_services.UserResponse'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update user
+      tags:
+      - users
+  /users/{id}/inbounds:
+    get:
+      description: Returns all inbounds assigned to a specific user
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get user inbounds
+      tags:
+      - users
+  /users/{id}/regenerate:
+    post:
+      description: Generate a new UUID, password, and subscription token for the user
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Regenerate credentials
+      tags:
+      - users
+  /users/{user_id}/subscription/regenerate:
+    post:
+      description: Generate a new subscription token for a user (old links become
+        invalid)
+      parameters:
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Regenerate subscription token
+      tags:
+      - subscriptions
+  /users/{user_id}/subscription/stats:
+    get:
+      description: Returns subscription URL access history for a user (client IPs,
+        user-agents, formats)
+      parameters:
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      - default: 7
+        description: Number of days to look back
+        in: query
+        name: days
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Subscription access stats
+      tags:
+      - subscriptions
+  /warp/presets:
+    get:
+      description: Returns built-in WARP routing presets (bypass-cn, all-through-warp,
+        etc.)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List WARP presets
+      tags:
+      - warp
+  /warp/presets/{name}/apply:
+    post:
+      description: Apply a named WARP routing preset to a specific core
+      parameters:
+      - description: Preset name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Core ID
+        in: query
+        name: core_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Apply WARP preset
+      tags:
+      - warp
+  /warp/register:
+    post:
+      description: Register a new Cloudflare WARP device and generate WireGuard config
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Register WARP device
+      tags:
+      - warp
+  /warp/routes:
+    get:
+      description: Returns all WARP routing rules for a specific core
+      parameters:
+      - description: Core ID
+        in: query
+        name: core_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List WARP routes
+      tags:
+      - warp
+    post:
+      consumes:
+      - application/json
+      description: Create a new WARP routing rule (domain, IP, or CIDR)
+      parameters:
+      - description: Route configuration
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_isolate-project_isolate-panel_internal_models.WarpRoute'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create WARP route
+      tags:
+      - warp
+  /warp/routes/{id}:
+    delete:
+      parameters:
+      - description: Route ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete WARP route
+      tags:
+      - warp
+    put:
+      consumes:
+      - application/json
+      description: Update an existing WARP routing rule
+      parameters:
+      - description: Route ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Fields to update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_isolate-project_isolate-panel_internal_models.WarpRoute'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update WARP route
+      tags:
+      - warp
+  /warp/routes/{id}/toggle:
+    post:
+      parameters:
+      - description: Route ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Toggle WARP route
+      tags:
+      - warp
+  /warp/status:
+    get:
+      description: Returns current Cloudflare WARP connection status
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: WARP status
+      tags:
+      - warp
+  /warp/sync:
+    post:
+      description: Regenerate core configs and reload to apply current WARP routes
+      parameters:
+      - description: Specific core ID to sync (omit to sync all)
+        in: query
+        name: core_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Sync WARP routes to cores
+      tags:
+      - warp
+securityDefinitions:
+  BearerAuth:
+    description: 'JWT Bearer token. Format: "Bearer {token}"'
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

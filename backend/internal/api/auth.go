@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/pquerna/otp/totp"
 	"gorm.io/gorm"
 
 	"github.com/isolate-project/isolate-panel/internal/auth"
@@ -30,6 +31,7 @@ func NewAuthHandler(db *gorm.DB, tokenService *auth.TokenService, notificationSe
 type LoginRequest struct {
 	Username string `json:"username" validate:"required"`
 	Password string `json:"password" validate:"required"`
+	TotpCode string `json:"totp_code"` // required when TOTP is enabled
 }
 
 type LoginResponse struct {
@@ -51,6 +53,16 @@ type RefreshRequest struct {
 }
 
 // Login handles admin login
+//
+// @Summary      Login
+// @Description  Authenticate with username and password. If TOTP is enabled, provide totp_code as well. Returns requires_totp:true when TOTP code is missing.
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        body  body  LoginRequest  true  "Login credentials"
+// @Success      200   {object}  LoginResponse
+// @Failure      401   {object}  map[string]interface{}
+// @Router       /auth/login [post]
 func (h *AuthHandler) Login(c fiber.Ctx) error {
 	var req LoginRequest
 	if err := c.Bind().JSON(&req); err != nil {
@@ -84,13 +96,23 @@ func (h *AuthHandler) Login(c fiber.Ctx) error {
 	valid, err := auth.VerifyPassword(req.Password, admin.PasswordHash)
 	if err != nil || !valid {
 		h.db.Create(&attempt)
-
-		// Check for multiple failed attempts
 		h.checkFailedLoginAttempts(req.Username, c.IP())
-
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": "Invalid username or password",
 		})
+	}
+
+	// TOTP check
+	if admin.TOTPEnabled {
+		if req.TotpCode == "" {
+			return c.JSON(fiber.Map{"requires_totp": true})
+		}
+		if !totp.Validate(req.TotpCode, admin.TOTPSecret) {
+			h.db.Create(&attempt)
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"error": "Invalid TOTP code",
+			})
+		}
 	}
 
 	// Generate tokens
@@ -149,6 +171,16 @@ func (h *AuthHandler) Login(c fiber.Ctx) error {
 }
 
 // Refresh handles token refresh
+//
+// @Summary      Refresh access token
+// @Description  Exchange a valid refresh token for a new access token
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        body  body  RefreshRequest  true  "Refresh token"
+// @Success      200   {object}  map[string]interface{}
+// @Failure      401   {object}  map[string]interface{}
+// @Router       /auth/refresh [post]
 func (h *AuthHandler) Refresh(c fiber.Ctx) error {
 	var req RefreshRequest
 	if err := c.Bind().JSON(&req); err != nil {
@@ -189,6 +221,15 @@ func (h *AuthHandler) Refresh(c fiber.Ctx) error {
 }
 
 // Logout handles admin logout
+//
+// @Summary      Logout
+// @Description  Revoke the current refresh token
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        body  body  RefreshRequest  true  "Refresh token to revoke"
+// @Success      200   {object}  map[string]interface{}
+// @Router       /auth/logout [post]
 func (h *AuthHandler) Logout(c fiber.Ctx) error {
 	var req RefreshRequest
 	if err := c.Bind().JSON(&req); err != nil {
@@ -216,6 +257,15 @@ func (h *AuthHandler) Logout(c fiber.Ctx) error {
 }
 
 // Me returns current admin info
+//
+// @Summary      Current admin
+// @Description  Returns the profile of the currently authenticated admin
+// @Tags         auth
+// @Produce      json
+// @Success      200  {object}  AdminInfo
+// @Failure      401  {object}  map[string]interface{}
+// @Router       /me [get]
+// @Security     BearerAuth
 func (h *AuthHandler) Me(c fiber.Ctx) error {
 	adminID := c.Locals("admin_id").(uint)
 
@@ -231,6 +281,148 @@ func (h *AuthHandler) Me(c fiber.Ctx) error {
 		Username:     admin.Username,
 		Email:        admin.Email,
 		IsSuperAdmin: admin.IsSuperAdmin,
+	})
+}
+
+// TOTPSetup generates a new TOTP secret and returns the provisioning URI + QR data.
+// The secret is stored but TOTP is not enabled until TOTPVerify confirms it.
+//
+// @Summary      Setup TOTP
+// @Description  Generate a new TOTP secret and provisioning URI. Call TOTPVerify after to activate.
+// @Tags         auth
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}
+// @Failure      401  {object}  map[string]interface{}
+// @Router       /auth/totp/setup [post]
+// @Security     BearerAuth
+func (h *AuthHandler) TOTPSetup(c fiber.Ctx) error {
+	adminID := c.Locals("admin_id").(uint)
+
+	var admin models.Admin
+	if err := h.db.First(&admin, adminID).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Admin not found"})
+	}
+
+	key, err := totp.Generate(totp.GenerateOpts{
+		Issuer:      "Isolate Panel",
+		AccountName: admin.Username,
+	})
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to generate TOTP secret"})
+	}
+
+	// Persist the secret but keep TOTPEnabled = false until verified
+	if err := h.db.Model(&admin).Update("totp_secret", key.Secret()).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save TOTP secret"})
+	}
+
+	return c.JSON(fiber.Map{
+		"secret":          key.Secret(),
+		"provisioning_uri": key.URL(),
+	})
+}
+
+// TOTPVerify confirms the TOTP code and enables 2FA for the admin account.
+//
+// @Summary      Verify and enable TOTP
+// @Description  Confirm the TOTP code from the authenticator app and activate 2FA
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        body  body  map[string]string  true  "TOTP code: {code}"
+// @Success      200   {object}  map[string]interface{}
+// @Failure      400   {object}  map[string]interface{}
+// @Failure      401   {object}  map[string]interface{}
+// @Router       /auth/totp/verify [post]
+// @Security     BearerAuth
+func (h *AuthHandler) TOTPVerify(c fiber.Ctx) error {
+	adminID := c.Locals("admin_id").(uint)
+
+	var req struct {
+		Code string `json:"code" validate:"required"`
+	}
+	if err := c.Bind().JSON(&req); err != nil || req.Code == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "code is required"})
+	}
+
+	var admin models.Admin
+	if err := h.db.First(&admin, adminID).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Admin not found"})
+	}
+	if admin.TOTPSecret == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Run TOTP setup first"})
+	}
+	if !totp.Validate(req.Code, admin.TOTPSecret) {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid TOTP code"})
+	}
+
+	if err := h.db.Model(&admin).Update("totp_enabled", true).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to enable TOTP"})
+	}
+
+	return c.JSON(fiber.Map{"message": "TOTP enabled successfully"})
+}
+
+// TOTPDisable disables TOTP after verifying the current password.
+//
+// @Summary      Disable TOTP
+// @Description  Disable 2FA after verifying the admin password
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        body  body  map[string]string  true  "Admin password: {password}"
+// @Success      200   {object}  map[string]interface{}
+// @Failure      401   {object}  map[string]interface{}
+// @Router       /auth/totp/disable [post]
+// @Security     BearerAuth
+func (h *AuthHandler) TOTPDisable(c fiber.Ctx) error {
+	adminID := c.Locals("admin_id").(uint)
+
+	var req struct {
+		Password string `json:"password" validate:"required"`
+	}
+	if err := c.Bind().JSON(&req); err != nil || req.Password == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "password is required"})
+	}
+
+	var admin models.Admin
+	if err := h.db.First(&admin, adminID).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Admin not found"})
+	}
+
+	valid, err := auth.VerifyPassword(req.Password, admin.PasswordHash)
+	if err != nil || !valid {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid password"})
+	}
+
+	if err := h.db.Model(&admin).Updates(map[string]any{
+		"totp_enabled": false,
+		"totp_secret":  "",
+	}).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to disable TOTP"})
+	}
+
+	return c.JSON(fiber.Map{"message": "TOTP disabled successfully"})
+}
+
+// TOTPStatus returns whether TOTP is enabled for the current admin.
+//
+// @Summary      TOTP status
+// @Description  Check if TOTP 2FA is enabled for the current admin account
+// @Tags         auth
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}
+// @Failure      401  {object}  map[string]interface{}
+// @Router       /auth/totp/status [get]
+// @Security     BearerAuth
+func (h *AuthHandler) TOTPStatus(c fiber.Ctx) error {
+	adminID := c.Locals("admin_id").(uint)
+	var admin models.Admin
+	if err := h.db.First(&admin, adminID).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Admin not found"})
+	}
+	return c.JSON(fiber.Map{
+		"totp_enabled": admin.TOTPEnabled,
 	})
 }
 

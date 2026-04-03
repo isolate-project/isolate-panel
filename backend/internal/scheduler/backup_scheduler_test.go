@@ -33,7 +33,8 @@ func TestBackupScheduler_UpdateSchedule(t *testing.T) {
 	// Create required directories
 	os.MkdirAll(filepath.Join(backupDir, "db"), 0755)
 	
-	backupService := services.NewBackupService(db, backupDir, dataDir)
+	settingsService := services.NewSettingsService(db)
+	backupService := services.NewBackupService(db, settingsService, backupDir, dataDir)
 	scheduler := NewBackupScheduler(db, backupService)
 	defer scheduler.Stop()
 	
@@ -79,7 +80,8 @@ func TestBackupScheduler_Initialize(t *testing.T) {
 	backupDir := t.TempDir()
 	dataDir := t.TempDir()
 	
-	backupService := services.NewBackupService(db, backupDir, dataDir)
+	settingsService := services.NewSettingsService(db)
+	backupService := services.NewBackupService(db, settingsService, backupDir, dataDir)
 	// Seed a schedule directly to the db via the service
 	err := backupService.SetSchedule("@daily")
 	if err != nil {

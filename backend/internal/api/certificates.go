@@ -34,6 +34,14 @@ type CertificateRequest struct {
 }
 
 // ListCertificates returns all certificates
+//
+// @Summary      List certificates
+// @Description  Returns all SSL/TLS certificates with current status
+// @Tags         certificates
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}
+// @Router       /certificates [get]
+// @Security     BearerAuth
 func (h *CertificatesHandler) ListCertificates(c fiber.Ctx) error {
 	certs, err := h.certService.ListCertificates()
 	if err != nil {
@@ -54,6 +62,14 @@ func (h *CertificatesHandler) ListCertificates(c fiber.Ctx) error {
 }
 
 // ListCertificatesDropdown returns a simplified list for dropdown selection
+//
+// @Summary      Certificates dropdown
+// @Description  Returns active/expiring certificates formatted for UI dropdown selectors
+// @Tags         certificates
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}
+// @Router       /certificates/dropdown [get]
+// @Security     BearerAuth
 func (h *CertificatesHandler) ListCertificatesDropdown(c fiber.Ctx) error {
 	certs, err := h.certService.ListCertificates()
 	if err != nil {
@@ -98,6 +114,16 @@ func (h *CertificatesHandler) ListCertificatesDropdown(c fiber.Ctx) error {
 }
 
 // GetCertificate returns a single certificate
+//
+// @Summary      Get certificate
+// @Description  Returns a single certificate by ID with current status
+// @Tags         certificates
+// @Produce      json
+// @Param        id   path  int  true  "Certificate ID"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      404  {object}  map[string]interface{}
+// @Router       /certificates/{id} [get]
+// @Security     BearerAuth
 func (h *CertificatesHandler) GetCertificate(c fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
@@ -121,6 +147,17 @@ func (h *CertificatesHandler) GetCertificate(c fiber.Ctx) error {
 }
 
 // RequestCertificate requests a new certificate via ACME
+//
+// @Summary      Request certificate
+// @Description  Request a new SSL/TLS certificate via Let's Encrypt ACME
+// @Tags         certificates
+// @Accept       json
+// @Produce      json
+// @Param        body  body  CertificateRequest  true  "Domain and options"
+// @Success      201   {object}  map[string]interface{}
+// @Failure      400   {object}  map[string]interface{}
+// @Router       /certificates [post]
+// @Security     BearerAuth
 func (h *CertificatesHandler) RequestCertificate(c fiber.Ctx) error {
 	var req CertificateRequest
 	if err := c.Bind().JSON(&req); err != nil {
@@ -149,6 +186,16 @@ func (h *CertificatesHandler) RequestCertificate(c fiber.Ctx) error {
 }
 
 // RenewCertificate renews an existing certificate
+//
+// @Summary      Renew certificate
+// @Description  Force-renew a certificate via ACME (even if not yet expired)
+// @Tags         certificates
+// @Produce      json
+// @Param        id   path  int  true  "Certificate ID"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Router       /certificates/{id}/renew [post]
+// @Security     BearerAuth
 func (h *CertificatesHandler) RenewCertificate(c fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
@@ -171,6 +218,15 @@ func (h *CertificatesHandler) RenewCertificate(c fiber.Ctx) error {
 }
 
 // RevokeCertificate revokes a certificate
+//
+// @Summary      Revoke certificate
+// @Description  Revoke a certificate via ACME and mark it as revoked
+// @Tags         certificates
+// @Produce      json
+// @Param        id   path  int  true  "Certificate ID"
+// @Success      200  {object}  map[string]interface{}
+// @Router       /certificates/{id}/revoke [post]
+// @Security     BearerAuth
 func (h *CertificatesHandler) RevokeCertificate(c fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
@@ -191,6 +247,15 @@ func (h *CertificatesHandler) RevokeCertificate(c fiber.Ctx) error {
 }
 
 // DeleteCertificate deletes a certificate
+//
+// @Summary      Delete certificate
+// @Description  Delete a certificate record and its files
+// @Tags         certificates
+// @Produce      json
+// @Param        id   path  int  true  "Certificate ID"
+// @Success      200  {object}  map[string]interface{}
+// @Router       /certificates/{id} [delete]
+// @Security     BearerAuth
 func (h *CertificatesHandler) DeleteCertificate(c fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
@@ -220,6 +285,17 @@ type UploadCertificateRequest struct {
 }
 
 // UploadCertificate uploads a certificate manually (PEM format)
+//
+// @Summary      Upload certificate
+// @Description  Upload a manually obtained certificate in PEM format
+// @Tags         certificates
+// @Accept       json
+// @Produce      json
+// @Param        body  body  UploadCertificateRequest  true  "Certificate and private key in PEM format"
+// @Success      201   {object}  map[string]interface{}
+// @Failure      400   {object}  map[string]interface{}
+// @Router       /certificates/upload [post]
+// @Security     BearerAuth
 func (h *CertificatesHandler) UploadCertificate(c fiber.Ctx) error {
 	var req UploadCertificateRequest
 	if err := c.Bind().JSON(&req); err != nil {

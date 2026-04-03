@@ -29,8 +29,8 @@ func TestUsersHandler(t *testing.T) {
 func TestInboundsHandler(t *testing.T) {
 	t.Run("creates inbounds handler", func(t *testing.T) {
 		db := setupTestDB(t)
-		service := services.NewInboundService(db, nil)
-		handler := api.NewInboundsHandler(service)
+		service := services.NewInboundService(db, nil, nil)
+		handler := api.NewInboundsHandler(service, nil)
 		assert.NotNil(t, handler)
 	})
 }

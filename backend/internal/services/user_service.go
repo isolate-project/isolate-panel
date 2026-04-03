@@ -10,7 +10,6 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"github.com/isolate-project/isolate-panel/internal/cache"
 	"github.com/isolate-project/isolate-panel/internal/models"
 )
 
@@ -23,18 +22,12 @@ func isValidEmail(email string) bool {
 type UserService struct {
 	db                  *gorm.DB
 	notificationService *NotificationService
-	cache               *cache.Cache
 }
 
-func NewUserService(db *gorm.DB, notificationService *NotificationService, cacheManager ...*cache.CacheManager) *UserService {
-	var userCache *cache.Cache
-	if len(cacheManager) > 0 && cacheManager[0] != nil {
-		userCache = cacheManager[0].GetUserCache()
-	}
+func NewUserService(db *gorm.DB, notificationService *NotificationService) *UserService {
 	return &UserService{
 		db:                  db,
 		notificationService: notificationService,
-		cache:               userCache,
 	}
 }
 

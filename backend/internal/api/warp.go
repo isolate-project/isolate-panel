@@ -66,6 +66,15 @@ func parseID(c fiber.Ctx) (uint, error) {
 // WARP Routes
 
 // GetWarpRoutes returns all WARP routes
+//
+// @Summary      List WARP routes
+// @Description  Returns all WARP routing rules for a specific core
+// @Tags         warp
+// @Produce      json
+// @Param        core_id  query  int  true  "Core ID"
+// @Success      200      {object}  map[string]interface{}
+// @Router       /warp/routes [get]
+// @Security     BearerAuth
 func (h *WarpHandler) GetWarpRoutes(c fiber.Ctx) error {
 	coreIDStr := c.Query("core_id")
 	if coreIDStr == "" {
@@ -94,6 +103,17 @@ func (h *WarpHandler) GetWarpRoutes(c fiber.Ctx) error {
 }
 
 // CreateWarpRoute creates a new WARP route
+//
+// @Summary      Create WARP route
+// @Description  Create a new WARP routing rule (domain, IP, or CIDR)
+// @Tags         warp
+// @Accept       json
+// @Produce      json
+// @Param        body  body  models.WarpRoute  true  "Route configuration"
+// @Success      201   {object}  map[string]interface{}
+// @Failure      400   {object}  map[string]interface{}
+// @Router       /warp/routes [post]
+// @Security     BearerAuth
 func (h *WarpHandler) CreateWarpRoute(c fiber.Ctx) error {
 	var route models.WarpRoute
 	if err := c.Bind().JSON(&route); err != nil {
@@ -155,6 +175,17 @@ func (h *WarpHandler) CreateWarpRoute(c fiber.Ctx) error {
 }
 
 // UpdateWarpRoute updates an existing WARP route
+//
+// @Summary      Update WARP route
+// @Description  Update an existing WARP routing rule
+// @Tags         warp
+// @Accept       json
+// @Produce      json
+// @Param        id    path  int              true  "Route ID"
+// @Param        body  body  models.WarpRoute true  "Fields to update"
+// @Success      200   {object}  map[string]interface{}
+// @Router       /warp/routes/{id} [put]
+// @Security     BearerAuth
 func (h *WarpHandler) UpdateWarpRoute(c fiber.Ctx) error {
 	id, err := parseID(c)
 	if err != nil {
@@ -203,6 +234,14 @@ func (h *WarpHandler) UpdateWarpRoute(c fiber.Ctx) error {
 }
 
 // DeleteWarpRoute deletes a WARP route
+//
+// @Summary      Delete WARP route
+// @Tags         warp
+// @Produce      json
+// @Param        id   path  int  true  "Route ID"
+// @Success      200  {object}  map[string]interface{}
+// @Router       /warp/routes/{id} [delete]
+// @Security     BearerAuth
 func (h *WarpHandler) DeleteWarpRoute(c fiber.Ctx) error {
 	id, err := parseID(c)
 	if err != nil {
@@ -223,6 +262,14 @@ func (h *WarpHandler) DeleteWarpRoute(c fiber.Ctx) error {
 }
 
 // ToggleWarpRoute enables/disables a WARP route
+//
+// @Summary      Toggle WARP route
+// @Tags         warp
+// @Produce      json
+// @Param        id   path  int  true  "Route ID"
+// @Success      200  {object}  map[string]interface{}
+// @Router       /warp/routes/{id}/toggle [post]
+// @Security     BearerAuth
 func (h *WarpHandler) ToggleWarpRoute(c fiber.Ctx) error {
 	id, err := parseID(c)
 	if err != nil {
@@ -251,6 +298,15 @@ func (h *WarpHandler) ToggleWarpRoute(c fiber.Ctx) error {
 }
 
 // SyncWarpRoutes applies WARP routes to cores
+//
+// @Summary      Sync WARP routes to cores
+// @Description  Regenerate core configs and reload to apply current WARP routes
+// @Tags         warp
+// @Produce      json
+// @Param        core_id  query  int  false  "Specific core ID to sync (omit to sync all)"
+// @Success      200      {object}  map[string]interface{}
+// @Router       /warp/sync [post]
+// @Security     BearerAuth
 func (h *WarpHandler) SyncWarpRoutes(c fiber.Ctx) error {
 	if h.configService == nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -314,6 +370,14 @@ func (h *WarpHandler) SyncWarpRoutes(c fiber.Ctx) error {
 }
 
 // GetWarpStatus returns WARP connection status
+//
+// @Summary      WARP status
+// @Description  Returns current Cloudflare WARP connection status
+// @Tags         warp
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}
+// @Router       /warp/status [get]
+// @Security     BearerAuth
 func (h *WarpHandler) GetWarpStatus(c fiber.Ctx) error {
 	status, err := h.warpService.GetStatus()
 	if err != nil {
@@ -328,6 +392,15 @@ func (h *WarpHandler) GetWarpStatus(c fiber.Ctx) error {
 }
 
 // RegisterWARP registers a new WARP device
+//
+// @Summary      Register WARP device
+// @Description  Register a new Cloudflare WARP device and generate WireGuard config
+// @Tags         warp
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Router       /warp/register [post]
+// @Security     BearerAuth
 func (h *WarpHandler) RegisterWARP(c fiber.Ctx) error {
 	account, err := h.warpService.RegisterWARP()
 	if err != nil {
@@ -357,6 +430,14 @@ func (h *WarpHandler) RegisterWARP(c fiber.Ctx) error {
 }
 
 // GetWarpPresets returns available WARP presets
+//
+// @Summary      List WARP presets
+// @Description  Returns built-in WARP routing presets (bypass-cn, all-through-warp, etc.)
+// @Tags         warp
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}
+// @Router       /warp/presets [get]
+// @Security     BearerAuth
 func (h *WarpHandler) GetWarpPresets(c fiber.Ctx) error {
 	presets := h.warpService.GetWarpPresets()
 	return c.JSON(fiber.Map{
@@ -365,6 +446,16 @@ func (h *WarpHandler) GetWarpPresets(c fiber.Ctx) error {
 }
 
 // ApplyWarpPreset applies a preset to a core
+//
+// @Summary      Apply WARP preset
+// @Description  Apply a named WARP routing preset to a specific core
+// @Tags         warp
+// @Produce      json
+// @Param        name     path   string  true  "Preset name"
+// @Param        core_id  query  int     true  "Core ID"
+// @Success      200      {object}  map[string]interface{}
+// @Router       /warp/presets/{name}/apply [post]
+// @Security     BearerAuth
 func (h *WarpHandler) ApplyWarpPreset(c fiber.Ctx) error {
 	presetName := c.Params("name")
 	coreIDStr := c.Query("core_id")
@@ -397,6 +488,14 @@ func (h *WarpHandler) ApplyWarpPreset(c fiber.Ctx) error {
 // Geo Rules
 
 // GetGeoRules returns all Geo rules
+//
+// @Summary      List GeoIP/GeoSite rules
+// @Tags         geo
+// @Produce      json
+// @Param        core_id  query  int  true  "Core ID"
+// @Success      200      {object}  map[string]interface{}
+// @Router       /geo/rules [get]
+// @Security     BearerAuth
 func (h *WarpHandler) GetGeoRules(c fiber.Ctx) error {
 	coreIDStr := c.Query("core_id")
 	if coreIDStr == "" {
@@ -425,6 +524,15 @@ func (h *WarpHandler) GetGeoRules(c fiber.Ctx) error {
 }
 
 // CreateGeoRule creates a new Geo rule
+//
+// @Summary      Create GeoIP/GeoSite rule
+// @Tags         geo
+// @Accept       json
+// @Produce      json
+// @Param        body  body  models.GeoRule  true  "Rule configuration"
+// @Success      201   {object}  map[string]interface{}
+// @Router       /geo/rules [post]
+// @Security     BearerAuth
 func (h *WarpHandler) CreateGeoRule(c fiber.Ctx) error {
 	var rule models.GeoRule
 	if err := c.Bind().JSON(&rule); err != nil {
@@ -488,6 +596,16 @@ func (h *WarpHandler) CreateGeoRule(c fiber.Ctx) error {
 }
 
 // UpdateGeoRule updates an existing Geo rule
+//
+// @Summary      Update Geo rule
+// @Tags         geo
+// @Accept       json
+// @Produce      json
+// @Param        id    path  int             true  "Rule ID"
+// @Param        body  body  models.GeoRule  true  "Fields to update"
+// @Success      200   {object}  map[string]interface{}
+// @Router       /geo/rules/{id} [put]
+// @Security     BearerAuth
 func (h *WarpHandler) UpdateGeoRule(c fiber.Ctx) error {
 	id, err := parseID(c)
 	if err != nil {
@@ -539,6 +657,15 @@ func (h *WarpHandler) UpdateGeoRule(c fiber.Ctx) error {
 }
 
 // DeleteGeoRule deletes a Geo rule
+//
+// @Summary      Delete Geo rule
+// @Tags         geo
+// @Produce      json
+// @Param        id       path   int  true  "Rule ID"
+// @Param        core_id  query  int  true  "Core ID"
+// @Success      200      {object}  map[string]interface{}
+// @Router       /geo/rules/{id} [delete]
+// @Security     BearerAuth
 func (h *WarpHandler) DeleteGeoRule(c fiber.Ctx) error {
 	id, err := parseID(c)
 	if err != nil {
@@ -573,6 +700,15 @@ func (h *WarpHandler) DeleteGeoRule(c fiber.Ctx) error {
 }
 
 // ToggleGeoRule enables/disables a Geo rule
+//
+// @Summary      Toggle Geo rule
+// @Tags         geo
+// @Produce      json
+// @Param        id       path   int  true  "Rule ID"
+// @Param        core_id  query  int  true  "Core ID"
+// @Success      200      {object}  map[string]interface{}
+// @Router       /geo/rules/{id}/toggle [post]
+// @Security     BearerAuth
 func (h *WarpHandler) ToggleGeoRule(c fiber.Ctx) error {
 	id, err := parseID(c)
 	if err != nil {
@@ -615,6 +751,14 @@ func (h *WarpHandler) ToggleGeoRule(c fiber.Ctx) error {
 }
 
 // GetCountries returns list of countries for GeoIP rules
+//
+// @Summary      List GeoIP countries
+// @Description  Returns all available country codes for use in GeoIP routing rules
+// @Tags         geo
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}
+// @Router       /geo/countries [get]
+// @Security     BearerAuth
 func (h *WarpHandler) GetCountries(c fiber.Ctx) error {
 	countries, err := h.geoService.GetCountries()
 	if err != nil {
@@ -629,6 +773,14 @@ func (h *WarpHandler) GetCountries(c fiber.Ctx) error {
 }
 
 // GetCategories returns list of categories for GeoSite rules
+//
+// @Summary      List GeoSite categories
+// @Description  Returns all available GeoSite category codes (cn, google, netflix, etc.)
+// @Tags         geo
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}
+// @Router       /geo/categories [get]
+// @Security     BearerAuth
 func (h *WarpHandler) GetCategories(c fiber.Ctx) error {
 	categories, err := h.geoService.GetCategories()
 	if err != nil {
@@ -643,6 +795,14 @@ func (h *WarpHandler) GetCategories(c fiber.Ctx) error {
 }
 
 // GetGeoDatabases returns list of available Geo databases
+//
+// @Summary      List Geo databases
+// @Description  Returns available GeoIP/GeoSite database files and their last update time
+// @Tags         geo
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}
+// @Router       /geo/databases [get]
+// @Security     BearerAuth
 func (h *WarpHandler) GetGeoDatabases(c fiber.Ctx) error {
 	databases, err := h.geoService.GetGeoDatabases()
 	if err != nil {
@@ -657,6 +817,15 @@ func (h *WarpHandler) GetGeoDatabases(c fiber.Ctx) error {
 }
 
 // UpdateGeoDatabases downloads all Geo databases
+//
+// @Summary      Update Geo databases
+// @Description  Download latest GeoIP and GeoSite database files
+// @Tags         geo
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}
+// @Failure      500  {object}  map[string]interface{}
+// @Router       /geo/update [post]
+// @Security     BearerAuth
 func (h *WarpHandler) UpdateGeoDatabases(c fiber.Ctx) error {
 	if err := h.geoService.UpdateAllDatabases(); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{

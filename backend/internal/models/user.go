@@ -45,8 +45,8 @@ type UserInboundMapping struct {
 	CreatedAt time.Time `json:"created_at"`
 
 	// Relations
-	User    *User    `gorm:"foreignKey:UserID" json:"user,omitempty"`
-	Inbound *Inbound `gorm:"foreignKey:InboundID" json:"inbound,omitempty"`
+	User    *User    `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"user,omitempty"`
+	Inbound *Inbound `gorm:"foreignKey:InboundID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"inbound,omitempty"`
 }
 
 func (UserInboundMapping) TableName() string {

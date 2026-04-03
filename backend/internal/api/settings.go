@@ -5,10 +5,18 @@ import (
 	"github.com/isolate-project/isolate-panel/internal/services"
 )
 
+// TrafficResetScheduler is a minimal interface for the traffic reset scheduler,
+// defined here to avoid an import cycle between api and scheduler packages.
+type TrafficResetScheduler interface {
+	GetSchedule() (string, error)
+	UpdateSchedule(schedule string) error
+}
+
 // SettingsHandler handles settings-related HTTP requests
 type SettingsHandler struct {
-	settingsService  *services.SettingsService
-	trafficCollector *services.TrafficCollector
+	settingsService       *services.SettingsService
+	trafficCollector      *services.TrafficCollector
+	trafficResetScheduler TrafficResetScheduler
 }
 
 // NewSettingsHandler creates a new settings handler
@@ -19,8 +27,20 @@ func NewSettingsHandler(settingsService *services.SettingsService, trafficCollec
 	}
 }
 
+// SetTrafficResetScheduler wires in the scheduler after construction.
+func (h *SettingsHandler) SetTrafficResetScheduler(sched TrafficResetScheduler) {
+	h.trafficResetScheduler = sched
+}
+
 // GetMonitoring returns the current monitoring configuration
-// GET /api/settings/monitoring
+//
+// @Summary      Get monitoring settings
+// @Description  Returns current monitoring mode (lite/full) and collection interval
+// @Tags         settings
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}
+// @Router       /settings/monitoring [get]
+// @Security     BearerAuth
 func (h *SettingsHandler) GetMonitoring(c fiber.Ctx) error {
 	mode, err := h.settingsService.GetMonitoringMode()
 	if err != nil {
@@ -40,7 +60,17 @@ func (h *SettingsHandler) GetMonitoring(c fiber.Ctx) error {
 }
 
 // UpdateMonitoring updates the monitoring mode
-// PUT /api/settings/monitoring
+//
+// @Summary      Update monitoring settings
+// @Description  Set monitoring mode to 'lite' (traffic only) or 'full' (traffic + connections)
+// @Tags         settings
+// @Accept       json
+// @Produce      json
+// @Param        body  body  map[string]string  true  "{mode: lite|full}"
+// @Success      200   {object}  map[string]interface{}
+// @Failure      400   {object}  map[string]interface{}
+// @Router       /settings/monitoring [put]
+// @Security     BearerAuth
 func (h *SettingsHandler) UpdateMonitoring(c fiber.Ctx) error {
 	var req struct {
 		Mode string `json:"mode"`
@@ -81,7 +111,14 @@ func (h *SettingsHandler) UpdateMonitoring(c fiber.Ctx) error {
 }
 
 // GetAllSettings returns all application settings
-// GET /api/settings
+//
+// @Summary      Get all settings
+// @Description  Returns all key-value application settings
+// @Tags         settings
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}
+// @Router       /settings [get]
+// @Security     BearerAuth
 func (h *SettingsHandler) GetAllSettings(c fiber.Ctx) error {
 	settings, err := h.settingsService.GetAllSettings()
 	if err != nil {
@@ -95,7 +132,16 @@ func (h *SettingsHandler) GetAllSettings(c fiber.Ctx) error {
 }
 
 // UpdateSettings updates multiple settings
-// PUT /api/settings
+//
+// @Summary      Update settings
+// @Description  Update one or more application settings (key-value pairs)
+// @Tags         settings
+// @Accept       json
+// @Produce      json
+// @Param        body  body  map[string]interface{}  true  "{settings: {key: value}}"
+// @Success      200   {object}  map[string]interface{}
+// @Router       /settings [put]
+// @Security     BearerAuth
 func (h *SettingsHandler) UpdateSettings(c fiber.Ctx) error {
 	var req struct {
 		Settings map[string]string `json:"settings"`
@@ -123,4 +169,59 @@ func (h *SettingsHandler) UpdateSettings(c fiber.Ctx) error {
 		"success": true,
 		"message": "Settings updated successfully",
 	})
+}
+
+// GetTrafficResetSchedule returns the current traffic auto-reset schedule.
+//
+// @Summary      Get traffic reset schedule
+// @Description  Returns the current automatic traffic reset schedule (disabled/weekly/monthly)
+// @Tags         settings
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}
+// @Router       /settings/traffic-reset [get]
+// @Security     BearerAuth
+func (h *SettingsHandler) GetTrafficResetSchedule(c fiber.Ctx) error {
+	if h.trafficResetScheduler == nil {
+		return c.JSON(fiber.Map{"schedule": "disabled"})
+	}
+	schedule, err := h.trafficResetScheduler.GetSchedule()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.JSON(fiber.Map{"schedule": schedule})
+}
+
+// UpdateTrafficResetSchedule updates the traffic auto-reset schedule.
+//
+// @Summary      Update traffic reset schedule
+// @Description  Set automatic traffic reset schedule. Options: disabled, weekly (Mondays), monthly (1st of month)
+// @Tags         settings
+// @Accept       json
+// @Produce      json
+// @Param        body  body  map[string]string  true  "{schedule: disabled|weekly|monthly}"
+// @Success      200   {object}  map[string]interface{}
+// @Failure      400   {object}  map[string]interface{}
+// @Router       /settings/traffic-reset [put]
+// @Security     BearerAuth
+func (h *SettingsHandler) UpdateTrafficResetSchedule(c fiber.Ctx) error {
+	var req struct {
+		Schedule string `json:"schedule"`
+	}
+	if err := c.Bind().JSON(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+	}
+	switch req.Schedule {
+	case "disabled", "weekly", "monthly":
+	default:
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "schedule must be one of: disabled, weekly, monthly",
+		})
+	}
+	if h.trafficResetScheduler == nil {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "scheduler not available"})
+	}
+	if err := h.trafficResetScheduler.UpdateSchedule(req.Schedule); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.JSON(fiber.Map{"success": true, "schedule": req.Schedule})
 }

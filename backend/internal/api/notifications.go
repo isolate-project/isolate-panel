@@ -39,6 +39,16 @@ func (h *NotificationHandler) RegisterRoutes(router fiber.Router) {
 }
 
 // ListNotifications returns list of notifications
+//
+// @Summary      List notifications
+// @Description  Returns recent notification history
+// @Tags         notifications
+// @Produce      json
+// @Param        limit   query  int  false  "Max results"  default(50)
+// @Param        offset  query  int  false  "Skip N results"
+// @Success      200     {object}  map[string]interface{}
+// @Router       /notifications [get]
+// @Security     BearerAuth
 func (h *NotificationHandler) ListNotifications(c fiber.Ctx) error {
 	limit := 50
 	offset := 0
@@ -71,6 +81,16 @@ func (h *NotificationHandler) ListNotifications(c fiber.Ctx) error {
 }
 
 // GetNotification returns a single notification
+//
+// @Summary      Get notification
+// @Description  Returns a single notification event by ID
+// @Tags         notifications
+// @Produce      json
+// @Param        id   path  int  true  "Notification ID"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      404  {object}  map[string]interface{}
+// @Router       /notifications/{id} [get]
+// @Security     BearerAuth
 func (h *NotificationHandler) GetNotification(c fiber.Ctx) error {
 	id, err := parseID(c)
 	if err != nil {
@@ -92,6 +112,15 @@ func (h *NotificationHandler) GetNotification(c fiber.Ctx) error {
 }
 
 // DeleteNotification deletes a notification
+//
+// @Summary      Delete notification
+// @Description  Delete a notification event from history
+// @Tags         notifications
+// @Produce      json
+// @Param        id   path  int  true  "Notification ID"
+// @Success      200  {object}  map[string]interface{}
+// @Router       /notifications/{id} [delete]
+// @Security     BearerAuth
 func (h *NotificationHandler) DeleteNotification(c fiber.Ctx) error {
 	id, err := parseID(c)
 	if err != nil {
@@ -112,6 +141,14 @@ func (h *NotificationHandler) DeleteNotification(c fiber.Ctx) error {
 }
 
 // GetSettings returns notification settings
+//
+// @Summary      Get notification settings
+// @Description  Returns current Telegram and Webhook notification configuration
+// @Tags         notifications
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}
+// @Router       /notifications/settings [get]
+// @Security     BearerAuth
 func (h *NotificationHandler) GetSettings(c fiber.Ctx) error {
 	settings, err := h.notificationService.GetSettings()
 	if err != nil {
@@ -126,6 +163,16 @@ func (h *NotificationHandler) GetSettings(c fiber.Ctx) error {
 }
 
 // UpdateSettings updates notification settings
+//
+// @Summary      Update notification settings
+// @Description  Configure Telegram bot and Webhook URL, triggers, and enabled state
+// @Tags         notifications
+// @Accept       json
+// @Produce      json
+// @Param        body  body  models.NotificationSettings  true  "Notification configuration"
+// @Success      200   {object}  map[string]interface{}
+// @Router       /notifications/settings [put]
+// @Security     BearerAuth
 func (h *NotificationHandler) UpdateSettings(c fiber.Ctx) error {
 	var settings models.NotificationSettings
 
@@ -148,6 +195,16 @@ func (h *NotificationHandler) UpdateSettings(c fiber.Ctx) error {
 }
 
 // SendTestNotification sends a test notification
+//
+// @Summary      Send test notification
+// @Description  Send a test notification to configured channels to verify the integration
+// @Tags         notifications
+// @Accept       json
+// @Produce      json
+// @Param        body  body  map[string]string  true  "{channel: webhook|telegram|all}"
+// @Success      200   {object}  map[string]interface{}
+// @Router       /notifications/test [post]
+// @Security     BearerAuth
 func (h *NotificationHandler) SendTestNotification(c fiber.Ctx) error {
 	var req struct {
 		Channel string `json:"channel"` // "webhook", "telegram", "all"

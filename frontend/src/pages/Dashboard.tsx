@@ -13,12 +13,22 @@ import { useUsers } from '../hooks/useUsers'
 import { useCores } from '../hooks/useCores'
 import { useSystemResources } from '../hooks/useSystem'
 import { useConnections } from '../hooks/useConnections'
+import { useWebSocket } from '../hooks/useWebSocket'
+import { useAuthStore } from '../stores/authStore'
 import type { User, Core } from '../types'
 import { Users, Activity, HardDrive, Box, ArrowUpRight, ShieldAlert, Cpu, LucideIcon } from 'lucide-preact'
 import { useTranslation } from 'react-i18next'
 import { cn } from '../lib/utils'
 import { useMetaTags } from '../hooks/useDocumentTitle'
 
+
+interface DashboardWSPayload {
+  active_connections: number
+  total_users: number
+  active_users: number
+  total_traffic_bytes: number
+  cores_running: number
+}
 
 export function Dashboard() {
   const { t } = useTranslation()
@@ -28,20 +38,36 @@ export function Dashboard() {
     description: 'Isolate Panel dashboard — proxy servers overview, active connections, and system resources monitoring',
   })
 
+  const accessToken = useAuthStore(s => s.accessToken)
+
+  // Build WebSocket URL; empty string triggers a safe no-op in the hook
+  const wsUrl = accessToken
+    ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/api/ws/dashboard?token=${encodeURIComponent(accessToken)}`
+    : ''
+
+  const { lastMessage: wsData, isConnected: wsConnected } = useWebSocket<DashboardWSPayload>(wsUrl)
+
   const { data: usersResponse, isLoading: usersLoading } = useUsers()
   const { data: cores, isLoading: coresLoading } = useCores()
   const { data: resources } = useSystemResources()
-  const { count: activeConnections, isLoading: connectionsLoading } = useConnections()
+  const { count: activeConnectionsPoll, isLoading: connectionsLoading } = useConnections()
 
   const users = usersResponse?.users || usersResponse || []
-  const totalUsers = Array.isArray(users) ? users.length : 0
-  const activeUsers = Array.isArray(users) ? users.filter((u: User) => u.is_active)?.length : 0
-  const runningCores = Array.isArray(cores) ? cores.filter((c: Core) => c.is_running)?.length : 0
+  const totalUsersPoll = Array.isArray(users) ? users.length : 0
+  const activeUsersPoll = Array.isArray(users) ? users.filter((u: User) => u.is_active)?.length : 0
+  const runningCoresPoll = Array.isArray(cores) ? cores.filter((c: Core) => c.is_running)?.length : 0
   const totalCores = Array.isArray(cores) ? cores.length : 0
 
-  const totalTrafficBytes = Array.isArray(users)
+  const totalTrafficPoll = Array.isArray(users)
     ? users.reduce((sum: number, u: User) => sum + (u.traffic_used_bytes || 0), 0)
     : 0
+
+  // Prefer real-time WS data; fall back to polling when disconnected
+  const totalUsers = wsConnected && wsData ? wsData.total_users : totalUsersPoll
+  const activeUsers = wsConnected && wsData ? wsData.active_users : activeUsersPoll
+  const activeConnections = wsConnected && wsData ? wsData.active_connections : activeConnectionsPoll
+  const totalTrafficBytes = wsConnected && wsData ? wsData.total_traffic_bytes : totalTrafficPoll
+  const runningCores = wsConnected && wsData ? wsData.cores_running : runningCoresPoll
 
   const formatTraffic = (bytes: number) => {
     if (bytes === 0) return '0 B'

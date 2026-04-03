@@ -27,6 +27,8 @@ interface MonitoringState {
   interval: number
 }
 
+type TrafficResetSchedule = 'disabled' | 'weekly' | 'monthly'
+
 export function Settings() {
   const { t, i18n } = useTranslation()
   const { theme, setTheme } = useThemeStore()
@@ -44,6 +46,7 @@ export function Settings() {
     mode: 'lite',
     interval: 60,
   })
+  const [trafficResetSchedule, setTrafficResetSchedule] = useState<TrafficResetSchedule>('disabled')
 
   const [isSaving, setIsSaving] = useState(false)
   const [isLoadingSettings, setIsLoadingSettings] = useState(true)
@@ -53,9 +56,10 @@ export function Settings() {
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const [settingsRes, monitoringRes] = await Promise.all([
+        const [settingsRes, monitoringRes, trafficResetRes] = await Promise.all([
           systemApi.getSettings(),
           systemApi.getMonitoring(),
+          systemApi.getTrafficResetSchedule(),
         ])
         
         if (settingsRes.data) {
@@ -74,6 +78,9 @@ export function Settings() {
             mode: monitoringRes.data.mode as 'lite' | 'full',
             interval: monitoringRes.data.interval || 60,
           })
+        }
+        if (trafficResetRes.data?.schedule) {
+          setTrafficResetSchedule(trafficResetRes.data.schedule as TrafficResetSchedule)
         }
       } catch {
         // Backend may not be connected yet — use defaults
@@ -148,7 +155,7 @@ export function Settings() {
   const handleMonitoringChange = async (e: Event) => {
     const target = e.target as HTMLSelectElement
     const newMode = target.value as 'lite' | 'full'
-    
+
     try {
       await systemApi.updateMonitoring({ mode: newMode })
       setMonitoring({
@@ -156,6 +163,18 @@ export function Settings() {
         interval: newMode === 'full' ? 10 : 60,
       })
       addToast({ type: 'success', message: t('settings.monitoringModeUpdated') })
+    } catch {
+      addToast({ type: 'error', message: t('errors.serverError') })
+    }
+  }
+
+  const handleTrafficResetChange = async (e: Event) => {
+    const target = e.target as HTMLSelectElement
+    const newSchedule = target.value as TrafficResetSchedule
+    try {
+      await systemApi.updateTrafficResetSchedule(newSchedule)
+      setTrafficResetSchedule(newSchedule)
+      addToast({ type: 'success', message: t('settings.trafficResetUpdated') || 'Traffic reset schedule updated' })
     } catch {
       addToast({ type: 'error', message: t('errors.serverError') })
     }
@@ -295,6 +314,36 @@ export function Settings() {
                     {monitoring.interval} {t('settings.seconds')}
                   </span>
                 </div>
+              </div>
+            </div>
+                </CardContent>
+    </Card>
+
+          {/* Traffic Management */}
+          <Card>
+      <CardContent className="p-6">
+            <h3 className="text-lg font-semibold text-primary mb-4">
+              {t('settings.trafficManagement') || 'Traffic Management'}
+            </h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-primary mb-2">
+                  {t('settings.trafficResetSchedule') || 'Auto-reset Traffic Schedule'}
+                </label>
+                <Select
+                  name="traffic_reset_schedule"
+                  value={trafficResetSchedule}
+                  onChange={handleTrafficResetChange}
+                  options={[
+                    { value: 'disabled', label: t('settings.trafficResetDisabled') || 'Disabled' },
+                    { value: 'weekly', label: t('settings.trafficResetWeekly') || 'Weekly (every Monday)' },
+                    { value: 'monthly', label: t('settings.trafficResetMonthly') || 'Monthly (1st of month)' },
+                  ]}
+                  fullWidth
+                />
+                <p className="mt-1 text-xs text-tertiary">
+                  {t('settings.trafficResetHint') || 'Automatically resets all user traffic counters on the selected schedule.'}
+                </p>
               </div>
             </div>
                 </CardContent>

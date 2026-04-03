@@ -140,6 +140,16 @@ func (h *SubscriptionsHandler) RedirectShortURL(c fiber.Ctx) error {
 }
 
 // GetUserShortURL returns the short URL for a user (admin endpoint)
+//
+// @Summary      Get subscription short URL
+// @Description  Get or create a short URL for a user's subscription link
+// @Tags         subscriptions
+// @Produce      json
+// @Param        user_id  path   int     true  "User ID"
+// @Param        token    query  string  true  "Subscription token"
+// @Success      200      {object}  map[string]interface{}
+// @Router       /subscriptions/{user_id}/short-url [get]
+// @Security     BearerAuth
 func (h *SubscriptionsHandler) GetUserShortURL(c fiber.Ctx) error {
 	userID, err := strconv.ParseUint(c.Params("user_id"), 10, 32)
 	if err != nil {
@@ -199,6 +209,16 @@ func (h *SubscriptionsHandler) GetQRCode(c fiber.Ctx) error {
 }
 
 // GetAccessStats returns subscription access statistics (admin endpoint)
+//
+// @Summary      Subscription access stats
+// @Description  Returns subscription URL access history for a user (client IPs, user-agents, formats)
+// @Tags         subscriptions
+// @Produce      json
+// @Param        user_id  path   int  true   "User ID"
+// @Param        days     query  int  false  "Number of days to look back"  default(7)
+// @Success      200      {object}  map[string]interface{}
+// @Router       /users/{user_id}/subscription/stats [get]
+// @Security     BearerAuth
 func (h *SubscriptionsHandler) GetAccessStats(c fiber.Ctx) error {
 	userID, err := strconv.ParseUint(c.Params("user_id"), 10, 32)
 	if err != nil {
@@ -224,6 +244,15 @@ func (h *SubscriptionsHandler) GetAccessStats(c fiber.Ctx) error {
 }
 
 // RegenerateToken regenerates a user's subscription token (admin endpoint)
+//
+// @Summary      Regenerate subscription token
+// @Description  Generate a new subscription token for a user (old links become invalid)
+// @Tags         subscriptions
+// @Produce      json
+// @Param        user_id  path  int  true  "User ID"
+// @Success      200      {object}  map[string]interface{}
+// @Router       /users/{user_id}/subscription/regenerate [post]
+// @Security     BearerAuth
 func (h *SubscriptionsHandler) RegenerateToken(c fiber.Ctx) error {
 	userID, err := strconv.ParseUint(c.Params("user_id"), 10, 32)
 	if err != nil {

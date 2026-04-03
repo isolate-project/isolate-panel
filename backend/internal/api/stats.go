@@ -30,6 +30,17 @@ func NewStatsHandler(
 }
 
 // GetUserTrafficStats returns traffic statistics for a user
+//
+// @Summary      User traffic stats
+// @Description  Returns per-day traffic statistics for a specific user
+// @Tags         stats
+// @Produce      json
+// @Param        user_id      path   int     true   "User ID"
+// @Param        days         query  int     false  "Number of days"         default(30)
+// @Param        granularity  query  string  false  "raw, hourly, or daily"  default(daily)
+// @Success      200          {object}  map[string]interface{}
+// @Router       /stats/user/{user_id}/traffic [get]
+// @Security     BearerAuth
 func (h *StatsHandler) GetUserTrafficStats(c fiber.Ctx) error {
 	userID, err := strconv.ParseUint(c.Params("user_id"), 10, 32)
 	if err != nil {
@@ -96,6 +107,15 @@ func (h *StatsHandler) GetUserTrafficStats(c fiber.Ctx) error {
 }
 
 // GetActiveConnections returns active connections
+//
+// @Summary      Active connections
+// @Description  Returns current active connections; filter by user_id to get user-specific connections
+// @Tags         stats
+// @Produce      json
+// @Param        user_id  query  int  false  "Filter by user ID"
+// @Success      200      {object}  map[string]interface{}
+// @Router       /stats/connections [get]
+// @Security     BearerAuth
 func (h *StatsHandler) GetActiveConnections(c fiber.Ctx) error {
 	userIDStr := c.Query("user_id")
 
@@ -136,6 +156,15 @@ func (h *StatsHandler) GetActiveConnections(c fiber.Ctx) error {
 
 // DisconnectUser disconnects all active connections for a user.
 // First attempts to close connections via core APIs, then removes from DB.
+//
+// @Summary      Disconnect user
+// @Description  Close all active connections for a user (soft disconnect)
+// @Tags         stats
+// @Produce      json
+// @Param        user_id  path  int  true  "User ID"
+// @Success      200      {object}  map[string]interface{}
+// @Router       /stats/user/{user_id}/disconnect [post]
+// @Security     BearerAuth
 func (h *StatsHandler) DisconnectUser(c fiber.Ctx) error {
 	userID, err := strconv.ParseUint(c.Params("user_id"), 10, 32)
 	if err != nil {
@@ -184,6 +213,15 @@ func (h *StatsHandler) DisconnectUser(c fiber.Ctx) error {
 // KickUser fully removes a user from all running cores (force disconnect).
 // The user is removed from each core inbound they are assigned to.
 // Config regeneration can optionally re-add them.
+//
+// @Summary      Kick user from cores
+// @Description  Force-remove a user from all proxy core inbounds (hard disconnect)
+// @Tags         stats
+// @Produce      json
+// @Param        user_id  path  int  true  "User ID"
+// @Success      200      {object}  map[string]interface{}
+// @Router       /stats/user/{user_id}/kick [post]
+// @Security     BearerAuth
 func (h *StatsHandler) KickUser(c fiber.Ctx) error {
 	userID, err := strconv.ParseUint(c.Params("user_id"), 10, 32)
 	if err != nil {
@@ -252,6 +290,14 @@ func (h *StatsHandler) KickUser(c fiber.Ctx) error {
 }
 
 // GetDashboardStats returns overall dashboard statistics
+//
+// @Summary      Dashboard stats
+// @Description  Returns summary stats: active connections, total users, traffic, running cores
+// @Tags         stats
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}
+// @Router       /stats/dashboard [get]
+// @Security     BearerAuth
 func (h *StatsHandler) GetDashboardStats(c fiber.Ctx) error {
 	// Get active connections count
 	connCount, err := h.connectionTracker.GetActiveConnectionsCount()
@@ -281,6 +327,16 @@ func (h *StatsHandler) GetDashboardStats(c fiber.Ctx) error {
 
 // GetTrafficOverview returns aggregated traffic overview for all users.
 // Used by Dashboard charts.
+//
+// @Summary      Traffic overview
+// @Description  Returns aggregated traffic data for all users over a time period (used by dashboard charts)
+// @Tags         stats
+// @Produce      json
+// @Param        days         query  int     false  "Number of days"  default(7)
+// @Param        granularity  query  string  false  "daily or hourly" default(daily)
+// @Success      200          {object}  map[string]interface{}
+// @Router       /stats/traffic/overview [get]
+// @Security     BearerAuth
 func (h *StatsHandler) GetTrafficOverview(c fiber.Ctx) error {
 	days, _ := strconv.Atoi(c.Query("days", "7"))
 	if days <= 0 || days > 365 {
@@ -339,6 +395,15 @@ func (h *StatsHandler) GetTrafficOverview(c fiber.Ctx) error {
 
 // GetTopUsers returns top traffic-consuming users.
 // Used by Dashboard charts.
+//
+// @Summary      Top users by traffic
+// @Description  Returns users with the highest traffic consumption (used by dashboard top-users chart)
+// @Tags         stats
+// @Produce      json
+// @Param        limit  query  int  false  "Maximum number of users to return"  default(10)
+// @Success      200    {object}  map[string]interface{}
+// @Router       /stats/traffic/top-users [get]
+// @Security     BearerAuth
 func (h *StatsHandler) GetTopUsers(c fiber.Ctx) error {
 	limit, _ := strconv.Atoi(c.Query("limit", "10"))
 	if limit <= 0 || limit > 50 {

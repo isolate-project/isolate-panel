@@ -83,7 +83,7 @@ func BenchmarkInboundService_ListInbounds(b *testing.B) {
 	}
 
 	coreManager := &services.CoreLifecycleManager{}
-	inboundService := services.NewInboundService(db, coreManager)
+	inboundService := services.NewInboundService(db, coreManager, nil)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

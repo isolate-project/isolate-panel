@@ -150,6 +150,19 @@ func (qe *QuotaEnforcer) ResetUserTraffic(userID uint) error {
 	return nil
 }
 
+// ResetAllTraffic resets traffic counters for all users (used by scheduled reset)
+func (qe *QuotaEnforcer) ResetAllTraffic() error {
+	result := qe.db.Exec("UPDATE users SET traffic_used_bytes = 0")
+	if result.Error != nil {
+		return fmt.Errorf("failed to reset traffic: %w", result.Error)
+	}
+	// Clear warning state
+	qe.warned80 = make(map[uint]bool)
+	qe.warned90 = make(map[uint]bool)
+	qe.log.Info().Int64("affected", result.RowsAffected).Msg("Scheduled traffic reset: all users reset")
+	return nil
+}
+
 // reloadAffectedCores regenerates and reloads only the cores that have inbounds
 // assigned to the given user.
 func (qe *QuotaEnforcer) reloadAffectedCores(userID uint) {

@@ -6,6 +6,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
+	"github.com/isolate-project/isolate-panel/internal/middleware"
 	"github.com/isolate-project/isolate-panel/internal/models"
 	"github.com/isolate-project/isolate-panel/internal/services"
 )
@@ -21,14 +22,23 @@ func NewUsersHandler(userService *services.UserService) *UsersHandler {
 }
 
 // CreateUser creates a new user
+//
+// @Summary      Create user
+// @Description  Create a new proxy user
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Param        body  body  services.CreateUserRequest  true  "User data"
+// @Success      201   {object}  services.UserResponse
+// @Failure      400   {object}  map[string]interface{}
+// @Router       /users [post]
+// @Security     BearerAuth
 func (h *UsersHandler) CreateUser(c fiber.Ctx) error {
 	adminID := c.Locals("admin_id").(uint)
 
-	var req services.CreateUserRequest
-	if err := c.Bind().JSON(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request body",
-		})
+	req, err := middleware.BindAndValidate[services.CreateUserRequest](c)
+	if err != nil {
+		return err
 	}
 
 	user, err := h.userService.CreateUser(&req, adminID)
@@ -42,6 +52,16 @@ func (h *UsersHandler) CreateUser(c fiber.Ctx) error {
 }
 
 // ListUsers lists all users
+//
+// @Summary      List users
+// @Description  Returns paginated list of all proxy users
+// @Tags         users
+// @Produce      json
+// @Param        page       query  int  false  "Page number"       default(1)
+// @Param        page_size  query  int  false  "Items per page"    default(20)
+// @Success      200        {object}  map[string]interface{}
+// @Router       /users [get]
+// @Security     BearerAuth
 func (h *UsersHandler) ListUsers(c fiber.Ctx) error {
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	pageSize, _ := strconv.Atoi(c.Query("page_size", "20"))
@@ -76,6 +96,16 @@ func (h *UsersHandler) ListUsers(c fiber.Ctx) error {
 }
 
 // GetUser retrieves a specific user
+//
+// @Summary      Get user
+// @Description  Returns a single user by ID
+// @Tags         users
+// @Produce      json
+// @Param        id   path  int  true  "User ID"
+// @Success      200  {object}  services.UserResponse
+// @Failure      404  {object}  map[string]interface{}
+// @Router       /users/{id} [get]
+// @Security     BearerAuth
 func (h *UsersHandler) GetUser(c fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
@@ -95,6 +125,18 @@ func (h *UsersHandler) GetUser(c fiber.Ctx) error {
 }
 
 // UpdateUser updates a user
+//
+// @Summary      Update user
+// @Description  Update user fields (all fields optional)
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Param        id    path  int                          true  "User ID"
+// @Param        body  body  services.UpdateUserRequest   true  "Fields to update"
+// @Success      200   {object}  services.UserResponse
+// @Failure      404   {object}  map[string]interface{}
+// @Router       /users/{id} [put]
+// @Security     BearerAuth
 func (h *UsersHandler) UpdateUser(c fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
@@ -103,11 +145,9 @@ func (h *UsersHandler) UpdateUser(c fiber.Ctx) error {
 		})
 	}
 
-	var req services.UpdateUserRequest
-	if err := c.Bind().JSON(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request body",
-		})
+	req, err := middleware.BindAndValidate[services.UpdateUserRequest](c)
+	if err != nil {
+		return err
 	}
 
 	user, err := h.userService.UpdateUser(uint(id), &req)
@@ -121,6 +161,16 @@ func (h *UsersHandler) UpdateUser(c fiber.Ctx) error {
 }
 
 // DeleteUser deletes a user
+//
+// @Summary      Delete user
+// @Description  Permanently delete a user and all associated data
+// @Tags         users
+// @Produce      json
+// @Param        id   path  int  true  "User ID"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      404  {object}  map[string]interface{}
+// @Router       /users/{id} [delete]
+// @Security     BearerAuth
 func (h *UsersHandler) DeleteUser(c fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
@@ -141,6 +191,16 @@ func (h *UsersHandler) DeleteUser(c fiber.Ctx) error {
 }
 
 // RegenerateCredentials regenerates user credentials
+//
+// @Summary      Regenerate credentials
+// @Description  Generate a new UUID, password, and subscription token for the user
+// @Tags         users
+// @Produce      json
+// @Param        id   path  int  true  "User ID"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      404  {object}  map[string]interface{}
+// @Router       /users/{id}/regenerate [post]
+// @Security     BearerAuth
 func (h *UsersHandler) RegenerateCredentials(c fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
@@ -163,6 +223,16 @@ func (h *UsersHandler) RegenerateCredentials(c fiber.Ctx) error {
 }
 
 // GetUserInbounds retrieves inbounds for a user
+//
+// @Summary      Get user inbounds
+// @Description  Returns all inbounds assigned to a specific user
+// @Tags         users
+// @Produce      json
+// @Param        id   path  int  true  "User ID"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      404  {object}  map[string]interface{}
+// @Router       /users/{id}/inbounds [get]
+// @Security     BearerAuth
 func (h *UsersHandler) GetUserInbounds(c fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -57,8 +58,9 @@ func setupUsersApp(t *testing.T) (*fiber.App, *gorm.DB) {
 
 func createTestUser(t *testing.T, app *fiber.App) uint {
 	t.Helper()
+	testName := strings.ReplaceAll(t.Name(), "TestUsersHandler_", "")
 	body, _ := json.Marshal(services.CreateUserRequest{
-		Username: "testuser_" + t.Name(),
+		Username: "user_" + testName,
 		Password: "pass123456",
 		Email:    "test@example.com",
 	})
@@ -66,6 +68,7 @@ func createTestUser(t *testing.T, app *fiber.App) uint {
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := app.Test(req)
 	require.NoError(t, err)
+
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
 
 	var result struct {

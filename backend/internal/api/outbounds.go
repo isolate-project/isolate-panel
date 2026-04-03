@@ -20,6 +20,16 @@ func NewOutboundsHandler(outboundService *services.OutboundService) *OutboundsHa
 }
 
 // ListOutbounds returns all outbounds with optional filtering
+//
+// @Summary      List outbounds
+// @Description  Returns all outbounds, optionally filtered by core_id or protocol
+// @Tags         outbounds
+// @Produce      json
+// @Param        core_id   query  int     false  "Filter by core ID"
+// @Param        protocol  query  string  false  "Filter by protocol name"
+// @Success      200       {object}  map[string]interface{}
+// @Router       /outbounds [get]
+// @Security     BearerAuth
 func (h *OutboundsHandler) ListOutbounds(c fiber.Ctx) error {
 	// Parse query parameters
 	var coreID *uint
@@ -47,6 +57,16 @@ func (h *OutboundsHandler) ListOutbounds(c fiber.Ctx) error {
 }
 
 // GetOutbound returns a specific outbound
+//
+// @Summary      Get outbound
+// @Description  Returns a single outbound by ID
+// @Tags         outbounds
+// @Produce      json
+// @Param        id   path  int  true  "Outbound ID"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      404  {object}  map[string]interface{}
+// @Router       /outbounds/{id} [get]
+// @Security     BearerAuth
 func (h *OutboundsHandler) GetOutbound(c fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
@@ -66,6 +86,17 @@ func (h *OutboundsHandler) GetOutbound(c fiber.Ctx) error {
 }
 
 // CreateOutbound creates a new outbound
+//
+// @Summary      Create outbound
+// @Description  Create a new proxy outbound routing rule
+// @Tags         outbounds
+// @Accept       json
+// @Produce      json
+// @Param        body  body  models.Outbound  true  "Outbound configuration"
+// @Success      201   {object}  map[string]interface{}
+// @Failure      400   {object}  map[string]interface{}
+// @Router       /outbounds [post]
+// @Security     BearerAuth
 func (h *OutboundsHandler) CreateOutbound(c fiber.Ctx) error {
 	var outbound models.Outbound
 	if err := c.Bind().JSON(&outbound); err != nil {
@@ -84,6 +115,17 @@ func (h *OutboundsHandler) CreateOutbound(c fiber.Ctx) error {
 }
 
 // UpdateOutbound updates an existing outbound
+//
+// @Summary      Update outbound
+// @Description  Update outbound fields (partial update)
+// @Tags         outbounds
+// @Accept       json
+// @Produce      json
+// @Param        id    path  int                     true  "Outbound ID"
+// @Param        body  body  map[string]interface{}  true  "Fields to update"
+// @Success      200   {object}  map[string]interface{}
+// @Router       /outbounds/{id} [put]
+// @Security     BearerAuth
 func (h *OutboundsHandler) UpdateOutbound(c fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
@@ -110,6 +152,16 @@ func (h *OutboundsHandler) UpdateOutbound(c fiber.Ctx) error {
 }
 
 // DeleteOutbound deletes an outbound
+//
+// @Summary      Delete outbound
+// @Description  Delete an outbound routing rule
+// @Tags         outbounds
+// @Produce      json
+// @Param        id   path  int  true  "Outbound ID"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      404  {object}  map[string]interface{}
+// @Router       /outbounds/{id} [delete]
+// @Security     BearerAuth
 func (h *OutboundsHandler) DeleteOutbound(c fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {

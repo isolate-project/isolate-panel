@@ -3,8 +3,13 @@ export { apiClient }
 
 // Auth endpoints
 export const authApi = {
-  login: (username: string, password: string) =>
-    apiClient.post('/auth/login', { username, password }),
+  login: (username: string, password: string, totpCode?: string) =>
+    apiClient.post('/auth/login', { username, password, ...(totpCode ? { totp_code: totpCode } : {}) }),
+
+  totpSetup: () => apiClient.post('/auth/totp/setup'),
+  totpVerify: (code: string) => apiClient.post('/auth/totp/verify', { code }),
+  totpDisable: (password: string) => apiClient.post('/auth/totp/disable', { password }),
+  totpStatus: () => apiClient.get('/auth/totp/status'),
 
   refresh: (refreshToken: string) =>
     apiClient.post('/auth/refresh', { refresh_token: refreshToken }),
@@ -161,6 +166,11 @@ export const systemApi = {
   getMonitoring: () => apiClient.get('/settings/monitoring'),
 
   updateMonitoring: (data: { mode: 'lite' | 'full' }) => apiClient.put('/settings/monitoring', data),
+
+  getTrafficResetSchedule: () => apiClient.get('/settings/traffic-reset'),
+
+  updateTrafficResetSchedule: (schedule: 'disabled' | 'weekly' | 'monthly') =>
+    apiClient.put('/settings/traffic-reset', { schedule }),
 
   connections: () => apiClient.get('/system/connections'),
 }

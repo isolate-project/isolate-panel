@@ -22,6 +22,16 @@ func NewInboundsHandler(inboundService *services.InboundService, portManager *se
 }
 
 // ListInbounds returns all inbounds with optional filtering
+//
+// @Summary      List inbounds
+// @Description  Returns all inbounds, optionally filtered by core_id or is_enabled
+// @Tags         inbounds
+// @Produce      json
+// @Param        core_id     query  int     false  "Filter by core ID"
+// @Param        is_enabled  query  bool    false  "Filter by enabled state"
+// @Success      200         {object}  map[string]interface{}
+// @Router       /inbounds [get]
+// @Security     BearerAuth
 func (h *InboundsHandler) ListInbounds(c fiber.Ctx) error {
 	// Parse query parameters
 	var coreID *uint
@@ -53,6 +63,16 @@ func (h *InboundsHandler) ListInbounds(c fiber.Ctx) error {
 }
 
 // GetInbound returns a specific inbound
+//
+// @Summary      Get inbound
+// @Description  Returns a single inbound by ID
+// @Tags         inbounds
+// @Produce      json
+// @Param        id   path  int  true  "Inbound ID"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      404  {object}  map[string]interface{}
+// @Router       /inbounds/{id} [get]
+// @Security     BearerAuth
 func (h *InboundsHandler) GetInbound(c fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
@@ -72,6 +92,17 @@ func (h *InboundsHandler) GetInbound(c fiber.Ctx) error {
 }
 
 // CreateInbound creates a new inbound
+//
+// @Summary      Create inbound
+// @Description  Create a new proxy inbound (listener) on a core
+// @Tags         inbounds
+// @Accept       json
+// @Produce      json
+// @Param        body  body  models.Inbound  true  "Inbound configuration"
+// @Success      201   {object}  map[string]interface{}
+// @Failure      400   {object}  map[string]interface{}
+// @Router       /inbounds [post]
+// @Security     BearerAuth
 func (h *InboundsHandler) CreateInbound(c fiber.Ctx) error {
 	var inbound models.Inbound
 	if err := c.Bind().JSON(&inbound); err != nil {
@@ -90,6 +121,18 @@ func (h *InboundsHandler) CreateInbound(c fiber.Ctx) error {
 }
 
 // UpdateInbound updates an existing inbound
+//
+// @Summary      Update inbound
+// @Description  Update inbound fields (partial update via map)
+// @Tags         inbounds
+// @Accept       json
+// @Produce      json
+// @Param        id    path  int                     true  "Inbound ID"
+// @Param        body  body  map[string]interface{}  true  "Fields to update"
+// @Success      200   {object}  map[string]interface{}
+// @Failure      400   {object}  map[string]interface{}
+// @Router       /inbounds/{id} [put]
+// @Security     BearerAuth
 func (h *InboundsHandler) UpdateInbound(c fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
@@ -116,6 +159,16 @@ func (h *InboundsHandler) UpdateInbound(c fiber.Ctx) error {
 }
 
 // DeleteInbound deletes an inbound
+//
+// @Summary      Delete inbound
+// @Description  Delete an inbound and remove all user assignments
+// @Tags         inbounds
+// @Produce      json
+// @Param        id   path  int  true  "Inbound ID"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      404  {object}  map[string]interface{}
+// @Router       /inbounds/{id} [delete]
+// @Security     BearerAuth
 func (h *InboundsHandler) DeleteInbound(c fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
@@ -136,6 +189,15 @@ func (h *InboundsHandler) DeleteInbound(c fiber.Ctx) error {
 }
 
 // GetInboundsByCore returns all inbounds for a specific core
+//
+// @Summary      Get inbounds by core
+// @Description  Returns all inbounds belonging to a specific core
+// @Tags         inbounds
+// @Produce      json
+// @Param        core_id  path  int  true  "Core ID"
+// @Success      200      {object}  map[string]interface{}
+// @Router       /inbounds/core/{core_id} [get]
+// @Security     BearerAuth
 func (h *InboundsHandler) GetInboundsByCore(c fiber.Ctx) error {
 	coreID, err := strconv.ParseUint(c.Params("core_id"), 10, 32)
 	if err != nil {
@@ -155,6 +217,16 @@ func (h *InboundsHandler) GetInboundsByCore(c fiber.Ctx) error {
 }
 
 // AssignInboundToUser assigns an inbound to a user
+//
+// @Summary      Assign inbound to user
+// @Description  Grant a user access to an inbound
+// @Tags         inbounds
+// @Accept       json
+// @Produce      json
+// @Param        body  body  map[string]interface{}  true  "{user_id, inbound_id}"
+// @Success      200   {object}  map[string]interface{}
+// @Router       /inbounds/assign [post]
+// @Security     BearerAuth
 func (h *InboundsHandler) AssignInboundToUser(c fiber.Ctx) error {
 	type AssignRequest struct {
 		UserID    uint `json:"user_id"`
@@ -180,6 +252,16 @@ func (h *InboundsHandler) AssignInboundToUser(c fiber.Ctx) error {
 }
 
 // UnassignInboundFromUser removes an inbound assignment from a user
+//
+// @Summary      Unassign inbound from user
+// @Description  Revoke a user's access to an inbound
+// @Tags         inbounds
+// @Accept       json
+// @Produce      json
+// @Param        body  body  map[string]interface{}  true  "{user_id, inbound_id}"
+// @Success      200   {object}  map[string]interface{}
+// @Router       /inbounds/unassign [post]
+// @Security     BearerAuth
 func (h *InboundsHandler) UnassignInboundFromUser(c fiber.Ctx) error {
 	type UnassignRequest struct {
 		UserID    uint `json:"user_id"`
@@ -205,6 +287,15 @@ func (h *InboundsHandler) UnassignInboundFromUser(c fiber.Ctx) error {
 }
 
 // GetInboundUsers returns all users assigned to an inbound
+//
+// @Summary      Get inbound users
+// @Description  Returns all users that have access to a specific inbound
+// @Tags         inbounds
+// @Produce      json
+// @Param        id   path  int  true  "Inbound ID"
+// @Success      200  {object}  map[string]interface{}
+// @Router       /inbounds/{id}/users [get]
+// @Security     BearerAuth
 func (h *InboundsHandler) GetInboundUsers(c fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
@@ -227,6 +318,17 @@ func (h *InboundsHandler) GetInboundUsers(c fiber.Ctx) error {
 }
 
 // BulkAssignUsers bulk adds/removes users from an inbound
+//
+// @Summary      Bulk assign users
+// @Description  Add or remove multiple users from an inbound in a single request
+// @Tags         inbounds
+// @Accept       json
+// @Produce      json
+// @Param        id    path  int                     true  "Inbound ID"
+// @Param        body  body  map[string]interface{}  true  "{add_user_ids: [], remove_user_ids: []}"
+// @Success      200   {object}  map[string]interface{}
+// @Router       /inbounds/{id}/users/bulk [post]
+// @Security     BearerAuth
 func (h *InboundsHandler) BulkAssignUsers(c fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
@@ -262,6 +364,16 @@ func (h *InboundsHandler) BulkAssignUsers(c fiber.Ctx) error {
 }
 
 // CheckPort checks if a port is available
+//
+// @Summary      Check port availability
+// @Description  Returns whether the given port is available or already in use
+// @Tags         inbounds
+// @Produce      json
+// @Param        port        query  int  true   "Port number to check"
+// @Param        exclude_id  query  int  false  "Inbound ID to exclude from conflict check"
+// @Success      200         {object}  map[string]interface{}
+// @Router       /inbounds/check-port [get]
+// @Security     BearerAuth
 func (h *InboundsHandler) CheckPort(c fiber.Ctx) error {
 	portStr := c.Query("port")
 	if portStr == "" {

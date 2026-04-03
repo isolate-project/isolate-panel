@@ -14,6 +14,16 @@ func NewProtocolsHandler() *ProtocolsHandler {
 
 // ListProtocols returns summaries of all registered protocols.
 // Supports optional query params: ?core=xray&direction=inbound
+//
+// @Summary      List protocols
+// @Description  Returns all registered protocol schemas (25+ protocols). Filter by core or direction.
+// @Tags         protocols
+// @Produce      json
+// @Param        core       query  string  false  "Filter by core (xray, sing-box, mihomo)"
+// @Param        direction  query  string  false  "Filter by direction (inbound, outbound, both)"
+// @Success      200        {object}  map[string]interface{}
+// @Router       /protocols [get]
+// @Security     BearerAuth
 func (h *ProtocolsHandler) ListProtocols(c fiber.Ctx) error {
 	coreName := c.Query("core")
 	direction := c.Query("direction")
@@ -53,6 +63,16 @@ func (h *ProtocolsHandler) ListProtocols(c fiber.Ctx) error {
 }
 
 // GetProtocol returns the full schema for a specific protocol
+//
+// @Summary      Get protocol schema
+// @Description  Returns the full parameter schema for a specific protocol (field types, validation, etc.)
+// @Tags         protocols
+// @Produce      json
+// @Param        name  path  string  true  "Protocol name (e.g. vless, vmess, trojan)"
+// @Success      200   {object}  map[string]interface{}
+// @Failure      404   {object}  map[string]interface{}
+// @Router       /protocols/{name} [get]
+// @Security     BearerAuth
 func (h *ProtocolsHandler) GetProtocol(c fiber.Ctx) error {
 	name := c.Params("name")
 	if name == "" {
@@ -73,6 +93,16 @@ func (h *ProtocolsHandler) GetProtocol(c fiber.Ctx) error {
 
 // GetProtocolDefaults returns auto-generated default values for a protocol's parameters.
 // This is used by the inbound creation wizard to pre-fill fields.
+//
+// @Summary      Get protocol defaults
+// @Description  Returns auto-generated default values for all protocol parameters (UUID, port, etc.)
+// @Tags         protocols
+// @Produce      json
+// @Param        name  path  string  true  "Protocol name"
+// @Success      200   {object}  map[string]interface{}
+// @Failure      404   {object}  map[string]interface{}
+// @Router       /protocols/{name}/defaults [get]
+// @Security     BearerAuth
 func (h *ProtocolsHandler) GetProtocolDefaults(c fiber.Ctx) error {
 	name := c.Params("name")
 	if name == "" {

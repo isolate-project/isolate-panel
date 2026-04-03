@@ -1,6 +1,6 @@
-# Isolate Panel Architecture
+# Isolate Panel — Architecture
 
-System architecture documentation for Isolate Panel v0.1.0
+v1.0.0
 
 ---
 
@@ -9,73 +9,63 @@ System architecture documentation for Isolate Panel v0.1.0
 1. [System Overview](#system-overview)
 2. [Backend Architecture](#backend-architecture)
 3. [Frontend Architecture](#frontend-architecture)
-4. [Core Integration](#core-integration)
+4. [Real-time Data Flow](#real-time-data-flow)
 5. [Security Architecture](#security-architecture)
-6. [Data Flow](#data-flow)
-7. [Deployment Architecture](#deployment-architecture)
+6. [Core Integration](#core-integration)
+7. [Background Workers](#background-workers)
+8. [Deployment Architecture](#deployment-architecture)
 
 ---
 
 ## System Overview
 
-Isolate Panel is a lightweight proxy core management panel for Xray, Sing-box, and Mihomo.
-
-### High-Level Architecture
+Isolate Panel is a single-binary web application (Go backend + Preact SPA) accessible **only via SSH tunnel**. It never listens on public interfaces.
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                     User Browser                         │
-│                                                          │
-│  ┌──────────────────────────────────────────────────┐  │
-│  │           Preact Frontend (SPA)                  │  │
-│  │  - Dashboard                                     │  │
-│  │  - User Management                               │  │
-│  │  - Inbound/Outbound Management                   │  │
-│  │  - Settings                                      │  │
-│  └──────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────┘
-                           │
-                           │ HTTP/HTTPS
-                           │
-┌─────────────────────────────────────────────────────────┐
-│              Isolate Panel Backend (Go + Fiber)         │
-│                                                          │
-│  ┌──────────────────────────────────────────────────┐  │
-│  │              API Layer (Fiber v3)                │  │
-│  │  - Authentication Middleware                     │  │
-│  │  - Rate Limiting                                 │  │
-│  │  - Request/Response Handlers                     │  │
-│  └──────────────────────────────────────────────────┘  │
-│                          │                              │
-│  ┌──────────────────────────────────────────────────┐  │
-│  │              Service Layer                       │  │
-│  │  - UserService                                   │  │
-│  │  - InboundService                                │  │
-│  │  - OutboundService                               │  │
-│  │  - CoreLifecycleManager                          │  │
-│  │  - TrafficCollector                              │  │
-│  │  - NotificationService                           │  │
-│  │  - BackupService                                 │  │
-│  └──────────────────────────────────────────────────┘  │
-│                          │                              │
-│  ┌──────────────────────────────────────────────────┐  │
-│  │           Data Access Layer (GORM)               │  │
-│  │  - SQLite Database                               │  │
-│  │  - Migrations                                    │  │
-│  │  - Models                                        │  │
-│  └──────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────┘
-                           │
-                           │ Supervisord API
-                           │
-┌─────────────────────────────────────────────────────────┐
-│              Proxy Cores (Supervisord)                  │
-│                                                          │
-│  ┌────────────┐  ┌────────────┐  ┌────────────┐       │
-│  │  Sing-box  │  │    Xray    │  │   Mihomo   │       │
-│  │  (1.13.3)  │  │  (26.2.6)  │  │  (1.19.21) │       │
-│  └────────────┘  └────────────┘  └────────────┘       │
-└─────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│  Admin Browser (via SSH tunnel localhost:8080)                        │
+│                                                                       │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │  Preact SPA (lazy-loaded routes, Zustand, Tailwind CSS 4)    │   │
+│  │  WebSocket ──────────────────────────────────────────────►   │   │
+│  │  REST API  ──────────────────────────────────────────────►   │   │
+│  └──────────────────────────────────────────────────────────────┘   │
+└──────────────────────────────────────────────────────────────────────┘
+                              │ SSH tunnel
+┌──────────────────────────────────────────────────────────────────────┐
+│  VPS / Server                                                         │
+│                                                                       │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │  Isolate Panel Backend (Go 1.25 + Fiber v3)                  │   │
+│  │                                                               │   │
+│  │  Middleware chain:                                            │   │
+│  │  SecurityHeaders → Recovery → CORS → RequestLogger           │   │
+│  │                                                               │   │
+│  │  ┌────────────┐  ┌───────────────┐  ┌──────────────────┐   │   │
+│  │  │ HTTP       │  │ WebSocket     │  │ Subscription     │   │   │
+│  │  │ Handlers   │  │ Hub           │  │ Endpoints        │   │   │
+│  │  │ /api/*     │  │ /api/ws/*     │  │ /sub/:token      │   │   │
+│  │  └─────┬──────┘  └──────┬────────┘  └──────────────────┘   │   │
+│  │        │                │                                    │   │
+│  │  ┌─────▼────────────────▼──────────────────────────────┐   │   │
+│  │  │  Services Layer                                       │   │   │
+│  │  │  UserService, CoreLifecycle, SubscriptionService,    │   │   │
+│  │  │  BackupService, CertificateService, WARPService,     │   │   │
+│  │  │  TrafficCollector, ConnectionTracker, QuotaEnforcer  │   │   │
+│  │  └─────────────────────────┬───────────────────────────┘   │   │
+│  │                             │                                │   │
+│  │  ┌──────────────────────────▼──────────────────────────┐   │   │
+│  │  │  GORM + SQLite  (data/isolate.db)                    │   │   │
+│  │  └──────────────────────────────────────────────────────┘   │   │
+│  └──────────────────────────────────────────────────────────────┘   │
+│                                                                       │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │  Supervisord                                                   │   │
+│  │  ├── xray (process)                                           │   │
+│  │  ├── sing-box (process)                                       │   │
+│  │  └── mihomo (process)                                         │   │
+│  └──────────────────────────────────────────────────────────────┘   │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -86,505 +76,304 @@ Isolate Panel is a lightweight proxy core management panel for Xray, Sing-box, a
 
 ```
 backend/
-├── cmd/
-│   ├── server/           # Main entry point
-│   └── migrate/          # Database migrations CLI
-├── internal/
-│   ├── acme/             # ACME/Let's Encrypt integration
-│   ├── api/              # HTTP API handlers
-│   │   ├── auth.go
-│   │   ├── users.go
-│   │   ├── inbounds.go
-│   │   ├── cores.go
-│   │   └── settings.go
-│   ├── auth/             # Authentication logic
-│   │   ├── token.go      # JWT token service
-│   │   └── password.go   # Argon2id password hashing
-│   ├── config/           # Configuration management
-│   ├── cores/            # Core configuration generators
-│   │   ├── singbox/
-│   │   ├── xray/
-│   │   └── mihomo/
-│   ├── database/         # Database layer
-│   │   ├── migrations/
-│   │   ├── seeds/
-│   │   └── db.go
-│   ├── middleware/       # HTTP middleware
-│   │   ├── auth.go
-│   │   ├── ratelimit.go
-│   │   └── cors.go
-│   ├── models/           # GORM models
-│   ├── protocol/         # Protocol definitions
-│   ├── scheduler/        # Background jobs
-│   ├── services/         # Business logic
-│   │   ├── user_service.go
-│   │   ├── inbound_service.go
-│   │   ├── core_lifecycle.go
-│   │   ├── traffic_collector.go
-│   │   └── ...
-│   └── stats/            # Statistics collection
-└── tests/                # Test files
-    ├── testutil/
-    ├── unit/
-    ├── integration/
-    └── e2e/
+├── cmd/server/main.go          # Entry point (startup, graceful shutdown)
+└── internal/
+    ├── app/
+    │   ├── providers.go        # DI: wires all services and handlers into App{}
+    │   ├── routes.go           # All HTTP routes registration
+    │   └── background.go       # StartWorkers / StopWorkers
+    ├── api/                    # Fiber v3 HTTP handlers (one file per domain)
+    │   ├── auth.go             # Login, Refresh, Logout, Me, TOTP endpoints
+    │   ├── users.go            # User CRUD + credential management
+    │   ├── cores.go            # Core start/stop/restart/status
+    │   ├── inbounds.go         # Inbound CRUD + user assignment
+    │   ├── outbounds.go        # Outbound CRUD
+    │   ├── certificates.go     # ACME + manual cert management
+    │   ├── stats.go            # Traffic stats, connections, dashboard stats
+    │   ├── subscriptions.go    # Subscription URL generation
+    │   ├── settings.go         # Monitoring, traffic reset schedule
+    │   ├── warp.go             # WARP routes + Geo rules
+    │   ├── backup.go           # Backup CRUD + schedule
+    │   ├── notifications.go    # Notification history + settings
+    │   ├── audit.go            # Audit log listing
+    │   ├── protocols.go        # Protocol schema registry
+    │   └── websocket.go        # DashboardHub — WS broadcast every 5s
+    ├── services/               # Business logic
+    │   ├── user_service.go
+    │   ├── core_lifecycle.go   # Start/stop cores via Supervisord
+    │   ├── config_service.go   # Generate core config from DB state
+    │   ├── traffic_collector.go
+    │   ├── connection_tracker.go
+    │   ├── quota_enforcer.go   # Auto traffic quota enforcement + reset
+    │   ├── subscription_service.go
+    │   ├── backup_service.go   # AES-256-GCM streaming encrypt/decrypt
+    │   ├── certificate_service.go
+    │   ├── warp_service.go
+    │   ├── geo_service.go
+    │   ├── notification_service.go
+    │   ├── settings_service.go
+    │   └── audit_service.go
+    ├── models/                 # GORM models
+    ├── database/
+    │   ├── migrations/         # 000001–000029 SQL migrations (append-only)
+    │   └── seeds/              # Dev data seeders
+    ├── middleware/
+    │   ├── auth.go             # JWT validation (AuthMiddleware)
+    │   ├── rate_limiter.go     # LoginRateLimiter, AuthRateLimiter, HeavyRL
+    │   ├── audit.go            # AuditAction middleware
+    │   ├── security.go         # CSP, X-Frame-Options, security headers
+    │   ├── validator.go        # BindAndValidate[T] generic helper
+    │   ├── cors.go
+    │   ├── recovery.go
+    │   └── logger.go
+    ├── scheduler/
+    │   ├── backup_scheduler.go         # Cron-based backup scheduler
+    │   └── traffic_reset_scheduler.go  # Weekly / monthly traffic reset
+    ├── auth/
+    │   └── token_service.go    # JWT access + refresh token management
+    ├── cache/
+    │   └── manager.go          # Ristretto in-memory cache
+    ├── cores/
+    │   └── core_manager.go     # Supervisord XML-RPC client
+    ├── config/                 # Viper config loading
+    ├── logger/                 # Zerolog initialization
+    └── version/                # Version string (injected via ldflags)
 ```
 
-### Service Layer Pattern
+### Dependency Injection
+
+All dependencies are wired in `internal/app/providers.go`:
 
 ```
-┌─────────────────────────────────────────┐
-│          API Handler (Fiber)            │
-│  - HTTP request/response                │
-│  - Input validation                     │
-│  - Authentication/Authorization         │
-└─────────────────────────────────────────┘
-                    │
-                    ▼
-┌─────────────────────────────────────────┐
-│          Service Layer                  │
-│  - Business logic                       │
-│  - Transaction management               │
-│  - Cross-cutting concerns               │
-└─────────────────────────────────────────┘
-                    │
-                    ▼
-┌─────────────────────────────────────────┐
-│        Data Access Layer (GORM)         │
-│  - Database operations                  │
-│  - ORM mapping                          │
-│  - Migrations                           │
-└─────────────────────────────────────────┘
+NewApp(cfg, db) → *App
+  ├── Auth:         TokenService, AuthHandler
+  ├── Users:        UserService, UsersHandler
+  ├── Cores:        CoreManager, CoresHandler
+  ├── Inbounds:     InboundService, InboundsHandler
+  ├── Outbounds:    OutboundService, OutboundsHandler
+  ├── Stats:        TrafficCollector, ConnectionTracker, StatsHandler
+  ├── Certs:        CertificateService, CertificatesHandler
+  ├── Subscriptions: SubscriptionService, SubscriptionsHandler
+  ├── Settings:     SettingsService, SettingsHandler
+  ├── WARP:         WARPService, GeoService, WarpHandler
+  ├── Backup:       BackupService, BackupScheduler, BackupHandler
+  ├── Notifications: NotificationService, NotificationHandler
+  ├── Audit:        AuditService, AuditHandler
+  ├── Quota:        QuotaEnforcer
+  ├── DashboardHub: WebSocket broadcast hub
+  └── TrafficResetSched: Traffic reset scheduler
 ```
 
-### Key Services
+### Request flow
 
-**UserService:**
-- User CRUD operations
-- Credential generation (UUID, tokens)
-- Traffic quota management
-- Expiry date management
-
-**InboundService:**
-- Inbound proxy configuration
-- Protocol-specific config generation
-- Port management
-- User-inbound mapping
-
-**CoreLifecycleManager:**
-- Core process management (start/stop/restart)
-- Supervisord integration
-- Lazy loading (autostart=false)
-- Health monitoring
-
-**TrafficCollector:**
-- Periodic stats collection (60s/10s intervals)
-- Traffic aggregation
-- Quota enforcement integration
-- Monitoring mode support (lite/full)
-
-**NotificationService:**
-- Webhook notifications
-- Telegram bot integration
-- Event-based notifications
-- Retry logic
+```
+HTTP Request
+  → SecurityHeaders middleware
+  → Recovery middleware
+  → CORS middleware
+  → RequestLogger middleware
+  → Auth middleware (for /api/* protected routes)
+  → Rate limiter middleware
+  → Handler function
+  → Service layer
+  → GORM / SQLite
+  → JSON response
+```
 
 ---
 
 ## Frontend Architecture
 
-### Technology Stack
-
-- **Framework:** Preact 10.x (lightweight React alternative)
-- **Build Tool:** Vite 6.x
-- **UI Components:** Custom components with Tailwind CSS
-- **State Management:** Zustand (lightweight state management)
-- **HTTP Client:** Axios
-- **Routing:** Preact Router
-- **i18n:** react-i18next
-
-### Component Structure
-
 ```
-frontend/
-├── src/
-│   ├── api/                # API client
-│   │   └── endpoints/      # API endpoint definitions
-│   ├── components/
-│   │   ├── ui/             # Reusable UI components
-│   │   │   ├── Button.tsx
-│   │   │   ├── Input.tsx
-│   │   │   ├── Card.tsx
-│   │   │   ├── Modal.tsx
-│   │   │   └── ...
-│   │   └── layout/         # Layout components
-│   │       ├── Sidebar.tsx
-│   │       ├── PageLayout.tsx
-│   │       └── PageHeader.tsx
-│   ├── pages/              # Page components
-│   │   ├── Dashboard.tsx
-│   │   ├── Users.tsx
-│   │   ├── Inbounds.tsx
-│   │   ├── Settings.tsx
-│   │   └── ...
-│   ├── stores/             # Zustand stores
-│   │   ├── themeStore.ts
-│   │   ├── toastStore.ts
-│   │   └── authStore.ts
-│   ├── i18n/               # Internationalization
-│   │   └── locales/        # Translation files (en/ru/zh)
-│   ├── utils/              # Utility functions
-│   ├── app.tsx             # Root component
-│   └── main.tsx            # Entry point
-└── tests/                  # Test files
+frontend/src/
+├── app.tsx                     # Root: lazy-loaded routes, Suspense, ErrorBoundary
+├── pages/                      # 17 page components (all lazy-loaded via preact/compat)
+│   ├── Dashboard.tsx           # Real-time stats (WebSocket + polling fallback)
+│   ├── Users.tsx / UserCreate / UserEdit
+│   ├── Cores.tsx
+│   ├── Inbounds.tsx / InboundCreate / InboundEdit
+│   ├── Outbounds.tsx / OutboundCreate / OutboundEdit
+│   ├── Certificates.tsx
+│   ├── Backups.tsx
+│   ├── Settings.tsx
+│   ├── AuditLogs.tsx
+│   ├── Login.tsx
+│   └── NotFound.tsx
+├── components/
+│   ├── layout/                 # PageLayout, PageHeader, Sidebar, Navbar
+│   ├── ui/                     # Atomic UI: Button, Card, Badge, Input, Table...
+│   └── features/               # Domain-specific: RAMPanicButton, DashboardCharts...
+├── hooks/
+│   ├── useUsers.ts, useCores.ts, useInbounds.ts, ...  # Data-fetching hooks
+│   ├── useWebSocket.ts         # Generic WS hook with reconnect
+│   ├── useSystem.ts            # System resources polling
+│   └── useConnections.ts
+├── stores/
+│   ├── authStore.ts            # Zustand: access/refresh tokens, admin info
+│   ├── themeStore.ts           # Zustand: light/dark theme
+│   └── toastStore.ts           # Zustand: toast notification queue
+├── api/
+│   ├── client.ts               # Axios instance, interceptors (token refresh)
+│   └── endpoints/              # Typed endpoint functions per domain
+├── i18n/                       # react-i18next: en/ru locale files
+├── lib/
+│   └── utils.ts                # cn() classname utility, formatters
+└── types/                      # Shared TypeScript interfaces
 ```
 
-### State Management Flow
+### Code splitting
+
+All 17 pages are lazy-loaded via `preact/compat`'s `lazy()`:
+
+```tsx
+const Dashboard = lazy(() =>
+  import('./pages/Dashboard').then(m => ({ default: m.Dashboard }))
+)
+```
+
+Vite creates per-route JS chunks, reducing the initial bundle from ~800 KB to ~120 KB.
+
+---
+
+## Real-time Data Flow
+
+### Dashboard WebSocket
 
 ```
-┌─────────────────────────────────────────┐
-│           Component (Preact)            │
-│  - Page/User Interface                  │
-│  - User Interactions                    │
-└─────────────────────────────────────────┘
-         │                    │
-         │                    │
-         ▼                    ▼
-┌─────────────────┐  ┌─────────────────┐
-│  API Client     │  │  Zustand Store  │
-│  (Axios)        │  │  (State)        │
-└─────────────────┘  └─────────────────┘
-         │                    │
-         │                    │
-         ▼                    ▼
-┌─────────────────────────────────────────┐
-│          Backend API (Fiber)            │
-└─────────────────────────────────────────┘
+Frontend (Dashboard.tsx)
+  useWebSocket('/api/ws/dashboard?token=<JWT>')
+       │
+       │  WebSocket upgrade
+       ▼
+Backend: DashboardHub.DashboardWS()
+  → validate JWT from ?token= query param
+  → wsUpgrader.Upgrade(c.RequestCtx(), handler)
+  → register conn in hub
+       │
+       │  every 5 seconds
+       ▼
+DashboardHub.collectStats()
+  → DB: COUNT users, active users, running cores
+  → ConnectionTracker: active connections count
+  → DB: SUM traffic_used_bytes
+  → broadcast JSON to all connected clients
+       │
+       ▼
+Frontend receives DashboardWSPayload
+  → updates totalUsers, activeUsers, activeConnections, totalTraffic, runningCores
+  → falls back to polling hooks when WS disconnected
+```
+
+### Traffic collection
+
+```
+TrafficCollector (goroutine, configurable interval)
+  → polls each running core's API (Xray stats API, etc.)
+  → updates users.traffic_used_bytes in DB
+  → DataAggregator writes hourly/daily records to traffic_stats table
+```
+
+---
+
+## Security Architecture
+
+| Layer | Mechanism |
+|---|---|
+| Transport | SSH tunnel only (no public binding) |
+| Authentication | JWT access tokens (15 min) + refresh tokens (7 days, stored hashed) |
+| Passwords | Argon2id (memory=64MB, iterations=3, parallelism=4) |
+| 2FA | TOTP (pquerna/otp, RFC 6238) |
+| Authorization | JWT claims (admin_id, is_super_admin) |
+| Rate limiting | Login: 5/min · Protected: 60/min · Heavy ops: 10/min |
+| Input validation | `go-playground/validator/v10` via `BindAndValidate[T]` |
+| Audit log | AuditAction middleware on all state-changing operations |
+| HTTP headers | CSP, X-Frame-Options: DENY, X-XSS-Protection, Referrer-Policy |
+| Subscriptions | Token-based, rate limited (10/hour), returns 404 on invalid token |
+
+### JWT flow
+
+```
+POST /auth/login { username, password, totp_code? }
+  → verify Argon2id hash
+  → if TOTP enabled: validate TOTP code
+  → generate access_token (JWT, 15min) + refresh_token (opaque, hashed in DB)
+  → return { access_token, refresh_token, expires_in }
+
+POST /auth/refresh { refresh_token }
+  → lookup hashed token in DB
+  → generate new access_token
+  → return { access_token }
+
+POST /auth/logout { refresh_token }
+  → mark refresh token as revoked in DB
 ```
 
 ---
 
 ## Core Integration
 
-### Lazy Loading Architecture
-
-Cores are NOT started automatically. They use lazy loading:
-
-```ini
-# Supervisord Configuration
-[program:singbox]
-command=/usr/local/bin/sing-box run -c /app/data/cores/singbox/config.json
-autostart=false    # ← Lazy loading
-autorestart=true
-
-[program:xray]
-command=/usr/local/bin/xray run -c /app/data/cores/xray/config.json
-autostart=false    # ← Lazy loading
-autorestart=true
-
-[program:mihomo]
-command=/usr/local/bin/mihomo -f /app/data/cores/mihomo/config.yaml
-autostart=false    # ← Lazy loading
-autorestart=true
-```
-
-### Core Lifecycle Flow
+Proxy cores (Xray, Sing-box, Mihomo) run as Supervisord-managed processes.
 
 ```
-1. User creates inbound via UI
-        │
-        ▼
-2. Backend generates core-specific config
-        │
-        ▼
-3. CoreLifecycleManager checks if core is running
-        │
-        ├─► Not running → Start core via Supervisord
-        │
-        └─► Running → Apply config reload
-        │
-        ▼
-4. Core starts/reloads with new configuration
-        │
-        ▼
-5. TrafficCollector begins collecting stats
-```
+CoreManager (Supervisord XML-RPC client)
+  ├── StartCore(name)    → supervisord.startProcess(name)
+  ├── StopCore(name)     → supervisord.stopProcess(name)
+  ├── RestartCore(name)  → supervisord.restartProcess(name)
+  └── GetCoreStatus(name) → parse supervisord state
 
-### Protocol Support
+ConfigService
+  ├── GenerateConfig(coreName) → builds JSON/YAML from DB inbounds + outbounds
+  └── RegenerateAndReload(name) → generate + write config + restart core
 
-**Sing-box:**
-- VMess
-- VLESS
-- Trojan
-- Shadowsocks
-- Hysteria2
-- TUIC
-
-**Xray:**
-- VMess
-- VLESS
-- Trojan
-- Shadowsocks
-- Reality
-
-**Mihomo:**
-- VMess
-- VLESS
-- Trojan
-- Shadowsocks
-- Hysteria2
-- WireGuard
-
----
-
-## Security Architecture
-
-### Authentication Flow
-
-```
-┌─────────┐                  ┌─────────┐
-│  User   │                  │ Backend │
-└────┬────┘                  └────┬────┘
-     │                            │
-     │  POST /api/auth/login      │
-     │  {username, password}      │
-     │───────────────────────────>│
-     │                            │
-     │  Argon2id password verify  │
-     │                            │
-     │  Generate JWT tokens       │
-     │  (access + refresh)        │
-     │                            │
-     │  Response with tokens      │
-     │<───────────────────────────│
-     │                            │
-     │  Subsequent requests       │
-     │  Authorization: Bearer     │
-     │───────────────────────────>│
-     │                            │
-     │  Validate JWT signature    │
-     │  Check expiration          │
-     │                            │
-     │  Response with data        │
-     │<───────────────────────────│
-```
-
-### Password Hashing (Argon2id)
-
-```go
-// Parameters
-Time:    3 iterations
-Memory:  64 MB
-Threads: 4 parallel threads
-KeyLen:  32 bytes
-SaltLen: 16 bytes
-
-// Example hash
-$argon2id$v=19$m=65536,t=3,p=4$c29tZXNhbHQ$RdescudvJCsgt3ub+b+dWRWJTmaaJObG
-```
-
-### JWT Token Structure
-
-**Access Token (15 minutes):**
-```json
-{
-  "sub": "1",
-  "username": "admin",
-  "is_super_admin": true,
-  "exp": 1648234567,
-  "iat": 1648233667
-}
-```
-
-**Refresh Token (7 days):**
-```json
-{
-  "sub": "1",
-  "username": "admin",
-  "exp": 1648838467,
-  "iat": 1648233667
-}
-```
-
-### Rate Limiting
-
-| Endpoint | Limit | Window |
-|----------|-------|--------|
-| `/api/auth/login` | 5 requests | 1 minute |
-| `/sub/:token` | 30 requests | 1 minute |
-| All other endpoints | 100 requests | 1 minute |
-
-### Security Headers
-
-```
-X-Content-Type-Options: nosniff
-X-Frame-Options: DENY
-X-XSS-Protection: 1; mode=block
-Strict-Transport-Security: max-age=31536000
-Content-Security-Policy: default-src 'self'
+TrafficCollector + ConnectionTracker
+  └── poll Xray Stats API / Sing-box / Mihomo management APIs
 ```
 
 ---
 
-## Data Flow
+## Background Workers
 
-### User Creation Flow
+Started at launch, stopped gracefully on SIGTERM/SIGINT:
 
-```
-1. Admin creates user via UI
-        │
-        ▼
-2. Frontend: POST /api/users
-        │
-        ▼
-3. Backend: Validate input
-        │
-        ▼
-4. Generate credentials:
-   - UUID v4
-   - Subscription token (32 bytes)
-   - TUIC token (optional)
-        │
-        ▼
-5. Hash password (Argon2id)
-        │
-        ▼
-6. Save to database (SQLite)
-        │
-        ▼
-7. Send notification (optional)
-        │
-        ▼
-8. Return user data with credentials
-```
-
-### Traffic Collection Flow
-
-```
-┌─────────────────────────────────────────┐
-│      TrafficCollector (Goroutine)       │
-│                                         │
-│  while running:                         │
-│    sleep(interval)  // 60s or 10s       │
-│    for each core:                       │
-│      collect_stats()                    │
-│    for each user:                       │
-│      update_traffic_used()              │
-│      check_quota()                      │
-└─────────────────────────────────────────┘
-           │
-           │ Stats API
-           ▼
-┌─────────────────────────────────────────┐
-│         Proxy Cores                     │
-│  - Sing-box stats API                   │
-│  - Xray stats API                       │
-│  - Mihomo stats API                     │
-└─────────────────────────────────────────┘
-```
+| Worker | Purpose | Interval |
+|---|---|---|
+| DashboardHub | Broadcast WS stats to connected clients | 5 s |
+| TrafficCollector | Poll core traffic APIs, update user bytes | configurable |
+| ConnectionTracker | Track active connections | configurable |
+| DataAggregator | Aggregate raw stats into hourly/daily records | configurable |
+| DataRetention | Delete old stats records | daily |
+| BackupScheduler | Run scheduled backups (cron) | per schedule |
+| TrafficResetScheduler | Reset all user traffic (weekly / monthly) | per schedule |
+| QuotaEnforcer | Check quotas, expire users | 5 min |
+| WARPService.AutoRefresh | Refresh WARP tokens | 24 h |
+| GeoService.AutoUpdate | Download updated GeoIP/GeoSite DBs | 7 days |
 
 ---
 
 ## Deployment Architecture
 
-### Docker Container Structure
+### Production (Docker)
 
 ```
-┌─────────────────────────────────────────┐
-│         Isolate Panel Container         │
-│                                         │
-│  /usr/local/bin/isolate-panel  ← Backend│
-│  /var/www/html                 ← Frontend│
-│  /usr/local/bin/xray           ← Core   │
-│  /usr/local/bin/sing-box       ← Core   │
-│  /usr/local/bin/mihomo         ← Core   │
-│  /app/data                     ← Volume │
-│  /var/log/supervisor           ← Logs   │
-│                                         │
-│  Supervisord (PID 1)                    │
-│  ├─ isolate-panel (backend)             │
-│  ├─ singbox (lazy)                      │
-│  ├─ xray (lazy)                         │
-│  └─ mihomo (lazy)                       │
-└─────────────────────────────────────────┘
+docker-compose up -d
+  │
+  └── isolate-panel container (Alpine Linux, non-root user isolate)
+        ├── supervisord (PID 1)
+        │     ├── isolate-server  → Go binary on :8080
+        │     ├── xray            → /usr/local/bin/xray
+        │     ├── singbox         → /usr/local/bin/sing-box
+        │     └── mihomo          → /usr/local/bin/mihomo
+        └── volumes
+              ├── /data           → SQLite database
+              ├── /etc/isolate-panel/certs   → certificates
+              └── /var/log/isolate-panel     → log files
 ```
 
-### Network Architecture
+### Port bindings
 
-```
-Internet
-    │
-    ├── Port 443 ──► Proxy Cores (Xray/Sing-box/Mihomo)
-    │
-    └── Port 8080 ──► Isolate Panel (localhost only)
-                           │
-                           └── SSH Tunnel ──► Admin Browser
-```
+| Port | Service | Binding |
+|---|---|---|
+| 8080 | Isolate Panel API | `127.0.0.1:8080` (localhost only) |
+| Proxy ports | Core inbounds | `0.0.0.0:PORT` (defined per inbound) |
 
-### Volume Structure
-
-```
-./data/
-├── isolate-panel.db          # SQLite database
-├── cores/
-│   ├── singbox/
-│   │   └── config.json
-│   ├── xray/
-│   │   └── config.json
-│   └── mihomo/
-│       └── config.yaml
-├── backups/
-│   └── backup-20260325.db
-├── certificates/
-│   └── example.com.crt
-├── geo/
-│   ├── geoip.dat
-│   └── geosite.dat
-└── warp/
-    └── wgcf.conf
-```
-
----
-
-## Monitoring Architecture
-
-### Monitoring Modes
-
-**Lite Mode (default):**
-- Collection interval: 60 seconds
-- RAM usage: ~30MB
-- Accuracy: ±1 minute
-- Use case: Low-resource servers
-
-**Full Mode:**
-- Collection interval: 10 seconds
-- RAM usage: ~100MB
-- Accuracy: ±10 seconds
-- Use case: Production servers requiring real-time stats
-
-### Health Check Architecture
-
-```
-┌─────────────────────────────────────────┐
-│      Docker HEALTHCHECK                 │
-│  interval: 30s                          │
-│  timeout: 5s                            │
-│  retries: 3                             │
-└─────────────────────────────────────────┘
-           │
-           │ GET /health
-           ▼
-┌─────────────────────────────────────────┐
-│      Health Endpoint                    │
-│                                         │
-│  1. Check database connection (ping)    │
-│  2. Check core status                   │
-│  3. Calculate uptime                    │
-│  4. Return status (healthy/unhealthy)   │
-└─────────────────────────────────────────┘
-```
-
----
-
-**Architecture Version:** 0.1.0  
-**Last Updated:** March 2026
+Admin access requires `ssh -L 8080:localhost:8080 user@server`.

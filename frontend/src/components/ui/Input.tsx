@@ -18,6 +18,7 @@ interface InputProps {
   className?: string
   min?: string | number
   max?: string | number
+  autoFocus?: boolean
 }
 
 export function Input({
@@ -37,6 +38,7 @@ export function Input({
   className,
   min,
   max,
+  autoFocus,
 }: InputProps) {
   const hasError = error || isInvalid
 
@@ -76,6 +78,7 @@ export function Input({
         onBlur={onBlur}
         min={min}
         max={max}
+        autoFocus={autoFocus}
         className={inputStyles}
         aria-invalid={hasError ? 'true' : undefined}
         aria-describedby={
