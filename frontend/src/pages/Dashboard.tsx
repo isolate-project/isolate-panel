@@ -1,4 +1,5 @@
 import type { ComponentChildren } from 'preact'
+import { useState, useEffect } from 'preact/hooks'
 import { route } from 'preact-router'
 import { PageLayout } from '../components/layout/PageLayout'
 import { PageHeader } from '../components/layout/PageHeader'
@@ -20,6 +21,7 @@ import { Users, Activity, HardDrive, Box, ArrowUpRight, ShieldAlert, Cpu, Lucide
 import { useTranslation } from 'react-i18next'
 import { cn } from '../lib/utils'
 import { useMetaTags } from '../hooks/useDocumentTitle'
+import { formatBytes } from '../utils/format'
 
 
 interface DashboardWSPayload {
@@ -29,54 +31,6 @@ interface DashboardWSPayload {
   total_traffic_bytes: number
   cores_running: number
 }
-
-export function Dashboard() {
-  const { t } = useTranslation()
-
-  useMetaTags({
-    title: t('dashboard.title') || 'Dashboard',
-    description: 'Isolate Panel dashboard — proxy servers overview, active connections, and system resources monitoring',
-  })
-
-  const accessToken = useAuthStore(s => s.accessToken)
-
-  // Build WebSocket URL; empty string triggers a safe no-op in the hook
-  const wsUrl = accessToken
-    ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/api/ws/dashboard?token=${encodeURIComponent(accessToken)}`
-    : ''
-
-  const { lastMessage: wsData, isConnected: wsConnected } = useWebSocket<DashboardWSPayload>(wsUrl)
-
-  const { data: usersResponse, isLoading: usersLoading } = useUsers()
-  const { data: cores, isLoading: coresLoading } = useCores()
-  const { data: resources } = useSystemResources()
-  const { count: activeConnectionsPoll, isLoading: connectionsLoading } = useConnections()
-
-  const users = usersResponse?.users || usersResponse || []
-  const totalUsersPoll = Array.isArray(users) ? users.length : 0
-  const activeUsersPoll = Array.isArray(users) ? users.filter((u: User) => u.is_active)?.length : 0
-  const runningCoresPoll = Array.isArray(cores) ? cores.filter((c: Core) => c.is_running)?.length : 0
-  const totalCores = Array.isArray(cores) ? cores.length : 0
-
-  const totalTrafficPoll = Array.isArray(users)
-    ? users.reduce((sum: number, u: User) => sum + (u.traffic_used_bytes || 0), 0)
-    : 0
-
-  // Prefer real-time WS data; fall back to polling when disconnected
-  const totalUsers = wsConnected && wsData ? wsData.total_users : totalUsersPoll
-  const activeUsers = wsConnected && wsData ? wsData.active_users : activeUsersPoll
-  const activeConnections = wsConnected && wsData ? wsData.active_connections : activeConnectionsPoll
-  const totalTrafficBytes = wsConnected && wsData ? wsData.total_traffic_bytes : totalTrafficPoll
-  const runningCores = wsConnected && wsData ? wsData.cores_running : runningCoresPoll
-
-  const formatTraffic = (bytes: number) => {
-    if (bytes === 0) return '0 B'
-    const k = 1024
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
-  }
-
 
 interface StatCardProps {
   title: string
@@ -109,6 +63,63 @@ const StatCard = ({ title, value, subtext, icon: Icon, loading, colorClass }: St
     </CardContent>
   </Card>
 )
+
+export function Dashboard() {
+  const { t } = useTranslation()
+
+  useMetaTags({
+    title: t('dashboard.title') || 'Dashboard',
+    description: 'Isolate Panel dashboard — proxy servers overview, active connections, and system resources monitoring',
+  })
+
+  const accessToken = useAuthStore(s => s.accessToken)
+
+  // Obtain a one-time WS ticket to avoid passing JWT in URL (prevents token leakage to logs)
+  const [wsUrl, setWsUrl] = useState('')
+  useEffect(() => {
+    if (!accessToken) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const { systemApi } = await import('../api/endpoints')
+        const res = await systemApi.wsTicket()
+        if (cancelled) return
+        const ticket = res.data.ticket
+        const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+        setWsUrl(`${proto}//${window.location.host}/api/ws/dashboard?ticket=${encodeURIComponent(ticket)}`)
+      } catch {
+        // Fallback: use token directly (backward compat)
+        if (cancelled) return
+        const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+        setWsUrl(`${proto}//${window.location.host}/api/ws/dashboard?token=${encodeURIComponent(accessToken)}`)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [accessToken])
+
+  const { lastMessage: wsData, isConnected: wsConnected } = useWebSocket<DashboardWSPayload>(wsUrl)
+
+  const { data: usersResponse, isLoading: usersLoading } = useUsers()
+  const { data: cores, isLoading: coresLoading } = useCores()
+  const { data: resources } = useSystemResources()
+  const { count: activeConnectionsPoll, isLoading: connectionsLoading } = useConnections()
+
+  const users = usersResponse?.users || usersResponse || []
+  const totalUsersPoll = Array.isArray(users) ? users.length : 0
+  const activeUsersPoll = Array.isArray(users) ? users.filter((u: User) => u.is_active)?.length : 0
+  const runningCoresPoll = Array.isArray(cores) ? cores.filter((c: Core) => c.is_running)?.length : 0
+  const totalCores = Array.isArray(cores) ? cores.length : 0
+
+  const totalTrafficPoll = Array.isArray(users)
+    ? users.reduce((sum: number, u: User) => sum + (u.traffic_used_bytes || 0), 0)
+    : 0
+
+  // Prefer real-time WS data; fall back to polling when disconnected
+  const totalUsers = wsConnected && wsData ? wsData.total_users : totalUsersPoll
+  const activeUsers = wsConnected && wsData ? wsData.active_users : activeUsersPoll
+  const activeConnections = wsConnected && wsData ? wsData.active_connections : activeConnectionsPoll
+  const totalTrafficBytes = wsConnected && wsData ? wsData.total_traffic_bytes : totalTrafficPoll
+  const runningCores = wsConnected && wsData ? wsData.cores_running : runningCoresPoll
 
   const ramPercent = resources?.ram?.percent || 0
   const cpuPercent = resources?.cpu?.percent || 0
@@ -154,7 +165,7 @@ const StatCard = ({ title, value, subtext, icon: Icon, loading, colorClass }: St
           />
           <StatCard
             title={t('dashboard.totalTraffic')}
-            value={formatTraffic(totalTrafficBytes)}
+            value={formatBytes(totalTrafficBytes)}
             subtext="Up and down combined"
             icon={ArrowUpRight}
             loading={usersLoading}

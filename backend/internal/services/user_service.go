@@ -129,22 +129,31 @@ func (us *UserService) CreateUser(req *CreateUserRequest, adminID uint) (*models
 		CreatedByAdminID:  &adminID,
 	}
 
-	if err := us.db.Create(user).Error; err != nil {
-		return nil, fmt.Errorf("failed to create user: %w", err)
-	}
+	err = us.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(user).Error; err != nil {
+			return fmt.Errorf("failed to create user: %w", err)
+		}
 
-	// Create user-inbound mappings
-	if len(req.InboundIDs) > 0 {
 		for _, inboundID := range req.InboundIDs {
+			var count int64
+			if err := tx.Model(&models.Inbound{}).Where("id = ?", inboundID).Count(&count).Error; err != nil {
+				return fmt.Errorf("failed to verify inbound %d: %w", inboundID, err)
+			}
+			if count == 0 {
+				return fmt.Errorf("inbound %d not found", inboundID)
+			}
 			mapping := &models.UserInboundMapping{
 				UserID:    user.ID,
 				InboundID: inboundID,
 			}
-			if err := us.db.Create(mapping).Error; err != nil {
-				// Log error but don't fail user creation
-				fmt.Printf("Warning: Failed to create user-inbound mapping: %v\n", err)
+			if err := tx.Create(mapping).Error; err != nil {
+				return fmt.Errorf("failed to create inbound mapping: %w", err)
 			}
 		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	// Send notification
@@ -211,23 +220,36 @@ func (us *UserService) UpdateUser(id uint, req *UpdateUserRequest) (*models.User
 		user.IsActive = *req.IsActive
 	}
 
-	if err := us.db.Save(&user).Error; err != nil {
-		return nil, fmt.Errorf("failed to update user: %w", err)
-	}
-
-	// Update inbound mappings if provided
-	if req.InboundIDs != nil {
-		// Delete existing mappings
-		us.db.Where("user_id = ?", user.ID).Delete(&models.UserInboundMapping{})
-
-		// Create new mappings
-		for _, inboundID := range req.InboundIDs {
-			mapping := &models.UserInboundMapping{
-				UserID:    user.ID,
-				InboundID: inboundID,
-			}
-			us.db.Create(mapping)
+	err := us.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Save(&user).Error; err != nil {
+			return fmt.Errorf("failed to update user: %w", err)
 		}
+
+		if req.InboundIDs != nil {
+			if err := tx.Where("user_id = ?", user.ID).Delete(&models.UserInboundMapping{}).Error; err != nil {
+				return fmt.Errorf("failed to delete old mappings: %w", err)
+			}
+			for _, inboundID := range req.InboundIDs {
+				var count int64
+				if err := tx.Model(&models.Inbound{}).Where("id = ?", inboundID).Count(&count).Error; err != nil {
+					return fmt.Errorf("failed to verify inbound %d: %w", inboundID, err)
+				}
+				if count == 0 {
+					return fmt.Errorf("inbound %d not found", inboundID)
+				}
+				mapping := &models.UserInboundMapping{
+					UserID:    user.ID,
+					InboundID: inboundID,
+				}
+				if err := tx.Create(mapping).Error; err != nil {
+					return fmt.Errorf("failed to create inbound mapping: %w", err)
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	return &user, nil

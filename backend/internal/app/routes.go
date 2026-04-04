@@ -2,6 +2,7 @@ package app
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -78,11 +79,15 @@ SwaggerUIBundle({
 			strings.HasPrefix(c.Path(), "/s/") {
 			return c.Next()
 		}
-		filePath := "/var/www/html" + c.Path()
-		if c.Path() == "/" {
-			filePath = "/var/www/html/index.html"
+		reqPath := c.Path()
+		if reqPath == "/" {
+			reqPath = "/index.html"
 		}
-		if _, err := os.Stat(filePath); err == nil {
+		filePath := filepath.Join("/var/www/html", filepath.Clean(reqPath))
+		if !strings.HasPrefix(filePath, "/var/www/html/") {
+			return c.Next() // path traversal attempt
+		}
+		if info, err := os.Stat(filePath); err == nil && !info.IsDir() {
 			return c.SendFile(filePath)
 		}
 		if _, err := os.Stat("/var/www/html/index.html"); err == nil {
@@ -213,7 +218,10 @@ SwaggerUIBundle({
 	settingsGrp.Get("/", a.SettingsH.GetAllSettings)
 	settingsGrp.Put("/", a.SettingsH.UpdateSettings)
 
-	// WebSocket routes (JWT auth via ?token= query param, not Authorization header)
+	// WebSocket ticket endpoint (protected — issues one-time ticket for WS auth)
+	protected.Post("/ws/ticket", a.DashboardHub.IssueWSTicket)
+
+	// WebSocket routes (auth via ?ticket= one-time token, fallback to ?token= for compat)
 	apiGrp.Get("/ws/dashboard", a.DashboardHub.DashboardWS)
 
 	// Subscription public routes (rate limited, token-based auth)

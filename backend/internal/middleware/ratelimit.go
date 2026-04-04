@@ -88,10 +88,7 @@ func (rl *RateLimiter) Allow(key string) bool {
 // LoginRateLimiter creates a rate limiter middleware for login attempts
 func LoginRateLimiter(limiter *RateLimiter) fiber.Handler {
 	return func(c fiber.Ctx) error {
-		ip := c.Get("X-Forwarded-For")
-		if ip == "" {
-			ip = c.IP()
-		}
+		ip := c.IP()
 
 		if !limiter.Allow(ip) {
 			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{

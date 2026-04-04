@@ -102,7 +102,11 @@ func NewApp(cfg *appconfig.Config, db *database.Database) (*App, error) {
 	// Core management
 	a.Cores = cores.NewCoreManager(db.DB, cfg.Cores.SupervisorURL)
 	a.Lifecycle = services.NewCoreLifecycleManager(db.DB, a.Cores)
-	a.Config = services.NewConfigService(db.DB, a.Cores, cfg.Cores.ConfigDir)
+	coreAPISecret := cfg.Cores.SingboxAPIKey
+	if coreAPISecret == "" {
+		coreAPISecret = cfg.Cores.MihomoAPIKey
+	}
+	a.Config = services.NewConfigService(db.DB, a.Cores, cfg.Cores.ConfigDir, coreAPISecret)
 	a.Lifecycle.SetConfigService(a.Config)
 	if err := a.Lifecycle.InitializeCores(); err != nil {
 		log.Warn().Err(err).Msg("Failed to initialize cores - cores can be started manually")
@@ -123,7 +127,10 @@ func NewApp(cfg *appconfig.Config, db *database.Database) (*App, error) {
 	a.AuditH = api.NewAuditHandler(a.Audit)
 
 	// Notifications (early — other services depend on it)
-	a.Notifications = services.NewNotificationService(db.DB, "", "", "", "")
+	a.Notifications = services.NewNotificationService(db.DB,
+		cfg.Notifications.TelegramToken, cfg.Notifications.TelegramChatID,
+		cfg.Notifications.WebhookURL, cfg.Notifications.EmailSMTP,
+	)
 	if err := a.Notifications.Initialize(); err != nil {
 		log.Warn().Err(err).Msg("Failed to initialize Notification service")
 	}
@@ -134,16 +141,16 @@ func NewApp(cfg *appconfig.Config, db *database.Database) (*App, error) {
 	a.Users = services.NewUserService(db.DB, a.Notifications)
 	a.Inbounds = services.NewInboundService(db.DB, a.Lifecycle, a.Ports)
 	a.Outbounds = services.NewOutboundService(db.DB, a.Config)
-	a.Subscriptions = services.NewSubscriptionService(db.DB, "", a.Cache)
+	a.Subscriptions = services.NewSubscriptionService(db.DB, cfg.App.PanelURL, a.Cache)
 
 	// Monitoring services
 	a.Traffic = services.NewTrafficCollector(
-		db.DB, a.Settings, 0,
+		db.DB, a.Settings, time.Duration(cfg.Traffic.CollectInterval)*time.Second,
 		cfg.Cores.XrayAPIAddr, cfg.Cores.SingboxAPIAddr, cfg.Cores.MihomoAPIAddr,
 		cfg.Cores.SingboxAPIKey, cfg.Cores.MihomoAPIKey,
 	)
 	a.Connections = services.NewConnectionTracker(
-		db.DB, 0,
+		db.DB, time.Duration(cfg.Traffic.ConnInterval)*time.Second,
 		cfg.Cores.XrayAPIAddr, cfg.Cores.SingboxAPIAddr, cfg.Cores.MihomoAPIAddr,
 		cfg.Cores.SingboxAPIKey, cfg.Cores.MihomoAPIKey,
 	)
@@ -151,18 +158,40 @@ func NewApp(cfg *appconfig.Config, db *database.Database) (*App, error) {
 	a.Aggregator = services.NewDataAggregator(db.DB, 0)
 	a.Retention = services.NewDataRetentionService(db.DB, 0, a.Settings)
 
+	// Resolve data directories with defaults
+	dataDir := cfg.Data.DataDir
+	if dataDir == "" {
+		dataDir = "/app/data"
+	}
+	warpDir := cfg.Data.WarpDir
+	if warpDir == "" {
+		warpDir = dataDir + "/warp"
+	}
+	geoDir := cfg.Data.GeoDir
+	if geoDir == "" {
+		geoDir = dataDir + "/geo"
+	}
+	backupDir := cfg.Data.BackupDir
+	if backupDir == "" {
+		backupDir = dataDir + "/backups"
+	}
+	certDir := cfg.Data.CertDir
+	if certDir == "" {
+		certDir = "/etc/isolate-panel/certs"
+	}
+
 	// WARP and Geo
-	a.Warp = services.NewWARPService(db.DB, "/app/data/warp")
+	a.Warp = services.NewWARPService(db.DB, warpDir)
 	if err := a.Warp.Initialize(); err != nil {
 		log.Warn().Err(err).Msg("Failed to initialize WARP service")
 	}
-	a.Geo = services.NewGeoService(db.DB, "/app/data/geo")
+	a.Geo = services.NewGeoService(db.DB, geoDir)
 	if err := a.Geo.Initialize(); err != nil {
 		log.Warn().Err(err).Msg("Failed to initialize Geo service")
 	}
 
 	// Backup
-	a.Backups = services.NewBackupService(db.DB, a.Settings, "/app/data/backups", "/app/data")
+	a.Backups = services.NewBackupService(db.DB, a.Settings, backupDir, dataDir)
 	if err := a.Backups.Initialize(); err != nil {
 		log.Warn().Err(err).Msg("Failed to initialize Backup service")
 	}
@@ -182,7 +211,7 @@ func NewApp(cfg *appconfig.Config, db *database.Database) (*App, error) {
 		dnsProvider = "cloudflare"
 	}
 	a.Certs, err = services.NewCertificateService(db.DB, services.CertificateServiceConfig{
-		CertDir:     "/etc/isolate-panel/certs",
+		CertDir:     certDir,
 		Email:       cfg.App.AdminEmail,
 		DNSProvider: dnsProvider,
 		Credentials: cfCreds,

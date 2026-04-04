@@ -1,8 +1,11 @@
 package api
 
 import (
+	"strings"
+
 	"github.com/gofiber/fiber/v3"
 
+	"github.com/isolate-project/isolate-panel/internal/middleware"
 	"github.com/isolate-project/isolate-panel/internal/scheduler"
 	"github.com/isolate-project/isolate-panel/internal/services"
 )
@@ -25,17 +28,17 @@ func NewBackupHandler(backupService *services.BackupService, backupScheduler *sc
 func (h *BackupHandler) RegisterRoutes(router fiber.Router) {
 	backup := router.Group("/backups")
 
-	// Backup operations
+	// Read-only operations (any authenticated admin)
 	backup.Get("/", h.ListBackups)
 	backup.Get("/:id", h.GetBackup)
-	backup.Post("/create", h.CreateBackup)
-	backup.Post("/:id/restore", h.RestoreBackup)
-	backup.Delete("/:id", h.DeleteBackup)
-	backup.Get("/:id/download", h.DownloadBackup)
-
-	// Schedule operations
 	backup.Get("/schedule", h.GetSchedule)
-	backup.Post("/schedule", h.SetSchedule)
+
+	// Destructive operations (super-admin only)
+	backup.Post("/create", middleware.RequireSuperAdmin(), h.CreateBackup)
+	backup.Post("/:id/restore", middleware.RequireSuperAdmin(), h.RestoreBackup)
+	backup.Delete("/:id", middleware.RequireSuperAdmin(), h.DeleteBackup)
+	backup.Get("/:id/download", middleware.RequireSuperAdmin(), h.DownloadBackup)
+	backup.Post("/schedule", middleware.RequireSuperAdmin(), h.SetSchedule)
 }
 
 // ListBackups returns list of all backups
@@ -154,15 +157,7 @@ func (h *BackupHandler) RestoreBackup(c fiber.Ctx) error {
 		})
 	}
 
-	var req struct {
-		Force bool `json:"force"`
-	}
-
-	if err := c.Bind().JSON(&req); err != nil {
-		req.Force = false
-	}
-
-	if err := h.backupService.RestoreBackup(id, req.Force); err != nil {
+	if err := h.backupService.RestoreBackup(id); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
 		})
@@ -221,7 +216,7 @@ func (h *BackupHandler) DownloadBackup(c fiber.Ctx) error {
 		})
 	}
 
-	data, filename, err := h.backupService.DownloadBackup(id)
+	filePath, filename, err := h.backupService.DownloadBackup(id)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -229,10 +224,15 @@ func (h *BackupHandler) DownloadBackup(c fiber.Ctx) error {
 	}
 
 	c.Set("Content-Type", "application/octet-stream")
-	c.Set("Content-Disposition", "attachment; filename=\""+filename+"\"")
-	c.Set("Content-Length", string(rune(len(data))))
+	safeName := strings.Map(func(r rune) rune {
+		if r == '"' || r == '\\' || r == '\r' || r == '\n' {
+			return '_'
+		}
+		return r
+	}, filename)
+	c.Set("Content-Disposition", "attachment; filename=\""+safeName+"\"")
 
-	return c.Send(data)
+	return c.SendFile(filePath)
 }
 
 // GetSchedule returns the current backup schedule

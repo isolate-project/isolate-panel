@@ -17,6 +17,80 @@ import { SubscriptionLinks } from '../components/features/SubscriptionLinks'
 import type { User, Inbound } from '../types'
 import { Plus, Edit, Trash2, RefreshCw, Copy, List, Search, Link as LinkIcon, MoreVertical, CalendarDays, ShieldAlert } from 'lucide-preact'
 import { useTranslation } from 'react-i18next'
+import { formatBytes } from '../utils/format'
+
+interface UserActionMenuProps {
+  user: User;
+  openDropdownId: number | null;
+  setOpenDropdownId: (id: number | null) => void;
+  onCopyToken: (token: string) => void;
+  onViewSubscription: (user: User) => void;
+  onViewInbounds: (user: User) => void;
+  onEdit: (user: User) => void;
+  onRegenerate: (userId: number) => void;
+  onDelete: (user: User) => void;
+  t: (key: string) => string;
+}
+
+const UserActionMenu = ({
+  user,
+  openDropdownId,
+  setOpenDropdownId,
+  onCopyToken,
+  onViewSubscription,
+  onViewInbounds,
+  onEdit,
+  onRegenerate,
+  onDelete,
+  t
+}: UserActionMenuProps) => (
+  <DropdownMenu>
+    <DropdownMenuTrigger onClick={() => setOpenDropdownId(openDropdownId === user.id ? null : user.id)}>
+      <Button variant="ghost" size="icon" className="h-8 w-8 text-text-tertiary">
+        <MoreVertical className="h-4 w-4" />
+      </Button>
+    </DropdownMenuTrigger>
+    <DropdownMenuContent isOpen={openDropdownId === user.id} onClose={() => setOpenDropdownId(null)}>
+      <DropdownMenuItem onClick={() => { setOpenDropdownId(null); onCopyToken(user.subscription_token) }}>
+        <Copy className="mr-2 h-4 w-4 text-text-secondary" /> {t('users.copyToken')}
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={() => { setOpenDropdownId(null); onViewSubscription(user); }}>
+        <LinkIcon className="mr-2 h-4 w-4 text-text-secondary" /> {t('subscriptions.title')}
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem onClick={() => { setOpenDropdownId(null); onViewInbounds(user) }}>
+        <List className="mr-2 h-4 w-4 text-text-secondary" /> {t('users.viewInbounds')}
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={() => { setOpenDropdownId(null); onEdit(user); }}>
+        <Edit className="mr-2 h-4 w-4 text-text-secondary" /> {t('users.editUser')}
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={() => { setOpenDropdownId(null); onRegenerate(user.id) }}>
+        <RefreshCw className="mr-2 h-4 w-4 text-text-secondary" /> {t('users.regenerateCredentials')}
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem onClick={() => { setOpenDropdownId(null); onDelete(user); }} variant="danger">
+        <Trash2 className="mr-2 h-4 w-4" /> {t('users.deleteUser')}
+      </DropdownMenuItem>
+    </DropdownMenuContent>
+  </DropdownMenu>
+)
+
+const TrafficDisplay = ({ used, total }: { used: number, total: number | null }) => {
+  if (!total) return <span className="text-sm font-medium text-text-primary">{formatBytes(used)} <span className="text-text-tertiary text-xs font-normal ml-1">Total Limit: &#8734;</span></span>
+  const percent = Math.min((used / total) * 100, 100)
+  return (
+    <div className="w-full max-w-[200px]">
+      <div className="flex justify-between items-center text-xs mb-1.5">
+        <span className="font-medium text-text-primary">{formatBytes(used)}</span>
+        <span className="text-text-tertiary">{formatBytes(total)}</span>
+      </div>
+      <Progress
+        value={percent}
+        indicatorClassName={percent > 90 ? 'bg-color-danger' : percent > 75 ? 'bg-color-warning' : 'bg-color-success'}
+      />
+    </div>
+  )
+}
 
 export function Users() {
   const { t } = useTranslation()
@@ -82,91 +156,10 @@ export function Users() {
     navigator.clipboard.writeText(text)
   }
 
-  const formatBytes = (bytes: number) => {
-    if (bytes === 0) return '0 B'
-    const k = 1024
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
-  }
-
   const handleViewInbounds = (user: User) => {
     setUserForInbounds(user)
     setIsInboundsModalOpen(true)
   }
-
-interface UserActionMenuProps {
-  user: User;
-  openDropdownId: number | null;
-  setOpenDropdownId: (id: number | null) => void;
-  onCopyToken: (token: string) => void;
-  onViewSubscription: (user: User) => void;
-  onViewInbounds: (user: User) => void;
-  onEdit: (user: User) => void;
-  onRegenerate: (userId: number) => void;
-  onDelete: (user: User) => void;
-  t: (key: string) => string;
-}
-
-const UserActionMenu = ({
-  user,
-  openDropdownId,
-  setOpenDropdownId,
-  onCopyToken,
-  onViewSubscription,
-  onViewInbounds,
-  onEdit,
-  onRegenerate,
-  onDelete,
-  t
-}: UserActionMenuProps) => (
-  <DropdownMenu>
-    <DropdownMenuTrigger onClick={() => setOpenDropdownId(openDropdownId === user.id ? null : user.id)}>
-      <Button variant="ghost" size="icon" className="h-8 w-8 text-text-tertiary">
-        <MoreVertical className="h-4 w-4" />
-      </Button>
-    </DropdownMenuTrigger>
-    <DropdownMenuContent isOpen={openDropdownId === user.id} onClose={() => setOpenDropdownId(null)}>
-      <DropdownMenuItem onClick={() => { setOpenDropdownId(null); onCopyToken(user.subscription_token) }}>
-        <Copy className="mr-2 h-4 w-4 text-text-secondary" /> {t('users.copyToken')}
-      </DropdownMenuItem>
-      <DropdownMenuItem onClick={() => { setOpenDropdownId(null); onViewSubscription(user); }}>
-        <LinkIcon className="mr-2 h-4 w-4 text-text-secondary" /> {t('subscriptions.title')}
-      </DropdownMenuItem>
-      <DropdownMenuSeparator />
-      <DropdownMenuItem onClick={() => { setOpenDropdownId(null); onViewInbounds(user) }}>
-        <List className="mr-2 h-4 w-4 text-text-secondary" /> {t('users.viewInbounds')}
-      </DropdownMenuItem>
-      <DropdownMenuItem onClick={() => { setOpenDropdownId(null); onEdit(user); }}>
-        <Edit className="mr-2 h-4 w-4 text-text-secondary" /> {t('users.editUser')}
-      </DropdownMenuItem>
-      <DropdownMenuItem onClick={() => { setOpenDropdownId(null); onRegenerate(user.id) }}>
-        <RefreshCw className="mr-2 h-4 w-4 text-text-secondary" /> {t('users.regenerateCredentials')}
-      </DropdownMenuItem>
-      <DropdownMenuSeparator />
-      <DropdownMenuItem onClick={() => { setOpenDropdownId(null); onDelete(user); }} variant="danger">
-        <Trash2 className="mr-2 h-4 w-4" /> {t('users.deleteUser')}
-      </DropdownMenuItem>
-    </DropdownMenuContent>
-  </DropdownMenu>
-)
-
-const TrafficDisplay = ({ used, total, formatBytes }: { used: number, total: number | null, formatBytes: (b: number) => string }) => {
-  if (!total) return <span className="text-sm font-medium text-text-primary">{formatBytes(used)} <span className="text-text-tertiary text-xs font-normal ml-1">Total Limit: ∞</span></span>
-  const percent = Math.min((used / total) * 100, 100)
-  return (
-    <div className="w-full max-w-[200px]">
-      <div className="flex justify-between items-center text-xs mb-1.5">
-        <span className="font-medium text-text-primary">{formatBytes(used)}</span>
-        <span className="text-text-tertiary">{formatBytes(total)}</span>
-      </div>
-      <Progress 
-        value={percent} 
-        indicatorClassName={percent > 90 ? 'bg-color-danger' : percent > 75 ? 'bg-color-warning' : 'bg-color-success'}
-      />
-    </div>
-  )
-}
 
   return (
     <PageLayout>
@@ -253,7 +246,7 @@ const TrafficDisplay = ({ used, total, formatBytes }: { used: number, total: num
                         </Badge>
                       </td>
                       <td className="px-6 py-3">
-                        <TrafficDisplay used={user.traffic_used_bytes || 0} total={user.traffic_limit_bytes} formatBytes={formatBytes} />
+                        <TrafficDisplay used={user.traffic_used_bytes || 0} total={user.traffic_limit_bytes} />
                       </td>
                       <td className="px-6 py-3 text-text-secondary">
                         <div className="flex items-center gap-2 text-sm">
@@ -315,7 +308,7 @@ const TrafficDisplay = ({ used, total, formatBytes }: { used: number, total: num
                   </div>
                   
                   <div className="bg-bg-tertiary/30 rounded-xl p-3 border border-border-primary/50">
-                    <TrafficDisplay used={user.traffic_used_bytes || 0} total={user.traffic_limit_bytes} formatBytes={formatBytes} />
+                    <TrafficDisplay used={user.traffic_used_bytes || 0} total={user.traffic_limit_bytes} />
                   </div>
                 </CardContent>
               </Card>

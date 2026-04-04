@@ -52,8 +52,8 @@ func TestCoresHandler_ListCores(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodGet, "/cores", nil)
 	resp, err := app.Test(req)
 	require.NoError(t, err)
-	// Expect 500 since dummy supervisor URL is unreachable
-	assert.Contains(t, []int{http.StatusOK, http.StatusInternalServerError}, resp.StatusCode)
+	// Supervisor URL is unreachable in tests, so handler returns 500
+	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 }
 
 func TestCoresHandler_GetCore(t *testing.T) {
@@ -62,7 +62,8 @@ func TestCoresHandler_GetCore(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodGet, "/cores/xray", nil)
 	resp, err := app.Test(req)
 	require.NoError(t, err)
-	assert.Contains(t, []int{http.StatusOK, http.StatusNotFound, http.StatusInternalServerError}, resp.StatusCode)
+	// Core "xray" doesn't exist in test DB
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 }
 
 func TestCoresHandler_StartCore(t *testing.T) {
@@ -71,7 +72,7 @@ func TestCoresHandler_StartCore(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodPost, "/cores/xray/start", nil)
 	resp, err := app.Test(req)
 	require.NoError(t, err)
-	assert.Contains(t, []int{http.StatusOK, http.StatusInternalServerError}, resp.StatusCode)
+	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 }
 
 func TestCoresHandler_StopCore(t *testing.T) {
@@ -80,7 +81,7 @@ func TestCoresHandler_StopCore(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodPost, "/cores/xray/stop", nil)
 	resp, err := app.Test(req)
 	require.NoError(t, err)
-	assert.Contains(t, []int{http.StatusOK, http.StatusInternalServerError}, resp.StatusCode)
+	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 }
 
 func TestCoresHandler_RestartCore(t *testing.T) {
@@ -89,5 +90,5 @@ func TestCoresHandler_RestartCore(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodPost, "/cores/xray/restart", nil)
 	resp, err := app.Test(req)
 	require.NoError(t, err)
-	assert.Contains(t, []int{http.StatusOK, http.StatusInternalServerError}, resp.StatusCode)
+	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 }

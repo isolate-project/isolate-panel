@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -126,5 +127,5 @@ func (m *CacheManager) ClearSubscription(userID uint) {
 }
 
 func getSubscriptionKey(userID uint, format string) string {
-	return "subscription:" + string(rune(userID)) + ":" + format
+	return fmt.Sprintf("subscription:%d:%s", userID, format)
 }

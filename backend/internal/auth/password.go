@@ -12,11 +12,14 @@ import (
 
 const (
 	// Argon2id parameters (OWASP recommended)
-	ArgonTime       = 1
+	ArgonTime       = 3
 	ArgonMemory     = 64 * 1024 // 64 MB
 	ArgonThreads    = 4
 	ArgonKeyLength  = 32
 	ArgonSaltLength = 16
+
+	// Legacy parameter for backward compatibility with existing hashes
+	legacyArgonTime = 1
 )
 
 // HashPassword hashes a password using Argon2id
@@ -41,7 +44,9 @@ func HashPassword(password string) (string, error) {
 	return fmt.Sprintf("%s:%s", hex.EncodeToString(salt), hex.EncodeToString(hash)), nil
 }
 
-// VerifyPassword verifies a password against a hash
+// VerifyPassword verifies a password against a hash.
+// It tries the current parameters first, then falls back to legacy parameters
+// for backward compatibility with hashes created before the ArgonTime increase.
 func VerifyPassword(password, encodedHash string) (bool, error) {
 	// Split salt and hash
 	parts := strings.Split(encodedHash, ":")
@@ -60,7 +65,7 @@ func VerifyPassword(password, encodedHash string) (bool, error) {
 		return false, fmt.Errorf("failed to decode hash: %w", err)
 	}
 
-	// Hash the provided password with the same salt
+	// Try current parameters first
 	hash := argon2.IDKey(
 		[]byte(password),
 		salt,
@@ -69,7 +74,48 @@ func VerifyPassword(password, encodedHash string) (bool, error) {
 		ArgonThreads,
 		ArgonKeyLength,
 	)
+	if subtle.ConstantTimeCompare(hash, expectedHash) == 1 {
+		return true, nil
+	}
 
-	// Compare hashes using constant-time comparison
-	return subtle.ConstantTimeCompare(hash, expectedHash) == 1, nil
+	// Fall back to legacy parameters
+	legacyHash := argon2.IDKey(
+		[]byte(password),
+		salt,
+		legacyArgonTime,
+		ArgonMemory,
+		ArgonThreads,
+		ArgonKeyLength,
+	)
+	return subtle.ConstantTimeCompare(legacyHash, expectedHash) == 1, nil
+}
+
+// NeedsRehash checks if a password hash was created with legacy parameters
+// and should be rehashed with the current parameters on next successful login.
+func NeedsRehash(password, encodedHash string) bool {
+	parts := strings.Split(encodedHash, ":")
+	if len(parts) != 2 {
+		return false
+	}
+
+	salt, err := hex.DecodeString(parts[0])
+	if err != nil {
+		return false
+	}
+
+	expectedHash, err := hex.DecodeString(parts[1])
+	if err != nil {
+		return false
+	}
+
+	// If hash matches current params, no rehash needed
+	hash := argon2.IDKey(
+		[]byte(password),
+		salt,
+		ArgonTime,
+		ArgonMemory,
+		ArgonThreads,
+		ArgonKeyLength,
+	)
+	return subtle.ConstantTimeCompare(hash, expectedHash) != 1
 }

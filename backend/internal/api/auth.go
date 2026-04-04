@@ -102,6 +102,13 @@ func (h *AuthHandler) Login(c fiber.Ctx) error {
 		})
 	}
 
+	// Rehash password if it was created with legacy Argon2id parameters
+	if auth.NeedsRehash(req.Password, admin.PasswordHash) {
+		if newHash, err := auth.HashPassword(req.Password); err == nil {
+			h.db.Model(&admin).Update("password_hash", newHash)
+		}
+	}
+
 	// TOTP check
 	if admin.TOTPEnabled {
 		if req.TotpCode == "" {
@@ -251,6 +258,12 @@ func (h *AuthHandler) Logout(c fiber.Ctx) error {
 		})
 	}
 
+	// Blacklist the access token so it cannot be used after logout
+	if authHeader := c.Get("Authorization"); len(authHeader) > 7 {
+		accessToken := authHeader[7:] // strip "Bearer "
+		h.tokenService.BlacklistAccessToken(accessToken)
+	}
+
 	return c.JSON(fiber.Map{
 		"message": "Logged out successfully",
 	})
@@ -267,7 +280,10 @@ func (h *AuthHandler) Logout(c fiber.Ctx) error {
 // @Router       /me [get]
 // @Security     BearerAuth
 func (h *AuthHandler) Me(c fiber.Ctx) error {
-	adminID := c.Locals("admin_id").(uint)
+	adminID, ok := c.Locals("admin_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "unauthorized"})
+	}
 
 	var admin models.Admin
 	if err := h.db.First(&admin, adminID).Error; err != nil {
@@ -296,7 +312,10 @@ func (h *AuthHandler) Me(c fiber.Ctx) error {
 // @Router       /auth/totp/setup [post]
 // @Security     BearerAuth
 func (h *AuthHandler) TOTPSetup(c fiber.Ctx) error {
-	adminID := c.Locals("admin_id").(uint)
+	adminID, ok := c.Locals("admin_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "unauthorized"})
+	}
 
 	var admin models.Admin
 	if err := h.db.First(&admin, adminID).Error; err != nil {
@@ -336,7 +355,10 @@ func (h *AuthHandler) TOTPSetup(c fiber.Ctx) error {
 // @Router       /auth/totp/verify [post]
 // @Security     BearerAuth
 func (h *AuthHandler) TOTPVerify(c fiber.Ctx) error {
-	adminID := c.Locals("admin_id").(uint)
+	adminID, ok := c.Locals("admin_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "unauthorized"})
+	}
 
 	var req struct {
 		Code string `json:"code" validate:"required"`
@@ -376,7 +398,10 @@ func (h *AuthHandler) TOTPVerify(c fiber.Ctx) error {
 // @Router       /auth/totp/disable [post]
 // @Security     BearerAuth
 func (h *AuthHandler) TOTPDisable(c fiber.Ctx) error {
-	adminID := c.Locals("admin_id").(uint)
+	adminID, ok := c.Locals("admin_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "unauthorized"})
+	}
 
 	var req struct {
 		Password string `json:"password" validate:"required"`
@@ -416,7 +441,10 @@ func (h *AuthHandler) TOTPDisable(c fiber.Ctx) error {
 // @Router       /auth/totp/status [get]
 // @Security     BearerAuth
 func (h *AuthHandler) TOTPStatus(c fiber.Ctx) error {
-	adminID := c.Locals("admin_id").(uint)
+	adminID, ok := c.Locals("admin_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "unauthorized"})
+	}
 	var admin models.Admin
 	if err := h.db.First(&admin, adminID).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Admin not found"})

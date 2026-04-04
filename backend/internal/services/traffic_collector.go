@@ -151,14 +151,16 @@ func (tc *TrafficCollector) collectStats() {
 			continue
 		}
 
-		// Save to database
+		// Batch insert traffic stats and collect per-user totals
+		var statsToInsert []models.TrafficStats
+		userTraffic := make(map[uint]uint64)
+
 		for _, sample := range samples {
 			if sample.UserID == 0 || sample.InboundID == 0 {
-				// Skip samples without proper user/inbound mapping
 				continue
 			}
 
-			stat := &models.TrafficStats{
+			statsToInsert = append(statsToInsert, models.TrafficStats{
 				UserID:      sample.UserID,
 				InboundID:   sample.InboundID,
 				CoreID:      sample.CoreID,
@@ -167,12 +169,19 @@ func (tc *TrafficCollector) collectStats() {
 				Total:       sample.Upload + sample.Download,
 				RecordedAt:  now,
 				Granularity: "raw",
-			}
+			})
 
-			tc.db.Create(stat)
+			userTraffic[sample.UserID] += sample.Upload + sample.Download
+		}
 
-			// Update user's total traffic used
-			tc.updateUserTraffic(sample.UserID, sample.Upload+sample.Download)
+		if len(statsToInsert) > 0 {
+			tc.db.CreateInBatches(statsToInsert, 100)
+		}
+
+		// Atomic UPDATE without SELECT for each user
+		for userID, bytes := range userTraffic {
+			tc.db.Model(&models.User{}).Where("id = ?", userID).
+				Update("traffic_used_bytes", gorm.Expr("traffic_used_bytes + ?", int64(bytes)))
 		}
 	}
 }
@@ -206,17 +215,6 @@ func (tc *TrafficCollector) getCoreStats(ctx context.Context, core models.Core) 
 	}
 }
 
-// updateUserTraffic updates user's total traffic used
-func (tc *TrafficCollector) updateUserTraffic(userID uint, bytes uint64) {
-	var user models.User
-	if err := tc.db.First(&user, userID).Error; err != nil {
-		return
-	}
-
-	// Increment traffic used (convert to int64 for model compatibility)
-	user.TrafficUsedBytes += int64(bytes)
-	tc.db.Save(&user)
-}
 
 // GetXrayClient returns the Xray stats client for direct access
 func (tc *TrafficCollector) GetXrayClient() *xray.StatsClient {

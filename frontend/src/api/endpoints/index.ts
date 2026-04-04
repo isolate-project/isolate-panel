@@ -173,6 +173,8 @@ export const systemApi = {
     apiClient.put('/settings/traffic-reset', { schedule }),
 
   connections: () => apiClient.get('/system/connections'),
+
+  wsTicket: () => apiClient.post<{ ticket: string }>('/ws/ticket'),
 }
 
 // WARP endpoints
@@ -265,4 +267,19 @@ export const backupApi = {
   getSchedule: () => apiClient.get('/backups/schedule'),
 
   setSchedule: (cron: string) => apiClient.post('/backups/schedule', { cron }),
+}
+
+// Notification endpoints
+export const notificationApi = {
+  list: () => apiClient.get('/notifications'),
+
+  get: (id: number) => apiClient.get(`/notifications/${id}`),
+
+  delete: (id: number) => apiClient.delete(`/notifications/${id}`),
+
+  getSettings: () => apiClient.get('/notifications/settings'),
+
+  updateSettings: (data: Record<string, unknown>) => apiClient.put('/notifications/settings', data),
+
+  sendTest: (channel: string) => apiClient.post('/notifications/test', { channel }),
 }

@@ -37,11 +37,32 @@ vi.mock('../stores/toastStore', () => ({
 }))
 
 vi.mock('../stores/authStore', () => ({
-  useAuthStore: () => ({
-    token: 'mock-token',
-    setToken: () => {},
-    logout: () => {},
-  }),
+  useAuthStore: Object.assign(
+    () => ({
+      accessToken: 'mock-token',
+      refreshToken: 'mock-refresh-token',
+      user: { id: 1, username: 'admin', is_super_admin: true },
+      isAuthenticated: true,
+      isLoading: false,
+      setTokens: () => {},
+      setUser: () => {},
+      logout: () => {},
+      setLoading: () => {},
+    }),
+    {
+      getState: () => ({
+        accessToken: 'mock-token',
+        refreshToken: 'mock-refresh-token',
+        user: { id: 1, username: 'admin', is_super_admin: true },
+        isAuthenticated: true,
+        isLoading: false,
+        setTokens: () => {},
+        setUser: () => {},
+        logout: () => {},
+        setLoading: () => {},
+      }),
+    }
+  ),
 }))
 
 // Mock lucide-preact - automatic mock for all icons

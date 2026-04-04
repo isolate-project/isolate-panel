@@ -4,19 +4,36 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/isolate-project/isolate-panel/internal/services"
+	"github.com/stretchr/testify/require"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
+
+	"github.com/isolate-project/isolate-panel/internal/models"
+	"github.com/isolate-project/isolate-panel/internal/services"
 )
+
+func setupTestDB(t *testing.T) *gorm.DB {
+	t.Helper()
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
+	require.NoError(t, err)
+
+	err = db.AutoMigrate(
+		&models.Core{},
+		&models.Inbound{},
+		&models.User{},
+		&models.Setting{},
+	)
+	require.NoError(t, err)
+	return db
+}
 
 func TestConfigService(t *testing.T) {
 	t.Run("creates config service", func(t *testing.T) {
-		service := services.NewConfigService(nil, nil, "/tmp")
-		assert.NotNil(t, service)
-	})
-
-	t.Run("gets config for core", func(t *testing.T) {
 		db := setupTestDB(t)
-		service := services.NewConfigService(db, nil, "/tmp")
+		service := services.NewConfigService(db, nil, "/tmp", "test-secret")
 		assert.NotNil(t, service)
 	})
 }
@@ -49,8 +66,4 @@ func TestConfigService_ConfigGeneration(t *testing.T) {
 		assert.NotNil(t, config)
 		assert.Equal(t, "rule", config["mode"])
 	})
-}
-
-func setupTestDB(t *testing.T) *gorm.DB {
-	return nil
 }

@@ -258,27 +258,43 @@ func (s *BackupService) performBackup(backup *models.Backup, source models.Backu
 	return nil
 }
 
-// dumpDatabase creates a SQLite database dump
+// dumpDatabase creates a copy of the SQLite database file.
+// Uses WAL checkpoint to ensure all data is flushed before copying.
 func (s *BackupService) dumpDatabase(tmpDir string) error {
 	dbPath := filepath.Join(s.dataDir, "isolate-panel.db")
-	dumpPath := filepath.Join(tmpDir, "database.sql")
+	dstPath := filepath.Join(tmpDir, "database.db")
 
 	// Check if database exists
 	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
 		return fmt.Errorf("database file not found: %s", dbPath)
 	}
 
-	// Use sqlite3 .dump command
-	cmd := exec.Command("sqlite3", dbPath, ".dump")
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("sqlite3 dump failed: %w", err)
+	// WAL checkpoint to flush all pending writes
+	sqlDB, err := s.db.DB()
+	if err != nil {
+		return fmt.Errorf("failed to get underlying DB: %w", err)
+	}
+	if _, err := sqlDB.Exec("PRAGMA wal_checkpoint(TRUNCATE)"); err != nil {
+		return fmt.Errorf("WAL checkpoint failed: %w", err)
 	}
 
-	return os.WriteFile(dumpPath, out.Bytes(), 0644)
+	src, err := os.Open(dbPath)
+	if err != nil {
+		return fmt.Errorf("failed to open database: %w", err)
+	}
+	defer src.Close()
+
+	dst, err := os.OpenFile(dstPath, os.O_CREATE|os.O_WRONLY, 0600)
+	if err != nil {
+		return fmt.Errorf("failed to create dump file: %w", err)
+	}
+	defer dst.Close()
+
+	if _, err = io.Copy(dst, src); err != nil {
+		return fmt.Errorf("failed to copy database: %w", err)
+	}
+
+	return nil
 }
 
 // copyCoreConfigs copies core configuration files
@@ -288,15 +304,15 @@ func (s *BackupService) copyCoreConfigs(tmpDir string) error {
 		return err
 	}
 
-	coreConfigs := []string{
-		"cores/xray/config.json",
-		"cores/singbox/config.json",
-		"cores/mihomo/config.yaml",
+	coreConfigs := []struct{ src, name string }{
+		{"cores/xray/config.json", "xray_config.json"},
+		{"cores/singbox/config.json", "singbox_config.json"},
+		{"cores/mihomo/config.yaml", "mihomo_config.yaml"},
 	}
 
 	for _, config := range coreConfigs {
-		src := filepath.Join(s.dataDir, config)
-		dst := filepath.Join(coresDir, filepath.Base(config))
+		src := filepath.Join(s.dataDir, config.src)
+		dst := filepath.Join(coresDir, config.name)
 
 		if _, err := os.Stat(src); err == nil {
 			data, err := os.ReadFile(src)
@@ -629,7 +645,7 @@ func (s *BackupService) rotateBackups() error {
 	}
 
 	var backups []models.Backup
-	if err := s.db.Order("created_at DESC").Find(&backups).Error; err != nil {
+	if err := s.db.Where("status = ?", models.BackupStatusCompleted).Order("created_at DESC").Find(&backups).Error; err != nil {
 		return err
 	}
 
@@ -678,7 +694,7 @@ func (s *BackupService) DeleteBackup(id uint) error {
 }
 
 // RestoreBackup restores from a backup
-func (s *BackupService) RestoreBackup(id uint, force bool) error {
+func (s *BackupService) RestoreBackup(id uint) error {
 	backup, err := s.GetBackup(id)
 	if err != nil {
 		return err
@@ -786,7 +802,18 @@ func (s *BackupService) extractTarArchive(srcPath, dstDir string) error {
 			return err
 		}
 
-		targetPath := filepath.Join(dstDir, header.Name)
+		// Prevent path traversal (zip slip) and symlink attacks
+		cleanName := filepath.Clean(header.Name)
+		if strings.Contains(cleanName, "..") {
+			return fmt.Errorf("invalid file path in archive: %s", header.Name)
+		}
+		targetPath := filepath.Join(dstDir, cleanName)
+		if !strings.HasPrefix(targetPath, filepath.Clean(dstDir)+string(os.PathSeparator)) {
+			return fmt.Errorf("path traversal attempt in archive: %s", header.Name)
+		}
+		if header.Typeflag == tar.TypeSymlink || header.Typeflag == tar.TypeLink {
+			return fmt.Errorf("symlinks not allowed in backup archive: %s", header.Name)
+		}
 
 		if header.FileInfo().IsDir() {
 			if err := os.MkdirAll(targetPath, 0755); err != nil {
@@ -814,12 +841,21 @@ func (s *BackupService) extractTarArchive(srcPath, dstDir string) error {
 	return nil
 }
 
-// restoreDatabase restores the database from dump
+// restoreDatabase restores the database from a backup.
+// Supports both new format (database.db — binary copy) and legacy format (database.sql — text dump).
 func (s *BackupService) restoreDatabase(tmpDir string) error {
-	dumpPath := filepath.Join(tmpDir, "database.sql")
 	dbPath := filepath.Join(s.dataDir, "isolate-panel.db")
 
-	if _, err := os.Stat(dumpPath); os.IsNotExist(err) {
+	// Determine source: prefer new .db format, fall back to legacy .sql
+	dbCopyPath := filepath.Join(tmpDir, "database.db")
+	sqlDumpPath := filepath.Join(tmpDir, "database.sql")
+
+	var srcPath string
+	if _, err := os.Stat(dbCopyPath); err == nil {
+		srcPath = dbCopyPath
+	} else if _, err := os.Stat(sqlDumpPath); err == nil {
+		srcPath = sqlDumpPath
+	} else {
 		return nil // No database dump to restore
 	}
 
@@ -831,13 +867,32 @@ func (s *BackupService) restoreDatabase(tmpDir string) error {
 		}
 	}
 
-	// Read dump file
-	dumpData, err := os.ReadFile(dumpPath)
+	// For .db format — simple file copy
+	if srcPath == dbCopyPath {
+		src, err := os.Open(srcPath)
+		if err != nil {
+			return fmt.Errorf("failed to open backup database: %w", err)
+		}
+		defer src.Close()
+
+		dst, err := os.OpenFile(dbPath, os.O_CREATE|os.O_WRONLY, 0600)
+		if err != nil {
+			return fmt.Errorf("failed to create database: %w", err)
+		}
+		defer dst.Close()
+
+		if _, err = io.Copy(dst, src); err != nil {
+			return fmt.Errorf("failed to copy database: %w", err)
+		}
+		return nil
+	}
+
+	// Legacy .sql format — requires sqlite3 CLI
+	dumpData, err := os.ReadFile(srcPath)
 	if err != nil {
 		return err
 	}
 
-	// Create new database
 	cmd := exec.Command("sqlite3", dbPath)
 	cmd.Stdin = bytes.NewReader(dumpData)
 	cmd.Stdout = os.Stdout
@@ -846,36 +901,64 @@ func (s *BackupService) restoreDatabase(tmpDir string) error {
 	return cmd.Run()
 }
 
-// restoreCoreConfigs restores core configurations
+// restoreCoreConfigs restores core configurations.
+// Supports both new format (xray_config.json, singbox_config.json, mihomo_config.yaml)
+// and legacy format (config.json → xray only, config.yaml → mihomo).
 func (s *BackupService) restoreCoreConfigs(tmpDir string) error {
 	coresDir := filepath.Join(tmpDir, "cores")
 	if _, err := os.Stat(coresDir); os.IsNotExist(err) {
 		return nil
 	}
 
-	configFiles := []string{"config.json", "config.yaml"}
-	for _, configFile := range configFiles {
-		src := filepath.Join(coresDir, configFile)
-		if _, err := os.Stat(src); err == nil {
+	// New format: explicit per-core names
+	coreConfigs := []struct{ backupName, targetDir, targetFile string }{
+		{"xray_config.json", "cores/xray", "config.json"},
+		{"singbox_config.json", "cores/singbox", "config.json"},
+		{"mihomo_config.yaml", "cores/mihomo", "config.yaml"},
+	}
+
+	restored := false
+	for _, cfg := range coreConfigs {
+		src := filepath.Join(coresDir, cfg.backupName)
+		if _, err := os.Stat(src); err != nil {
+			continue
+		}
+		restored = true
+
+		data, err := os.ReadFile(src)
+		if err != nil {
+			return err
+		}
+
+		targetDir := filepath.Join(s.dataDir, cfg.targetDir)
+		if err := os.MkdirAll(targetDir, 0755); err != nil {
+			return err
+		}
+		if err := os.WriteFile(filepath.Join(targetDir, cfg.targetFile), data, 0644); err != nil {
+			return err
+		}
+	}
+
+	// Legacy format fallback: config.json → xray, config.yaml → mihomo
+	if !restored {
+		legacyConfigs := []struct{ backupName, targetDir string }{
+			{"config.json", "cores/xray"},
+			{"config.yaml", "cores/mihomo"},
+		}
+		for _, cfg := range legacyConfigs {
+			src := filepath.Join(coresDir, cfg.backupName)
+			if _, err := os.Stat(src); err != nil {
+				continue
+			}
 			data, err := os.ReadFile(src)
 			if err != nil {
 				return err
 			}
-
-			// Determine target directory based on config type
-			var targetDir string
-			if configFile == "config.yaml" {
-				targetDir = filepath.Join(s.dataDir, "cores/mihomo")
-			} else {
-				// Could be xray or singbox - check content or try both
-				targetDir = filepath.Join(s.dataDir, "cores/xray")
-			}
-
+			targetDir := filepath.Join(s.dataDir, cfg.targetDir)
 			if err := os.MkdirAll(targetDir, 0755); err != nil {
 				return err
 			}
-
-			if err := os.WriteFile(filepath.Join(targetDir, configFile), data, 0644); err != nil {
+			if err := os.WriteFile(filepath.Join(targetDir, cfg.backupName), data, 0644); err != nil {
 				return err
 			}
 		}
@@ -993,17 +1076,16 @@ func (wc *writeCounter) Write(p []byte) (int, error) {
 	return n, nil
 }
 
-// DownloadBackup returns backup file as bytes for download
-func (s *BackupService) DownloadBackup(id uint) ([]byte, string, error) {
+// DownloadBackup returns backup file path and filename for streaming download
+func (s *BackupService) DownloadBackup(id uint) (string, string, error) {
 	backup, err := s.GetBackup(id)
 	if err != nil {
-		return nil, "", err
+		return "", "", err
 	}
 
-	data, err := os.ReadFile(backup.FilePath)
-	if err != nil {
-		return nil, "", err
+	if _, err := os.Stat(backup.FilePath); err != nil {
+		return "", "", fmt.Errorf("backup file not found: %w", err)
 	}
 
-	return data, backup.Filename, nil
+	return backup.FilePath, backup.Filename, nil
 }

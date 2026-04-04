@@ -257,7 +257,7 @@ func TestBackupStatusTransitions(t *testing.T) {
 		}
 		require.NoError(t, db.Create(backup).Error)
 
-		err := backupService.RestoreBackup(backup.ID, false)
+		err := backupService.RestoreBackup(backup.ID)
 		assert.Error(t, err, "should reject restore of non-completed backup")
 	})
 }

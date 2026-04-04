@@ -1,4 +1,4 @@
-import { Suspense, lazy } from 'preact/compat'
+import { Suspense, lazy, ComponentType } from 'preact/compat'
 import { Router, Route } from 'preact-router'
 import { ErrorBoundary } from './components/layout/ErrorBoundary'
 import { ProtectedRoute } from './router/ProtectedRoute'
@@ -25,125 +25,23 @@ const Backups = lazy(() => import('./pages/Backups').then(m => ({ default: m.Bac
 const Notifications = lazy(() => import('./pages/Notifications').then(m => ({ default: m.Notifications })))
 const NotFound = lazy(() => import('./pages/NotFound').then(m => ({ default: m.NotFound })))
 
-// Wrapper components for protected routes
-function ProtectedDashboard() {
+// Generic protected route wrapper — eliminates 15 identical wrapper components
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function Protected({ Component, ...rest }: { Component: ComponentType<any>;[key: string]: any }) {
   return (
     <ProtectedRoute>
-      <Dashboard />
+      <Component {...rest} />
     </ProtectedRoute>
   )
 }
 
-function ProtectedUsers() {
-  return (
-    <ProtectedRoute>
-      <Users />
-    </ProtectedRoute>
-  )
-}
-
-function ProtectedCores() {
-  return (
-    <ProtectedRoute>
-      <Cores />
-    </ProtectedRoute>
-  )
-}
-
-function ProtectedInbounds() {
-  return (
-    <ProtectedRoute>
-      <Inbounds />
-    </ProtectedRoute>
-  )
-}
-
-function ProtectedInboundCreate() {
-  return (
-    <ProtectedRoute>
-      <InboundCreate />
-    </ProtectedRoute>
-  )
-}
-
+// Wrappers for routes that need prop transforms (path params → typed props)
 function ProtectedInboundDetail({ id }: { id?: string }) {
-  return (
-    <ProtectedRoute>
-      <InboundDetail id={Number(id)} />
-    </ProtectedRoute>
-  )
+  return <Protected Component={InboundDetail} id={Number(id)} />
 }
 
 function ProtectedInboundEdit({ id }: { id?: string }) {
-  return (
-    <ProtectedRoute>
-      <InboundEdit id={Number(id)} />
-    </ProtectedRoute>
-  )
-}
-
-function ProtectedOutbounds() {
-  return (
-    <ProtectedRoute>
-      <Outbounds />
-    </ProtectedRoute>
-  )
-}
-
-function ProtectedCertificates() {
-  return (
-    <ProtectedRoute>
-      <Certificates />
-    </ProtectedRoute>
-  )
-}
-
-function ProtectedActiveConnections() {
-  return (
-    <ProtectedRoute>
-      <ActiveConnections />
-    </ProtectedRoute>
-  )
-}
-
-function ProtectedSettings() {
-  return (
-    <ProtectedRoute>
-      <Settings />
-    </ProtectedRoute>
-  )
-}
-
-function ProtectedWarpRoutes() {
-  return (
-    <ProtectedRoute>
-      <WarpRoutes />
-    </ProtectedRoute>
-  )
-}
-
-function ProtectedGeoRules() {
-  return (
-    <ProtectedRoute>
-      <GeoRules />
-    </ProtectedRoute>
-  )
-}
-
-function ProtectedBackups() {
-  return (
-    <ProtectedRoute>
-      <Backups />
-    </ProtectedRoute>
-  )
-}
-
-function ProtectedNotifications() {
-  return (
-    <ProtectedRoute>
-      <Notifications />
-    </ProtectedRoute>
-  )
+  return <Protected Component={InboundEdit} id={Number(id)} />
 }
 
 export function App() {
@@ -156,21 +54,21 @@ export function App() {
         <Suspense fallback={<PageSkeleton />}>
           <Router>
             <Route path="/login" component={Login} />
-            <Route path="/" component={ProtectedDashboard} />
-            <Route path="/users" component={ProtectedUsers} />
-            <Route path="/cores" component={ProtectedCores} />
-            <Route path="/inbounds" component={ProtectedInbounds} />
-            <Route path="/inbounds/create" component={ProtectedInboundCreate} />
+            <Route path="/" component={() => <Protected Component={Dashboard} />} />
+            <Route path="/users" component={() => <Protected Component={Users} />} />
+            <Route path="/cores" component={() => <Protected Component={Cores} />} />
+            <Route path="/inbounds" component={() => <Protected Component={Inbounds} />} />
+            <Route path="/inbounds/create" component={() => <Protected Component={InboundCreate} />} />
             <Route path="/inbounds/:id/edit" component={ProtectedInboundEdit} />
             <Route path="/inbounds/:id" component={ProtectedInboundDetail} />
-            <Route path="/outbounds" component={ProtectedOutbounds} />
-            <Route path="/certificates" component={ProtectedCertificates} />
-            <Route path="/connections" component={ProtectedActiveConnections} />
-            <Route path="/settings" component={ProtectedSettings} />
-            <Route path="/warp" component={ProtectedWarpRoutes} />
-            <Route path="/geo" component={ProtectedGeoRules} />
-            <Route path="/backups" component={ProtectedBackups} />
-            <Route path="/notifications" component={ProtectedNotifications} />
+            <Route path="/outbounds" component={() => <Protected Component={Outbounds} />} />
+            <Route path="/certificates" component={() => <Protected Component={Certificates} />} />
+            <Route path="/connections" component={() => <Protected Component={ActiveConnections} />} />
+            <Route path="/settings" component={() => <Protected Component={Settings} />} />
+            <Route path="/warp" component={() => <Protected Component={WarpRoutes} />} />
+            <Route path="/geo" component={() => <Protected Component={GeoRules} />} />
+            <Route path="/backups" component={() => <Protected Component={Backups} />} />
+            <Route path="/notifications" component={() => <Protected Component={Notifications} />} />
             <Route default component={NotFound} />
           </Router>
         </Suspense>

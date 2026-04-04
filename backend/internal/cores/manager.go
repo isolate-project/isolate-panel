@@ -53,8 +53,10 @@ func (cm *CoreManager) StartCore(name string) error {
 		return err
 	}
 
-	// Wait a bit for process to start
-	time.Sleep(1 * time.Second)
+	// Wait for process to start with retry backoff
+	if err := cm.waitForProcess(name, 5); err != nil {
+		return err
+	}
 
 	// Get process info
 	info, err := cm.supervisor.GetProcessInfo(name)
@@ -131,8 +133,10 @@ func (cm *CoreManager) RestartCore(name string) error {
 		return err
 	}
 
-	// Wait a bit for process to start
-	time.Sleep(1 * time.Second)
+	// Wait for process to start with retry backoff
+	if err := cm.waitForProcess(name, 5); err != nil {
+		return err
+	}
 
 	// Get process info
 	info, err := cm.supervisor.GetProcessInfo(name)
@@ -189,6 +193,18 @@ func (cm *CoreManager) GetCoreStatus(name string) (*models.Core, error) {
 	}
 
 	return &core, nil
+}
+
+// waitForProcess waits for a process to start with exponential backoff
+func (cm *CoreManager) waitForProcess(name string, maxRetries int) error {
+	for i := 0; i < maxRetries; i++ {
+		time.Sleep(time.Duration(i+1) * 500 * time.Millisecond)
+		running, err := cm.supervisor.IsProcessRunning(name)
+		if err == nil && running {
+			return nil
+		}
+	}
+	return fmt.Errorf("process %s did not start within expected time", name)
 }
 
 // IsCoreRunning checks if a core is running

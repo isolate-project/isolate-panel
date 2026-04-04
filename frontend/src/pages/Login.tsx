@@ -59,7 +59,6 @@ export function Login() {
         message: t('auth.welcome'),
       })
 
-      await new Promise(resolve => setTimeout(resolve, 100))
       route('/', true)
     } catch (err) {
       const axiosErr = err as AxiosError<{ message?: string; error?: string }>

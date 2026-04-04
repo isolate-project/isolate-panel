@@ -152,14 +152,20 @@ func (qe *QuotaEnforcer) ResetUserTraffic(userID uint) error {
 
 // ResetAllTraffic resets traffic counters for all users (used by scheduled reset)
 func (qe *QuotaEnforcer) ResetAllTraffic() error {
-	result := qe.db.Exec("UPDATE users SET traffic_used_bytes = 0")
-	if result.Error != nil {
-		return fmt.Errorf("failed to reset traffic: %w", result.Error)
+	err := qe.db.Transaction(func(tx *gorm.DB) error {
+		result := tx.Exec("UPDATE users SET traffic_used_bytes = 0")
+		if result.Error != nil {
+			return fmt.Errorf("failed to reset traffic: %w", result.Error)
+		}
+		qe.log.Info().Int64("affected", result.RowsAffected).Msg("Scheduled traffic reset: all users reset")
+		return nil
+	})
+	if err != nil {
+		return err
 	}
-	// Clear warning state
+	// Clear warning state after successful commit
 	qe.warned80 = make(map[uint]bool)
 	qe.warned90 = make(map[uint]bool)
-	qe.log.Info().Int64("affected", result.RowsAffected).Msg("Scheduled traffic reset: all users reset")
 	return nil
 }
 

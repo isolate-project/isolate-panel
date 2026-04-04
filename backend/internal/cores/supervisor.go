@@ -133,7 +133,9 @@ func (sc *SupervisorClient) call(method string, params ...interface{}) ([]byte, 
 		buf.WriteString(`<param>`)
 		switch v := param.(type) {
 		case string:
-			buf.WriteString(`<value><string>` + v + `</string></value>`)
+			var escaped bytes.Buffer
+			_ = xml.EscapeText(&escaped, []byte(v))
+			buf.WriteString(`<value><string>` + escaped.String() + `</string></value>`)
 		case int:
 			buf.WriteString(fmt.Sprintf(`<value><int>%d</int></value>`, v))
 		case bool:

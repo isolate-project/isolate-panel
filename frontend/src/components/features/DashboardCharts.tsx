@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'preact/hooks'
+import { useEffect, useState, useMemo } from 'preact/hooks'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -17,6 +17,7 @@ import { statsApi } from '../../api/endpoints'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card'
 import { Skeleton } from '../ui/Skeleton'
 import { BarChart3 } from 'lucide-preact'
+import { formatBytes } from '../../utils/format'
 
 // Register Chart.js components
 ChartJS.register(
@@ -56,14 +57,6 @@ interface TopUser {
   is_active: boolean
 }
 
-const formatBytes = (bytes: number): string => {
-  if (bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return (bytes / Math.pow(k, i)).toFixed(1) + ' ' + sizes[i]
-}
-
 const formatShortDate = (dateStr: string): string => {
   const d = new Date(dateStr)
   return `${d.getMonth() + 1}/${d.getDate()}`
@@ -97,10 +90,9 @@ export function TrafficChart({ days = 7 }: { days?: number }) {
   }
 
   const points = data?.points || []
-  const labels = points.map(p => formatShortDate(p.date))
 
-  const chartData = {
-    labels,
+  const chartData = useMemo(() => ({
+    labels: points.map(p => formatShortDate(p.date)),
     datasets: [
       {
         label: 'Upload',
@@ -123,9 +115,9 @@ export function TrafficChart({ days = 7 }: { days?: number }) {
         pointHoverRadius: 6,
       },
     ],
-  }
+  }), [points])
 
-  const options = {
+  const options = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
     interaction: {
@@ -174,7 +166,7 @@ export function TrafficChart({ days = 7 }: { days?: number }) {
         },
       },
     },
-  }
+  }), [])
 
   return (
     <Card>
@@ -245,7 +237,7 @@ export function TopUsersChart({ limit = 5 }: { limit?: number }) {
     )
   }
 
-  const chartData = {
+  const chartData = useMemo(() => ({
     labels: users.map(u => u.username),
     datasets: [
       {
@@ -273,9 +265,9 @@ export function TopUsersChart({ limit = 5 }: { limit?: number }) {
         borderRadius: 6,
       },
     ],
-  }
+  }), [users])
 
-  const options = {
+  const options = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
     indexAxis: 'y' as const,
@@ -311,7 +303,7 @@ export function TopUsersChart({ limit = 5 }: { limit?: number }) {
         },
       },
     },
-  }
+  }), [])
 
   return (
     <Card>

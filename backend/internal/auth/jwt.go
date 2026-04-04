@@ -2,8 +2,10 @@ package auth
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -14,6 +16,10 @@ type TokenService struct {
 	accessTokenTTL  time.Duration
 	refreshTokenTTL time.Duration
 	issuer          string
+
+	// blacklist stores revoked access token hashes with their expiry times
+	blacklist   map[string]time.Time
+	blacklistMu sync.RWMutex
 }
 
 type Claims struct {
@@ -24,11 +30,29 @@ type Claims struct {
 }
 
 func NewTokenService(secret string, accessTTL, refreshTTL time.Duration) *TokenService {
-	return &TokenService{
+	ts := &TokenService{
 		secret:          []byte(secret),
 		accessTokenTTL:  accessTTL,
 		refreshTokenTTL: refreshTTL,
 		issuer:          "isolate-panel",
+		blacklist:       make(map[string]time.Time),
+	}
+	go ts.cleanupBlacklist()
+	return ts
+}
+
+func (ts *TokenService) cleanupBlacklist() {
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+	for range ticker.C {
+		now := time.Now()
+		ts.blacklistMu.Lock()
+		for hash, expiry := range ts.blacklist {
+			if now.After(expiry) {
+				delete(ts.blacklist, hash)
+			}
+		}
+		ts.blacklistMu.Unlock()
 	}
 }
 
@@ -61,8 +85,32 @@ func (ts *TokenService) GenerateRefreshToken() (string, error) {
 	return hex.EncodeToString(bytes), nil
 }
 
+// BlacklistAccessToken adds a token to the in-memory blacklist.
+// The token is automatically removed after its original expiry time.
+func (ts *TokenService) BlacklistAccessToken(tokenString string) {
+	hash := tokenHash(tokenString)
+	ts.blacklistMu.Lock()
+	// Keep in blacklist for the max access token TTL
+	ts.blacklist[hash] = time.Now().Add(ts.accessTokenTTL)
+	ts.blacklistMu.Unlock()
+}
+
+func tokenHash(token string) string {
+	h := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(h[:])
+}
+
 // ValidateAccessToken validates and parses a JWT access token
 func (ts *TokenService) ValidateAccessToken(tokenString string) (*Claims, error) {
+	// Check blacklist first
+	hash := tokenHash(tokenString)
+	ts.blacklistMu.RLock()
+	_, revoked := ts.blacklist[hash]
+	ts.blacklistMu.RUnlock()
+	if revoked {
+		return nil, fmt.Errorf("token has been revoked")
+	}
+
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 		// Verify signing method
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {

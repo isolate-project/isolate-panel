@@ -146,7 +146,6 @@ func TestRateLimiter(t *testing.T) {
 	// First 3 requests should succeed
 	for i := 0; i < 3; i++ {
 		req := httptest.NewRequest("POST", "/login", nil)
-		req.Header.Set("X-Forwarded-For", "192.168.1.1")
 
 		resp, err := app.Test(req)
 		if err != nil {
@@ -160,7 +159,6 @@ func TestRateLimiter(t *testing.T) {
 
 	// 4th request should be rate limited
 	req := httptest.NewRequest("POST", "/login", nil)
-	req.Header.Set("X-Forwarded-For", "192.168.1.1")
 
 	resp, err := app.Test(req)
 	if err != nil {
@@ -172,8 +170,9 @@ func TestRateLimiter(t *testing.T) {
 	}
 }
 
-func TestRateLimiter_DifferentIPs(t *testing.T) {
-	// Create fresh limiter for this test to avoid state pollution
+func TestRateLimiter_IgnoresXForwardedFor(t *testing.T) {
+	// Verify that rate limiter uses c.IP() not X-Forwarded-For header,
+	// preventing rate limit bypass via header spoofing.
 	limiter := middleware.NewRateLimiter(2, 1*time.Second)
 
 	app := fiber.New()
@@ -181,32 +180,29 @@ func TestRateLimiter_DifferentIPs(t *testing.T) {
 		return c.SendString("success")
 	})
 
-	// Requests from IP1 (should succeed - 2 requests)
+	// Use up the limit with 2 requests
 	for i := 0; i < 2; i++ {
 		req := httptest.NewRequest("POST", "/login", nil)
-		req.Header.Set("X-Forwarded-For", "192.168.1.100")
-
 		resp, err := app.Test(req)
 		if err != nil {
 			t.Fatalf("Request failed: %v", err)
 		}
-
 		if resp.StatusCode != 200 {
-			t.Errorf("Request %d from IP1: expected status 200, got %d", i+1, resp.StatusCode)
+			t.Errorf("Request %d: expected status 200, got %d", i+1, resp.StatusCode)
 		}
 	}
 
-	// Request from IP2 (should succeed - different IP, fresh limit)
+	// 3rd request with spoofed X-Forwarded-For should still be rate limited
 	req := httptest.NewRequest("POST", "/login", nil)
-	req.Header.Set("X-Forwarded-For", "192.168.1.200")
+	req.Header.Set("X-Forwarded-For", "10.0.0.99")
 
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("Request failed: %v", err)
 	}
 
-	if resp.StatusCode != 200 {
-		t.Errorf("Request from IP2: expected status 200, got %d", resp.StatusCode)
+	if resp.StatusCode != 429 {
+		t.Errorf("Spoofed XFF should NOT bypass rate limit: expected 429, got %d", resp.StatusCode)
 	}
 }
 
@@ -221,13 +217,11 @@ func TestRateLimiter_Reset(t *testing.T) {
 	// Use up the limit
 	for i := 0; i < 2; i++ {
 		req := httptest.NewRequest("POST", "/login", nil)
-		req.Header.Set("X-Forwarded-For", "192.168.1.1")
 		app.Test(req)
 	}
 
 	// Next request should be rate limited
 	req := httptest.NewRequest("POST", "/login", nil)
-	req.Header.Set("X-Forwarded-For", "192.168.1.1")
 	resp, _ := app.Test(req)
 
 	if resp.StatusCode != 429 {
@@ -239,7 +233,6 @@ func TestRateLimiter_Reset(t *testing.T) {
 
 	// Should succeed again
 	req = httptest.NewRequest("POST", "/login", nil)
-	req.Header.Set("X-Forwarded-For", "192.168.1.1")
 	resp, _ = app.Test(req)
 
 	if resp.StatusCode != 200 {

@@ -1,3 +1,4 @@
+import { route } from 'preact-router'
 import { Share2, Home, Users, ArrowDownToLine, ArrowUpFromLine, Box, Shield, Activity, Settings, Globe, Network, Database, Bell } from 'lucide-preact'
 import { useTranslation } from 'react-i18next'
 import { cn } from '../../lib/utils'
@@ -69,7 +70,7 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
                 <a
                   key={item.href}
                   href={item.href}
-                  onClick={onClose}
+                  onClick={(e) => { e.preventDefault(); onClose?.(); route(item.href) }}
                   className={cn(
                     'group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200',
                     active
@@ -94,7 +95,7 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
         <div className="mt-auto p-4 border-t border-border-primary bg-bg-secondary/50">
           <a
             href="/settings"
-            onClick={onClose}
+            onClick={(e) => { e.preventDefault(); onClose?.(); route('/settings') }}
             className={cn(
               'group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all',
               isActivePath('/settings')

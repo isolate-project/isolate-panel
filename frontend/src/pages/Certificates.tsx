@@ -22,6 +22,7 @@ export function Certificates() {
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [requestWildcard, setRequestWildcard] = useState(false)
   const [requestDomain, setRequestDomain] = useState('')
+  const [uploadForm, setUploadForm] = useState({ domain: '', certificate: '', private_key: '', issuer: '' })
 
   const { data: certsData, isLoading, refetch } = useQuery<{ certificates: Certificate[]; total: number }>(
     'certificates',
@@ -37,6 +38,22 @@ export function Certificates() {
         setShowRequestModal(false)
         setRequestDomain('')
         setRequestWildcard(false)
+      },
+      onError: (error: Error) => {
+        addToast({ type: 'error', message: error.message })
+      },
+    }
+  )
+
+  const uploadMutation = useMutation(
+    (data: { domain: string; certificate: string; private_key: string; issuer?: string; is_wildcard: boolean }) =>
+      certificateApi.upload(data).then(res => res.data),
+    {
+      onSuccess: () => {
+        addToast({ type: 'success', message: t('certificates.uploaded') || 'Certificate uploaded' })
+        refetch()
+        setShowUploadModal(false)
+        setUploadForm({ domain: '', certificate: '', private_key: '', issuer: '' })
       },
       onError: (error: Error) => {
         addToast({ type: 'error', message: error.message })
@@ -286,7 +303,11 @@ export function Certificates() {
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-primary mb-2">{t('certificates.domain')}</label>
-            <Input placeholder="example.com" />
+            <Input
+              placeholder="example.com"
+              value={uploadForm.domain}
+              onChange={(e) => setUploadForm(f => ({ ...f, domain: (e.target as HTMLInputElement).value }))}
+            />
           </div>
 
           <div>
@@ -294,6 +315,8 @@ export function Certificates() {
             <textarea
               className="w-full px-3 py-2 bg-surface border border-primary rounded-lg text-primary font-mono text-sm h-32 resize-none focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder="-----BEGIN CERTIFICATE-----..."
+              value={uploadForm.certificate}
+              onChange={(e) => setUploadForm(f => ({ ...f, certificate: (e.target as HTMLTextAreaElement).value }))}
             />
           </div>
 
@@ -302,6 +325,8 @@ export function Certificates() {
             <textarea
               className="w-full px-3 py-2 bg-surface border border-primary rounded-lg text-primary font-mono text-sm h-32 resize-none focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder="-----BEGIN PRIVATE KEY-----..."
+              value={uploadForm.private_key}
+              onChange={(e) => setUploadForm(f => ({ ...f, private_key: (e.target as HTMLTextAreaElement).value }))}
             />
           </div>
 
@@ -310,6 +335,8 @@ export function Certificates() {
             <textarea
               className="w-full px-3 py-2 bg-surface border border-primary rounded-lg text-primary font-mono text-sm h-24 resize-none focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder="-----BEGIN CERTIFICATE-----..."
+              value={uploadForm.issuer}
+              onChange={(e) => setUploadForm(f => ({ ...f, issuer: (e.target as HTMLTextAreaElement).value }))}
             />
           </div>
 
@@ -317,7 +344,18 @@ export function Certificates() {
             <Button variant="outline" onClick={() => setShowUploadModal(false)}>
               {t('common.cancel')}
             </Button>
-            <Button>{t('certificates.upload')}</Button>
+            <Button
+              onClick={() => uploadMutation.mutate({
+                domain: uploadForm.domain,
+                certificate: uploadForm.certificate,
+                private_key: uploadForm.private_key,
+                issuer: uploadForm.issuer || undefined,
+                is_wildcard: uploadForm.domain.startsWith('*.'),
+              })}
+              disabled={uploadMutation.isLoading || !uploadForm.domain || !uploadForm.certificate || !uploadForm.private_key}
+            >
+              {uploadMutation.isLoading ? <Spinner size="sm" /> : t('certificates.upload')}
+            </Button>
           </div>
         </div>
       </Modal>

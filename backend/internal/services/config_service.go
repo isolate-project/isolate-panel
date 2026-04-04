@@ -7,6 +7,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/isolate-project/isolate-panel/internal/cores"
+	"github.com/isolate-project/isolate-panel/internal/logger"
 	mihomocore "github.com/isolate-project/isolate-panel/internal/cores/mihomo"
 	singboxcore "github.com/isolate-project/isolate-panel/internal/cores/singbox"
 	xraycore "github.com/isolate-project/isolate-panel/internal/cores/xray"
@@ -15,33 +16,36 @@ import (
 
 // ConfigService handles configuration generation and management
 type ConfigService struct {
-	db          *gorm.DB
-	coreManager *cores.CoreManager
-	configDir   string
-	warpDir     string
-	geoDir      string
+	db            *gorm.DB
+	coreManager   *cores.CoreManager
+	configDir     string
+	warpDir       string
+	geoDir        string
+	coreAPISecret string
 }
 
 // NewConfigService creates a new config service
-func NewConfigService(db *gorm.DB, coreManager *cores.CoreManager, configDir string) *ConfigService {
+func NewConfigService(db *gorm.DB, coreManager *cores.CoreManager, configDir, coreAPISecret string) *ConfigService {
 	if configDir == "" {
 		configDir = "./data/cores"
 	}
 	return &ConfigService{
-		db:          db,
-		coreManager: coreManager,
-		configDir:   configDir,
-		warpDir:     "./data/warp",
-		geoDir:      "./data/geo",
+		db:            db,
+		coreManager:   coreManager,
+		configDir:     configDir,
+		warpDir:       "./data/warp",
+		geoDir:        "./data/geo",
+		coreAPISecret: coreAPISecret,
 	}
 }
 
 // configContext creates a ConfigContext for generators
 func (s *ConfigService) configContext() *cores.ConfigContext {
 	return &cores.ConfigContext{
-		DB:      s.db,
-		WarpDir: s.warpDir,
-		GeoDir:  s.geoDir,
+		DB:            s.db,
+		WarpDir:       s.warpDir,
+		GeoDir:        s.geoDir,
+		CoreAPISecret: s.coreAPISecret,
 	}
 }
 
@@ -87,7 +91,7 @@ func (s *ConfigService) RegenerateConfig(coreName string) error {
 		return fmt.Errorf("failed to generate config: %w", err)
 	}
 
-	fmt.Printf("✓ Config regenerated for %s: %s\n", coreName, configPath)
+	logger.Log.Info().Str("core", coreName).Str("path", configPath).Msg("Config regenerated")
 	return nil
 }
 
@@ -109,9 +113,9 @@ func (s *ConfigService) RegenerateAndReload(coreName string) error {
 		if err := s.coreManager.RestartCore(coreName); err != nil {
 			return fmt.Errorf("failed to reload core: %w", err)
 		}
-		fmt.Printf("✓ Core %s reloaded\n", coreName)
+		logger.Log.Info().Str("core", coreName).Msg("Core reloaded")
 	} else {
-		fmt.Printf("ℹ Core %s is not running, skipping reload\n", coreName)
+		logger.Log.Info().Str("core", coreName).Msg("Core is not running, skipping reload")
 	}
 
 	return nil

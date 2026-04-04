@@ -119,7 +119,8 @@ export function useForm<T extends Record<string, unknown>>({
     try {
       await onSubmitRef.current(valuesRef.current as T)
     } catch (error) {
-      console.error('Form submission error:', error)
+      const message = error instanceof Error ? error.message : 'Submission failed'
+      setErrors(prev => ({ ...prev, _form: message }))
     } finally {
       setIsSubmitting(false)
     }

@@ -16,8 +16,8 @@ const AUTH_CACHE_TTL = 60000 // 1 minute
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { isAuthenticated, setUser, logout } = useAuthStore()
+  const accessToken = useAuthStore(s => s.accessToken)
   const [isChecking, setIsChecking] = useState(true)
-  const hasRunRef = useRef(false)
   const abortControllerRef = useRef<AbortController | null>(null)
 
   // Cleanup on unmount
@@ -30,12 +30,6 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   }, [])
 
   useEffect(() => {
-    // Prevent multiple executions
-    if (hasRunRef.current) {
-      return
-    }
-    hasRunRef.current = true
-
     const checkAuth = async () => {
       // Abort any previous request
       if (abortControllerRef.current) {
@@ -44,7 +38,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
       abortControllerRef.current = new AbortController()
 
       const token = localStorage.getItem('accessToken')
-      
+
       // No token, redirect to login
       if (!token) {
         setIsChecking(false)
@@ -61,12 +55,12 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
       // Token exists, verify it's valid by fetching user info
       try {
         const response = await authApi.me()
-        
+
         // Don't update if aborted
         if (abortControllerRef.current?.signal.aborted) {
           return
         }
-        
+
         setUser(response.data)
         authVerified = true
         authVerifiedAt = Date.now()
@@ -76,7 +70,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
         if (err instanceof Error && err.name === 'AbortError') {
           return
         }
-        
+
         // Token invalid or expired, logout and redirect
         authVerified = false
         logout()
@@ -85,7 +79,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     }
 
     checkAuth()
-  }, [])  // Empty deps - only run once
+  }, [accessToken])  // Re-run when token changes (login/logout)
 
   // Show loading spinner while checking authentication
   if (isChecking) {

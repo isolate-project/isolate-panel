@@ -34,7 +34,10 @@ func NewUsersHandler(userService *services.UserService) *UsersHandler {
 // @Router       /users [post]
 // @Security     BearerAuth
 func (h *UsersHandler) CreateUser(c fiber.Ctx) error {
-	adminID := c.Locals("admin_id").(uint)
+	adminID, ok := c.Locals("admin_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "unauthorized"})
+	}
 
 	req, err := middleware.BindAndValidate[services.CreateUserRequest](c)
 	if err != nil {

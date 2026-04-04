@@ -1,7 +1,10 @@
 package api
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
+	"strings"
 	"sync"
 	"time"
 
@@ -25,8 +28,21 @@ type DashboardPayload struct {
 }
 
 var wsUpgrader = fwebsocket.FastHTTPUpgrader{
-	CheckOrigin: func(_ *fasthttp.RequestCtx) bool {
-		return true // origin validation handled via JWT
+	CheckOrigin: func(ctx *fasthttp.RequestCtx) bool {
+		origin := string(ctx.Request.Header.Peek("Origin"))
+		if origin == "" {
+			return true // same-origin requests omit Origin
+		}
+		// Panel is accessed via SSH tunnel on localhost
+		for _, allowed := range []string{
+			"http://localhost", "https://localhost",
+			"http://127.0.0.1", "https://127.0.0.1",
+		} {
+			if origin == allowed || strings.HasPrefix(origin, allowed+":") {
+				return true
+			}
+		}
+		return false
 	},
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
@@ -134,16 +150,64 @@ func (h *DashboardHub) broadcastAll(payload []byte) {
 	}
 }
 
-// DashboardWS is the Fiber handler for GET /api/ws/dashboard
-// Auth is done via ?token=<access_token> because the browser WebSocket API
-// does not support custom request headers.
-func (h *DashboardHub) DashboardWS(c fiber.Ctx) error {
-	token := c.Query("token")
-	if token == "" {
-		return c.Status(fiber.StatusUnauthorized).SendString("token required")
+// wsTicket stores a one-time WebSocket authentication ticket.
+type wsTicket struct {
+	expiresAt time.Time
+}
+
+var (
+	wsTickets   = make(map[string]wsTicket)
+	wsTicketsMu sync.Mutex
+)
+
+// IssueWSTicket creates a short-lived one-time ticket for WebSocket auth.
+// The ticket replaces passing the JWT access token in the URL query string,
+// preventing token leakage into logs and browser history.
+// POST /api/ws/ticket (requires JWT auth via middleware)
+func (h *DashboardHub) IssueWSTicket(c fiber.Ctx) error {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to generate ticket"})
 	}
-	if _, err := h.tokenService.ValidateAccessToken(token); err != nil {
-		return c.Status(fiber.StatusUnauthorized).SendString("invalid or expired token")
+	ticket := hex.EncodeToString(b)
+
+	wsTicketsMu.Lock()
+	wsTickets[ticket] = wsTicket{expiresAt: time.Now().Add(30 * time.Second)}
+	wsTicketsMu.Unlock()
+
+	return c.JSON(fiber.Map{"ticket": ticket})
+}
+
+func validateAndConsumeTicket(ticket string) bool {
+	wsTicketsMu.Lock()
+	defer wsTicketsMu.Unlock()
+	t, ok := wsTickets[ticket]
+	if !ok {
+		return false
+	}
+	delete(wsTickets, ticket) // one-time use
+	return time.Now().Before(t.expiresAt)
+}
+
+// DashboardWS is the Fiber handler for GET /api/ws/dashboard
+// Auth is done via ?ticket=<one-time-ticket> issued by IssueWSTicket.
+// Falls back to ?token=<access_token> for backward compatibility.
+func (h *DashboardHub) DashboardWS(c fiber.Ctx) error {
+	// Prefer one-time ticket
+	ticket := c.Query("ticket")
+	if ticket != "" {
+		if !validateAndConsumeTicket(ticket) {
+			return c.Status(fiber.StatusUnauthorized).SendString("invalid or expired ticket")
+		}
+	} else {
+		// Backward compatibility: accept JWT token directly
+		token := c.Query("token")
+		if token == "" {
+			return c.Status(fiber.StatusUnauthorized).SendString("ticket or token required")
+		}
+		if _, err := h.tokenService.ValidateAccessToken(token); err != nil {
+			return c.Status(fiber.StatusUnauthorized).SendString("invalid or expired token")
+		}
 	}
 
 	// Upgrade the fasthttp connection to WebSocket (use RequestCtx, not Context)

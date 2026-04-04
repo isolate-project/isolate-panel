@@ -261,7 +261,7 @@ func GenerateConfig(ctx *cores.ConfigContext, coreID uint) (*Config, error) {
 		Experimental: &ExperimentalConfig{
 			ClashAPI: &ClashAPIConfig{
 				ExternalController: "127.0.0.1:9090",
-				Secret:             "isolate-panel-secret",
+				Secret:             ctx.CoreAPISecret,
 			},
 		},
 		DNS: &DNSConfig{

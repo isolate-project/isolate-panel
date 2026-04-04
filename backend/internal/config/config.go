@@ -9,12 +9,15 @@ import (
 
 // Config holds all application configuration
 type Config struct {
-	App      AppConfig      `mapstructure:"app"`
-	Database DatabaseConfig `mapstructure:"database"`
-	JWT      JWTConfig      `mapstructure:"jwt"`
-	Logging  LoggingConfig  `mapstructure:"logging"`
-	Security SecurityConfig `mapstructure:"security"`
-	Cores    CoresConfig    `mapstructure:"cores"`
+	App           AppConfig           `mapstructure:"app"`
+	Database      DatabaseConfig      `mapstructure:"database"`
+	JWT           JWTConfig           `mapstructure:"jwt"`
+	Logging       LoggingConfig       `mapstructure:"logging"`
+	Security      SecurityConfig      `mapstructure:"security"`
+	Cores         CoresConfig         `mapstructure:"cores"`
+	Data          DataConfig          `mapstructure:"data"`
+	Notifications NotificationsConfig `mapstructure:"notifications"`
+	Traffic       TrafficConfig       `mapstructure:"traffic"`
 }
 
 type AppConfig struct {
@@ -23,6 +26,7 @@ type AppConfig struct {
 	Port       int    `mapstructure:"port"`
 	Host       string `mapstructure:"host"`
 	AdminEmail string `mapstructure:"admin_email"`
+	PanelURL   string `mapstructure:"panel_url"`
 }
 
 type DatabaseConfig struct {
@@ -58,6 +62,26 @@ type Argon2Config struct {
 	Threads    uint8  `mapstructure:"threads"`
 	KeyLength  uint32 `mapstructure:"key_length"`
 	SaltLength uint32 `mapstructure:"salt_length"`
+}
+
+type DataConfig struct {
+	DataDir   string `mapstructure:"data_dir"`
+	WarpDir   string `mapstructure:"warp_dir"`
+	GeoDir    string `mapstructure:"geo_dir"`
+	BackupDir string `mapstructure:"backup_dir"`
+	CertDir   string `mapstructure:"cert_dir"`
+}
+
+type NotificationsConfig struct {
+	TelegramToken  string `mapstructure:"telegram_token"`
+	TelegramChatID string `mapstructure:"telegram_chat_id"`
+	WebhookURL     string `mapstructure:"webhook_url"`
+	EmailSMTP      string `mapstructure:"email_smtp"`
+}
+
+type TrafficConfig struct {
+	CollectInterval int `mapstructure:"collect_interval"` // seconds
+	ConnInterval    int `mapstructure:"conn_interval"`    // seconds
 }
 
 type CoresConfig struct {

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'preact/hooks'
 import { warpApi, coreApi } from '../api/endpoints'
+import { useToastStore } from '../stores/toastStore'
 
 interface WarpRoute {
   id: number
@@ -27,6 +28,7 @@ interface Preset {
 }
 
 export function WarpRoutes() {
+  const { addToast } = useToastStore()
   const [routes, setRoutes] = useState<WarpRoute[]>([])
   const [status, setStatus] = useState<WarpStatus | null>(null)
   const [presets, setPresets] = useState<Preset>({})
@@ -90,11 +92,11 @@ export function WarpRoutes() {
 
     try {
       await warpApi.register()
-      alert('WARP registered successfully!')
+      addToast({ type: 'success', message: 'WARP registered successfully!' })
       loadData()
     } catch (err: unknown) {
       const error = err as { response?: { data?: { error?: string } }; message?: string }
-      alert('Failed to register WARP: ' + (error.response?.data?.error || error.message))
+      addToast({ type: 'error', message: 'Failed to register WARP: ' + (error.response?.data?.error || error.message) })
     }
   }
 
@@ -103,11 +105,11 @@ export function WarpRoutes() {
 
     try {
       await warpApi.applyPreset(presetName, selectedCore)
-      alert('Preset applied successfully!')
+      addToast({ type: 'success', message: 'Preset applied successfully!' })
       loadData()
     } catch (err: unknown) {
       const error = err as { response?: { data?: { error?: string } }; message?: string }
-      alert('Failed to apply preset: ' + (error.response?.data?.error || error.message))
+      addToast({ type: 'error', message: 'Failed to apply preset: ' + (error.response?.data?.error || error.message) })
     }
   }
 
@@ -122,13 +124,13 @@ export function WarpRoutes() {
         description: formData.description,
         priority: formData.priority,
       })
-      alert('Route created successfully!')
+      addToast({ type: 'success', message: 'Route created successfully!' })
       setShowForm(false)
       setFormData({ resource_type: 'domain', resource_value: '', description: '', priority: 50 })
       loadData()
     } catch (err: unknown) {
       const error = err as { response?: { data?: { error?: string } }; message?: string }
-      alert('Failed to create route: ' + (error.response?.data?.error || error.message))
+      addToast({ type: 'error', message: 'Failed to create route: ' + (error.response?.data?.error || error.message) })
     }
   }
 
@@ -137,11 +139,11 @@ export function WarpRoutes() {
 
     try {
       await warpApi.deleteRoute(id)
-      alert('Route deleted successfully!')
+      addToast({ type: 'success', message: 'Route deleted successfully!' })
       loadData()
     } catch (err: unknown) {
       const error = err as { response?: { data?: { error?: string } }; message?: string }
-      alert('Failed to delete route: ' + (error.response?.data?.error || error.message))
+      addToast({ type: 'error', message: 'Failed to delete route: ' + (error.response?.data?.error || error.message) })
     }
   }
 
@@ -151,36 +153,36 @@ export function WarpRoutes() {
       loadData()
     } catch (err: unknown) {
       const error = err as { response?: { data?: { error?: string } }; message?: string }
-      alert('Failed to toggle route: ' + (error.response?.data?.error || error.message))
+      addToast({ type: 'error', message: 'Failed to toggle route: ' + (error.response?.data?.error || error.message) })
     }
   }
 
   const handleSync = async () => {
     try {
       await warpApi.sync()
-      alert('WARP routes synchronized!')
+      addToast({ type: 'success', message: 'WARP routes synchronized!' })
     } catch (err: unknown) {
       const error = err as { response?: { data?: { error?: string } }; message?: string }
-      alert('Failed to sync: ' + (error.response?.data?.error || error.message))
+      addToast({ type: 'error', message: 'Failed to sync: ' + (error.response?.data?.error || error.message) })
     }
   }
 
   if (loading) {
-    return <div class="p-4">Loading...</div>
+    return <div className="p-4">Loading...</div>
   }
 
   return (
-    <div class="p-6">
-      <div class="mb-6">
-        <h1 class="text-2xl font-bold mb-4">WARP Routes</h1>
+    <div className="p-6">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold mb-4">WARP Routes</h1>
 
         {/* Status Card */}
-        <div class="bg-white rounded-lg shadow p-4 mb-4">
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="text-lg font-semibold">WARP Status</h2>
-            <div class="flex items-center gap-2">
+        <div className="bg-white rounded-lg shadow p-4 mb-4">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">WARP Status</h2>
+            <div className="flex items-center gap-2">
               <span
-                class={`px-2 py-1 rounded text-sm ${
+                className={`px-2 py-1 rounded text-sm ${
                   status?.is_registered
                     ? 'bg-green-100 text-green-800'
                     : 'bg-gray-100 text-gray-800'
@@ -189,7 +191,7 @@ export function WarpRoutes() {
                 {status?.is_registered ? 'Registered' : 'Not Registered'}
               </span>
               <span
-                class={`px-2 py-1 rounded text-sm ${
+                className={`px-2 py-1 rounded text-sm ${
                   status?.is_active
                     ? 'bg-green-100 text-green-800'
                     : 'bg-red-100 text-red-800'
@@ -201,30 +203,30 @@ export function WarpRoutes() {
           </div>
 
           {status?.ip_address && (
-            <div class="grid grid-cols-2 gap-4 text-sm">
+            <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <span class="text-gray-600">IPv4:</span> {status.ip_address}
+                <span className="text-gray-600">IPv4:</span> {status.ip_address}
               </div>
               {status.ipv6_address && (
                 <div>
-                  <span class="text-gray-600">IPv6:</span> {status.ipv6_address}
+                  <span className="text-gray-600">IPv6:</span> {status.ipv6_address}
                 </div>
               )}
             </div>
           )}
 
-          <div class="flex gap-2 mt-4">
+          <div className="flex gap-2 mt-4">
             {!status?.is_registered && (
               <button
                 onClick={handleRegister}
-                class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
               >
                 Register WARP
               </button>
             )}
             <button
               onClick={handleSync}
-              class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+              className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
             >
               Sync Routes
             </button>
@@ -232,12 +234,12 @@ export function WarpRoutes() {
         </div>
 
         {/* Core Selector */}
-        <div class="bg-white rounded-lg shadow p-4 mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-2">Select Core</label>
+        <div className="bg-white rounded-lg shadow p-4 mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">Select Core</label>
           <select
             value={selectedCore}
             onChange={(e) => setSelectedCore(Number(e.currentTarget.value))}
-            class="w-full p-2 border rounded"
+            className="w-full p-2 border rounded"
           >
             {cores.map((core) => (
               <option key={core.id} value={core.id}>
@@ -249,14 +251,14 @@ export function WarpRoutes() {
 
         {/* Presets */}
         {Object.keys(presets).length > 0 && (
-          <div class="bg-white rounded-lg shadow p-4 mb-4">
-            <h3 class="text-lg font-semibold mb-3">Quick Presets</h3>
-            <div class="flex flex-wrap gap-2">
+          <div className="bg-white rounded-lg shadow p-4 mb-4">
+            <h3 className="text-lg font-semibold mb-3">Quick Presets</h3>
+            <div className="flex flex-wrap gap-2">
               {Object.keys(presets).map((presetName) => (
                 <button
                   key={presetName}
                   onClick={() => handleApplyPreset(presetName)}
-                  class="px-3 py-1 bg-purple-100 text-purple-800 rounded hover:bg-purple-200 capitalize"
+                  className="px-3 py-1 bg-purple-100 text-purple-800 rounded hover:bg-purple-200 capitalize"
                 >
                   {presetName.replace(/_/g, ' ')}
                 </button>
@@ -266,10 +268,10 @@ export function WarpRoutes() {
         )}
 
         {/* Add Route Button */}
-        <div class="mb-4">
+        <div className="mb-4">
           <button
             onClick={() => setShowForm(!showForm)}
-            class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
           >
             {showForm ? 'Cancel' : 'Add Route'}
           </button>
@@ -277,16 +279,16 @@ export function WarpRoutes() {
 
         {/* Add Route Form */}
         {showForm && (
-          <form onSubmit={handleCreateRoute} class="bg-white rounded-lg shadow p-4 mb-4">
-            <div class="grid grid-cols-2 gap-4 mb-4">
+          <form onSubmit={handleCreateRoute} className="bg-white rounded-lg shadow p-4 mb-4">
+            <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Resource Type</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Resource Type</label>
                 <select
                   value={formData.resource_type}
                   onChange={(e) =>
                     setFormData({ ...formData, resource_type: e.currentTarget.value })
                   }
-                  class="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded"
                 >
                   <option value="domain">Domain</option>
                   <option value="ip">IP Address</option>
@@ -295,21 +297,21 @@ export function WarpRoutes() {
               </div>
 
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
                 <input
                   type="number"
                   value={formData.priority}
                   onChange={(e) =>
                     setFormData({ ...formData, priority: Number(e.currentTarget.value) })
                   }
-                  class="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded"
                   min="1"
                   max="100"
                 />
               </div>
 
-              <div class="col-span-2">
-                <label class="block text-sm font-medium text-gray-700 mb-1">
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Resource Value
                 </label>
                 <input
@@ -318,7 +320,7 @@ export function WarpRoutes() {
                   onChange={(e) =>
                     setFormData({ ...formData, resource_value: e.currentTarget.value })
                   }
-                  class="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded"
                   placeholder={
                     formData.resource_type === 'domain'
                       ? 'example.com'
@@ -330,15 +332,15 @@ export function WarpRoutes() {
                 />
               </div>
 
-              <div class="col-span-2">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
                 <input
                   type="text"
                   value={formData.description}
                   onChange={(e) =>
                     setFormData({ ...formData, description: e.currentTarget.value })
                   }
-                  class="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded"
                   placeholder="Optional description"
                 />
               </div>
@@ -346,7 +348,7 @@ export function WarpRoutes() {
 
             <button
               type="submit"
-              class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
             >
               Create Route
             </button>
@@ -354,39 +356,39 @@ export function WarpRoutes() {
         )}
 
         {/* Routes Table */}
-        <div class="bg-white rounded-lg shadow overflow-hidden">
-          <table class="w-full">
-            <thead class="bg-gray-50">
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-gray-50">
               <tr>
-                <th class="px-4 py-2 text-left text-sm font-medium text-gray-600">Type</th>
-                <th class="px-4 py-2 text-left text-sm font-medium text-gray-600">Value</th>
-                <th class="px-4 py-2 text-left text-sm font-medium text-gray-600">Priority</th>
-                <th class="px-4 py-2 text-left text-sm font-medium text-gray-600">Status</th>
-                <th class="px-4 py-2 text-left text-sm font-medium text-gray-600">Actions</th>
+                <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">Type</th>
+                <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">Value</th>
+                <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">Priority</th>
+                <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">Status</th>
+                <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">Actions</th>
               </tr>
             </thead>
             <tbody>
               {routes.length === 0 ? (
                 <tr>
-                  <td colSpan={5} class="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
                     No WARP routes configured. Add a route or apply a preset.
                   </td>
                 </tr>
               ) : (
                 routes.map((route) => (
-                  <tr key={route.id} class="border-t">
-                    <td class="px-4 py-2">
-                      <span class="px-2 py-1 bg-gray-100 rounded text-sm capitalize">
+                  <tr key={route.id} className="border-t">
+                    <td className="px-4 py-2">
+                      <span className="px-2 py-1 bg-gray-100 rounded text-sm capitalize">
                         {route.resource_type}
                       </span>
                     </td>
-                    <td class="px-4 py-2 font-mono text-sm">{route.resource_value}</td>
-                    <td class="px-4 py-2">
-                      <span class="text-sm">{route.priority}</span>
+                    <td className="px-4 py-2 font-mono text-sm">{route.resource_value}</td>
+                    <td className="px-4 py-2">
+                      <span className="text-sm">{route.priority}</span>
                     </td>
-                    <td class="px-4 py-2">
+                    <td className="px-4 py-2">
                       <span
-                        class={`px-2 py-1 rounded text-sm ${
+                        className={`px-2 py-1 rounded text-sm ${
                           route.is_enabled
                             ? 'bg-green-100 text-green-800'
                             : 'bg-gray-100 text-gray-800'
@@ -395,11 +397,11 @@ export function WarpRoutes() {
                         {route.is_enabled ? 'Enabled' : 'Disabled'}
                       </span>
                     </td>
-                    <td class="px-4 py-2">
-                      <div class="flex gap-2">
+                    <td className="px-4 py-2">
+                      <div className="flex gap-2">
                         <button
                           onClick={() => handleToggleRoute(route.id)}
-                          class={`px-2 py-1 rounded text-sm ${
+                          className={`px-2 py-1 rounded text-sm ${
                             route.is_enabled
                               ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
                               : 'bg-green-100 text-green-800 hover:bg-green-200'
@@ -409,7 +411,7 @@ export function WarpRoutes() {
                         </button>
                         <button
                           onClick={() => handleDeleteRoute(route.id)}
-                          class="px-2 py-1 bg-red-100 text-red-800 rounded text-sm hover:bg-red-200"
+                          className="px-2 py-1 bg-red-100 text-red-800 rounded text-sm hover:bg-red-200"
                         >
                           Delete
                         </button>

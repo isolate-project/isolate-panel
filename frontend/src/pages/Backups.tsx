@@ -8,6 +8,8 @@ import { Card } from '../components/ui/Card'
 import { Alert } from '../components/ui/Alert'
 import { Spinner } from '../components/ui/Spinner'
 import { Download, RefreshCw, Trash2, Calendar, Shield, Database, Globe, HardDrive } from 'lucide-preact'
+import { formatBytes } from '../utils/format'
+import { useToastStore } from '../stores/toastStore'
 
 interface Backup {
   id: number
@@ -35,6 +37,7 @@ interface ScheduleData {
 }
 
 export function Backups() {
+  const { addToast } = useToastStore()
   const [backups, setBackups] = useState<Backup[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
@@ -121,7 +124,7 @@ export function Backups() {
       })
       loadData()
     } catch (err: any) {
-      alert('Failed to create backup: ' + (err.response?.data?.error || err.message))
+      addToast({ type: 'error', message: 'Failed to create backup: ' + (err.response?.data?.error || err.message) })
     } finally {
       setCreating(false)
     }
@@ -139,9 +142,9 @@ export function Backups() {
         try {
           await backupApi.restore(id, true)
           setModal(prev => ({ ...prev, show: false }))
-          alert('Restore operation started! The panel will restart after completion.')
+          addToast({ type: 'success', message: 'Restore operation started! The panel will restart after completion.' })
         } catch (err: any) {
-          alert('Failed to restore: ' + (err.response?.data?.error || err.message))
+          addToast({ type: 'error', message: 'Failed to restore: ' + (err.response?.data?.error || err.message) })
         } finally {
           setModal(prev => ({ ...prev, loading: false }))
         }
@@ -163,7 +166,7 @@ export function Backups() {
           loadData()
           setModal(prev => ({ ...prev, show: false }))
         } catch (err: any) {
-          alert('Failed to delete: ' + (err.response?.data?.error || err.message))
+          addToast({ type: 'error', message: 'Failed to delete: ' + (err.response?.data?.error || err.message) })
         } finally {
           setModal(prev => ({ ...prev, loading: false }))
         }
@@ -184,7 +187,7 @@ export function Backups() {
       document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
     } catch (err: any) {
-      alert('Failed to download: ' + (err.response?.data?.error || err.message))
+      addToast({ type: 'error', message: 'Failed to download: ' + (err.response?.data?.error || err.message) })
     }
   }
 
@@ -194,7 +197,7 @@ export function Backups() {
       setShowScheduleForm(false)
       loadData()
     } catch (err: any) {
-      alert('Failed to set schedule: ' + (err.response?.data?.error || err.message))
+      addToast({ type: 'error', message: 'Failed to set schedule: ' + (err.response?.data?.error || err.message) })
     }
   }
 
@@ -204,20 +207,12 @@ export function Backups() {
       await systemApi.updateSettings({
         'backup_retention_count': retentionCount.toString()
       })
-      alert('Retention policy updated')
+      addToast({ type: 'success', message: 'Retention policy updated' })
     } catch (err: any) {
-      alert('Failed to update retention: ' + (err.response?.data?.error || err.message))
+      addToast({ type: 'error', message: 'Failed to update retention: ' + (err.response?.data?.error || err.message) })
     } finally {
       setSavingRetention(false)
     }
-  }
-
-  const formatBytes = (bytes: number) => {
-    if (bytes === 0) return '0 B'
-    const k = 1024
-    const sizes = ['B', 'KB', 'MB', 'GB']
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i]
   }
 
   const getStatusBadge = (status: string) => {

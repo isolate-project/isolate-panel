@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'preact/hooks'
 import { warpApi, coreApi } from '../api/endpoints'
+import { useToastStore } from '../stores/toastStore'
 
 interface GeoRule {
   id: number
@@ -25,6 +26,7 @@ interface Category {
 }
 
 export function GeoRules() {
+  const { addToast } = useToastStore()
   const [rules, setRules] = useState<GeoRule[]>([])
   const [countries, setCountries] = useState<Country[]>([])
   const [categories, setCategories] = useState<Category[]>([])
@@ -92,13 +94,13 @@ export function GeoRules() {
         description: formData.description,
         priority: formData.priority,
       })
-      alert('Geo rule created successfully!')
+      addToast({ type: 'success', message: 'Geo rule created successfully!' })
       setShowForm(false)
       setFormData({ type: 'geoip', code: '', action: 'proxy', priority: 50, description: '' })
       loadData()
     } catch (err: unknown) {
       const error = err as { response?: { data?: { error?: string } }; message?: string }
-      alert('Failed to create rule: ' + (error.response?.data?.error || error.message))
+      addToast({ type: 'error', message: 'Failed to create rule: ' + (error.response?.data?.error || error.message) })
     }
   }
 
@@ -107,11 +109,11 @@ export function GeoRules() {
 
     try {
       await warpApi.deleteGeoRule(id, selectedCore)
-      alert('Rule deleted successfully!')
+      addToast({ type: 'success', message: 'Rule deleted successfully!' })
       loadData()
     } catch (err: unknown) {
       const error = err as { response?: { data?: { error?: string } }; message?: string }
-      alert('Failed to delete rule: ' + (error.response?.data?.error || error.message))
+      addToast({ type: 'error', message: 'Failed to delete rule: ' + (error.response?.data?.error || error.message) })
     }
   }
 
@@ -121,7 +123,7 @@ export function GeoRules() {
       loadData()
     } catch (err: unknown) {
       const error = err as { response?: { data?: { error?: string } }; message?: string }
-      alert('Failed to toggle rule: ' + (error.response?.data?.error || error.message))
+      addToast({ type: 'error', message: 'Failed to toggle rule: ' + (error.response?.data?.error || error.message) })
     }
   }
 
@@ -130,34 +132,34 @@ export function GeoRules() {
 
     try {
       await warpApi.updateDatabases()
-      alert('Geo databases updated successfully!')
+      addToast({ type: 'success', message: 'Geo databases updated successfully!' })
     } catch (err: unknown) {
       const error = err as { response?: { data?: { error?: string } }; message?: string }
-      alert('Failed to update databases: ' + (error.response?.data?.error || error.message))
+      addToast({ type: 'error', message: 'Failed to update databases: ' + (error.response?.data?.error || error.message) })
     }
   }
 
   if (loading) {
-    return <div class="p-4">Loading...</div>
+    return <div className="p-4">Loading...</div>
   }
 
   return (
-    <div class="p-6">
-      <div class="mb-6">
-        <h1 class="text-2xl font-bold mb-4">GeoIP/GeoSite Rules</h1>
+    <div className="p-6">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold mb-4">GeoIP/GeoSite Rules</h1>
 
         {/* Update Databases Button */}
-        <div class="bg-white rounded-lg shadow p-4 mb-4">
-          <div class="flex items-center justify-between">
+        <div className="bg-white rounded-lg shadow p-4 mb-4">
+          <div className="flex items-center justify-between">
             <div>
-              <h2 class="text-lg font-semibold">Geo Databases</h2>
-              <p class="text-sm text-gray-600">
+              <h2 className="text-lg font-semibold">Geo Databases</h2>
+              <p className="text-sm text-gray-600">
                 Download and update GeoIP/GeoSite databases for routing rules
               </p>
             </div>
             <button
               onClick={handleUpdateDatabases}
-              class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
             >
               Update Databases
             </button>
@@ -165,12 +167,12 @@ export function GeoRules() {
         </div>
 
         {/* Core Selector */}
-        <div class="bg-white rounded-lg shadow p-4 mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-2">Select Core</label>
+        <div className="bg-white rounded-lg shadow p-4 mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">Select Core</label>
           <select
             value={selectedCore}
             onChange={(e) => setSelectedCore(Number(e.currentTarget.value))}
-            class="w-full p-2 border rounded"
+            className="w-full p-2 border rounded"
           >
             {cores.map((core) => (
               <option key={core.id} value={core.id}>
@@ -181,10 +183,10 @@ export function GeoRules() {
         </div>
 
         {/* Add Rule Button */}
-        <div class="mb-4">
+        <div className="mb-4">
           <button
             onClick={() => setShowForm(!showForm)}
-            class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
           >
             {showForm ? 'Cancel' : 'Add Geo Rule'}
           </button>
@@ -192,10 +194,10 @@ export function GeoRules() {
 
         {/* Add Rule Form */}
         {showForm && (
-          <form onSubmit={handleCreateRule} class="bg-white rounded-lg shadow p-4 mb-4">
-            <div class="grid grid-cols-2 gap-4 mb-4">
+          <form onSubmit={handleCreateRule} className="bg-white rounded-lg shadow p-4 mb-4">
+            <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Rule Type</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Rule Type</label>
                 <select
                   value={formData.type}
                   onChange={(e) => {
@@ -203,7 +205,7 @@ export function GeoRules() {
                     setRuleType(newType)
                     setFormData({ ...formData, type: newType, code: '' })
                   }}
-                  class="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded"
                 >
                   <option value="geoip">GeoIP (Country-based)</option>
                   <option value="geosite">GeoSite (Category-based)</option>
@@ -211,27 +213,27 @@ export function GeoRules() {
               </div>
 
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
                 <input
                   type="number"
                   value={formData.priority}
                   onChange={(e) =>
                     setFormData({ ...formData, priority: Number(e.currentTarget.value) })
                   }
-                  class="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded"
                   min="1"
                   max="100"
                 />
               </div>
 
-              <div class="col-span-2">
-                <label class="block text-sm font-medium text-gray-700 mb-1">
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   {ruleType === 'geoip' ? 'Country' : 'Category'}
                 </label>
                 <select
                   value={formData.code}
                   onChange={(e) => setFormData({ ...formData, code: e.currentTarget.value })}
-                  class="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded"
                   required
                 >
                   <option value="">Select...</option>
@@ -245,12 +247,12 @@ export function GeoRules() {
                 </select>
               </div>
 
-              <div class="col-span-2">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Action</label>
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Action</label>
                 <select
                   value={formData.action}
                   onChange={(e) => setFormData({ ...formData, action: e.currentTarget.value })}
-                  class="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded"
                 >
                   <option value="proxy">Proxy (via outbound)</option>
                   <option value="direct">Direct (bypass proxy)</option>
@@ -259,15 +261,15 @@ export function GeoRules() {
                 </select>
               </div>
 
-              <div class="col-span-2">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
                 <input
                   type="text"
                   value={formData.description}
                   onChange={(e) =>
                     setFormData({ ...formData, description: e.currentTarget.value })
                   }
-                  class="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded"
                   placeholder="Optional description"
                 />
               </div>
@@ -275,7 +277,7 @@ export function GeoRules() {
 
             <button
               type="submit"
-              class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
             >
               Create Rule
             </button>
@@ -283,31 +285,31 @@ export function GeoRules() {
         )}
 
         {/* Rules Table */}
-        <div class="bg-white rounded-lg shadow overflow-hidden">
-          <table class="w-full">
-            <thead class="bg-gray-50">
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-gray-50">
               <tr>
-                <th class="px-4 py-2 text-left text-sm font-medium text-gray-600">Type</th>
-                <th class="px-4 py-2 text-left text-sm font-medium text-gray-600">Code</th>
-                <th class="px-4 py-2 text-left text-sm font-medium text-gray-600">Action</th>
-                <th class="px-4 py-2 text-left text-sm font-medium text-gray-600">Priority</th>
-                <th class="px-4 py-2 text-left text-sm font-medium text-gray-600">Status</th>
-                <th class="px-4 py-2 text-left text-sm font-medium text-gray-600">Actions</th>
+                <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">Type</th>
+                <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">Code</th>
+                <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">Action</th>
+                <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">Priority</th>
+                <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">Status</th>
+                <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">Actions</th>
               </tr>
             </thead>
             <tbody>
               {rules.length === 0 ? (
                 <tr>
-                  <td colSpan={6} class="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
                     No Geo rules configured. Add a rule to route traffic by country or category.
                   </td>
                 </tr>
               ) : (
                 rules.map((rule) => (
-                  <tr key={rule.id} class="border-t">
-                    <td class="px-4 py-2">
+                  <tr key={rule.id} className="border-t">
+                    <td className="px-4 py-2">
                       <span
-                        class={`px-2 py-1 rounded text-sm ${
+                        className={`px-2 py-1 rounded text-sm ${
                           rule.type === 'geoip'
                             ? 'bg-blue-100 text-blue-800'
                             : 'bg-purple-100 text-purple-800'
@@ -316,10 +318,10 @@ export function GeoRules() {
                         {rule.type}
                       </span>
                     </td>
-                    <td class="px-4 py-2 font-semibold">{rule.code.toUpperCase()}</td>
-                    <td class="px-4 py-2">
+                    <td className="px-4 py-2 font-semibold">{rule.code.toUpperCase()}</td>
+                    <td className="px-4 py-2">
                       <span
-                        class={`px-2 py-1 rounded text-sm ${
+                        className={`px-2 py-1 rounded text-sm ${
                           rule.action === 'proxy'
                             ? 'bg-yellow-100 text-yellow-800'
                             : rule.action === 'direct'
@@ -332,12 +334,12 @@ export function GeoRules() {
                         {rule.action}
                       </span>
                     </td>
-                    <td class="px-4 py-2">
-                      <span class="text-sm">{rule.priority}</span>
+                    <td className="px-4 py-2">
+                      <span className="text-sm">{rule.priority}</span>
                     </td>
-                    <td class="px-4 py-2">
+                    <td className="px-4 py-2">
                       <span
-                        class={`px-2 py-1 rounded text-sm ${
+                        className={`px-2 py-1 rounded text-sm ${
                           rule.is_enabled
                             ? 'bg-green-100 text-green-800'
                             : 'bg-gray-100 text-gray-800'
@@ -346,11 +348,11 @@ export function GeoRules() {
                         {rule.is_enabled ? 'Enabled' : 'Disabled'}
                       </span>
                     </td>
-                    <td class="px-4 py-2">
-                      <div class="flex gap-2">
+                    <td className="px-4 py-2">
+                      <div className="flex gap-2">
                         <button
                           onClick={() => handleToggleRule(rule.id)}
-                          class={`px-2 py-1 rounded text-sm ${
+                          className={`px-2 py-1 rounded text-sm ${
                             rule.is_enabled
                               ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
                               : 'bg-green-100 text-green-800 hover:bg-green-200'
@@ -360,7 +362,7 @@ export function GeoRules() {
                         </button>
                         <button
                           onClick={() => handleDeleteRule(rule.id)}
-                          class="px-2 py-1 bg-red-100 text-red-800 rounded text-sm hover:bg-red-200"
+                          className="px-2 py-1 bg-red-100 text-red-800 rounded text-sm hover:bg-red-200"
                         >
                           Delete
                         </button>

@@ -51,6 +51,7 @@ func setupBackupApp(t *testing.T) (*fiber.App, *services.BackupService) {
 	app := fiber.New()
 	app.Use(func(c fiber.Ctx) error {
 		c.Locals("admin_id", uint(1))
+		c.Locals("is_super_admin", true)
 		return c.Next()
 	})
 	

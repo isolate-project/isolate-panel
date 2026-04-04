@@ -86,7 +86,7 @@ func GenerateConfig(ctx *cores.ConfigContext, coreID uint) (*Config, error) {
 		Mode:               "rule",
 		LogLevel:           "warning",
 		ExternalController: "127.0.0.1:9091",
-		Secret:             "isolate-panel-secret", // Should be from config
+		Secret:             ctx.CoreAPISecret,
 		IPv6:               true,
 		Proxies:            make([]Proxy, 0),
 		Rules:              make([]string, 0),

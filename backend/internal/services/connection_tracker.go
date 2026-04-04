@@ -125,31 +125,28 @@ func (ct *ConnectionTracker) updateConnections() {
 		allConnections = append(allConnections, conns...)
 	}
 
-	// Save to database and cache
+	// Upsert connections to database and cache
 	ct.mu.Lock()
 	for i := range allConnections {
 		conn := &allConnections[i]
+		conn.LastActivity = now
 
-		// Try to find existing connection in DB
 		var existing models.ActiveConnection
-		result := ct.db.Where("core_id = ? AND user_id = ? AND source_ip = ? AND source_port = ?",
-			conn.CoreID, conn.UserID, conn.SourceIP, conn.SourcePort).First(&existing)
+		ct.db.Where("core_id = ? AND user_id = ? AND source_ip = ? AND source_port = ?",
+			conn.CoreID, conn.UserID, conn.SourceIP, conn.SourcePort).
+			Assign(models.ActiveConnection{
+				LastActivity: now,
+				Upload:       conn.Upload,
+				Download:     conn.Download,
+			}).
+			FirstOrCreate(&existing)
 
-		if result.Error != nil {
-			// New connection - insert
-			conn.StartedAt = now
-			conn.LastActivity = now
-			ct.db.Create(conn)
-		} else {
-			// Existing connection - update
-			existing.LastActivity = now
-			existing.Upload = conn.Upload
-			existing.Download = conn.Download
+		conn.ID = existing.ID
+		if existing.StartedAt.IsZero() {
+			existing.StartedAt = now
 			ct.db.Save(&existing)
-			conn.ID = existing.ID
 		}
 
-		// Add to cache
 		key := ct.connectionKey(conn.CoreID, conn.UserID, conn.ID)
 		ct.connections[key] = conn
 	}

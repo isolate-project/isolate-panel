@@ -14,123 +14,80 @@ jobs:
     name: Backend Security Scan
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-    
+
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
         go-version: '1.25'
         cache: true
         cache-dependency-path: backend/go.sum
-    
+
     - name: Install gosec
       run: go install github.com/securego/gosec/v2/cmd/gosec@latest
-    
+
     - name: Run gosec
       run: |
         cd backend
-        gosec -exclude=G104 -fmt=sarif -out=../gosec-results.sarif ./... || true
-      continue-on-error: true
-    
+        gosec -exclude=G104 -fmt=sarif -out=../gosec-results.sarif ./...
+
     - name: Upload gosec results to GitHub Security
       uses: github/codeql-action/upload-sarif@v3
       with:
         sarif_file: gosec-results.sarif
         category: gosec
       if: always()
-    
+
     - name: Install govulncheck
       run: go install golang.org/x/vuln/cmd/govulncheck@latest
-    
+
     - name: Run govulncheck
       run: |
         cd backend
-        govulncheck ./... || true
-      continue-on-error: true
-    
-    - name: Run gosec (JSON report)
-      run: |
-        cd backend
-        gosec -exclude=G104 -fmt=json -out=../security-reports/gosec-report.json ./... || true
-      continue-on-error: true
-    
-    - name: Upload gosec JSON report
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: gosec-report
-        path: security-reports/gosec-report.json
-        retention-days: 30
+        govulncheck ./...
 
   security-scan-frontend:
     name: Frontend Security Scan
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-    
+
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '22'
         cache: 'npm'
         cache-dependency-path: frontend/package-lock.json
-    
+
     - name: Install dependencies
       run: cd frontend && npm ci
-    
+
     - name: Run npm audit
       run: |
         cd frontend
-        npm audit --audit-level=moderate --json > ../security-reports/npm-audit-report.json || true
-      continue-on-error: true
-    
-    - name: Upload npm audit report
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: npm-audit-report
-        path: security-reports/npm-audit-report.json
-        retention-days: 30
-    
-    - name: Run Snyk
-      uses: snyk/actions/node@master
-      continue-on-error: true
-      env:
-        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-      with:
-        directory: frontend
-        args: --severity-threshold=high
-    
-    - name: Run Snyk monitor
-      uses: snyk/actions/node@master
-      continue-on-error: true
-      env:
-        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-      with:
-        directory: frontend
-        command: monitor
+        npm audit --audit-level=moderate
 
   dependency-review:
     name: Dependency Review
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-    
+
     - name: Dependency Review (Go)
       uses: actions/dependency-review-action@v4
       with:
         package-manager: go-modules
         directory: backend
-    
+
     - name: Dependency Review (npm)
       uses: actions/dependency-review-action@v4
       with:
@@ -142,22 +99,22 @@ jobs:
     runs-on: ubuntu-latest
     needs: [security-scan-backend, security-scan-frontend]
     if: always()
-    
+
     steps:
     - name: Check security scan results
       run: |
         echo "Checking security scan results..."
-        
+
         # Check if backend scan passed
         if [ "${{ needs.security-scan-backend.result }}" == "failure" ]; then
           echo "::error::Backend security scan failed"
           exit 1
         fi
-        
+
         # Check if frontend scan passed
         if [ "${{ needs.security-scan-frontend.result }}" == "failure" ]; then
           echo "::error::Frontend security scan failed"
           exit 1
         fi
-        
+
         echo "All security scans passed!"
