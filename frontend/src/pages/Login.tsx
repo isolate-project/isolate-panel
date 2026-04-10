@@ -25,7 +25,7 @@ export function Login() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [totpCode, setTotpCode] = useState('')
-  const [requiresTotp, setRequirestotp] = useState(false)
+  const [requiresTotp, setRequiresTotp] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -40,7 +40,7 @@ export function Login() {
 
       // Backend signals that TOTP is required
       if (data.requires_totp) {
-        setRequirestotp(true)
+        setRequiresTotp(true)
         setIsLoading(false)
         return
       }
@@ -141,7 +141,7 @@ export function Login() {
                 type="button"
                 variant="ghost"
                 fullWidth
-                onClick={() => { setRequirestotp(false); setTotpCode(''); setError('') }}
+                onClick={() => { setRequiresTotp(false); setTotpCode(''); setError('') }}
               >
                 {t('common.back') || 'Back'}
               </Button>

@@ -34,7 +34,7 @@ func NewUserService(db *gorm.DB, notificationService *NotificationService) *User
 type CreateUserRequest struct {
 	Username          string `json:"username" validate:"required,min=3,max=50"`
 	Email             string `json:"email" validate:"email"`
-	Password          string `json:"password" validate:"required,min=8"`
+	Password          string `json:"password"`
 	TrafficLimitBytes *int64 `json:"traffic_limit_bytes"`
 	ExpiryDays        *int   `json:"expiry_days"`
 	InboundIDs        []uint `json:"inbound_ids"`
@@ -45,6 +45,7 @@ type UpdateUserRequest struct {
 	Email             *string `json:"email" validate:"omitempty,email"`
 	Password          *string `json:"password" validate:"omitempty,min=8"`
 	TrafficLimitBytes *int64  `json:"traffic_limit_bytes"`
+	ExpiryDays        *int    `json:"expiry_days"`
 	IsActive          *bool   `json:"is_active"`
 	InboundIDs        []uint  `json:"inbound_ids"`
 }
@@ -54,8 +55,8 @@ type UserResponse struct {
 	Username          string  `json:"username"`
 	Email             string  `json:"email"`
 	UUID              string  `json:"uuid"`
-	Password          string  `json:"password"`
-	Token             *string `json:"token"`
+	Password          string  `json:"password,omitempty"`
+	Token             *string `json:"token,omitempty"`
 	SubscriptionToken string  `json:"subscription_token"`
 	TrafficLimitBytes *int64  `json:"traffic_limit_bytes"`
 	TrafficUsedBytes  int64   `json:"traffic_used_bytes"`
@@ -63,7 +64,6 @@ type UserResponse struct {
 	IsActive          bool    `json:"is_active"`
 	IsOnline          bool    `json:"is_online"`
 	CreatedAt         string  `json:"created_at"`
-	Inbounds          []uint  `json:"inbound_ids"`
 }
 
 // CreateUser creates a new user with auto-generated credentials
@@ -80,8 +80,17 @@ func (us *UserService) CreateUser(req *CreateUserRequest, adminID uint) (*models
 			return nil, fmt.Errorf("validation error: invalid email format")
 		}
 	}
-	if req.Password != "" && len(req.Password) < 6 {
-		return nil, fmt.Errorf("validation error: password must be at least 6 characters")
+	// Validate password length
+	if req.Password != "" && len(req.Password) < 8 {
+		return nil, fmt.Errorf("validation error: password must be at least 8 characters")
+	}
+	// Auto-generate protocol password if not provided
+	if req.Password == "" {
+		generated, err := generateToken(16)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate password: %w", err)
+		}
+		req.Password = generated
 	}
 
 	// Check if username already exists
@@ -173,19 +182,31 @@ func (us *UserService) GetUser(id uint) (*models.User, error) {
 	return &user, nil
 }
 
-// ListUsers retrieves all users with pagination
-func (us *UserService) ListUsers(page, pageSize int) ([]models.User, int64, error) {
+// ListUsers retrieves users with pagination, optional search and status filter
+func (us *UserService) ListUsers(page, pageSize int, search, status string) ([]models.User, int64, error) {
 	var users []models.User
 	var total int64
 
-	// Count total
-	if err := us.db.Model(&models.User{}).Count(&total).Error; err != nil {
+	query := us.db.Model(&models.User{})
+
+	if search != "" {
+		like := "%" + search + "%"
+		query = query.Where("username LIKE ? OR email LIKE ? OR uuid LIKE ?", like, like, like)
+	}
+	if status == "active" {
+		query = query.Where("is_active = ?", true)
+	} else if status == "inactive" {
+		query = query.Where("is_active = ?", false)
+	}
+
+	// Count total with filters
+	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, fmt.Errorf("failed to count users: %w", err)
 	}
 
 	// Get paginated results
 	offset := (page - 1) * pageSize
-	if err := us.db.Preload("CreatedByAdmin").
+	if err := query.Preload("CreatedByAdmin").
 		Offset(offset).
 		Limit(pageSize).
 		Order("created_at DESC").
@@ -215,6 +236,14 @@ func (us *UserService) UpdateUser(id uint, req *UpdateUserRequest) (*models.User
 	}
 	if req.TrafficLimitBytes != nil {
 		user.TrafficLimitBytes = req.TrafficLimitBytes
+	}
+	if req.ExpiryDays != nil {
+		if *req.ExpiryDays > 0 {
+			expiry := time.Now().AddDate(0, 0, *req.ExpiryDays)
+			user.ExpiryDate = &expiry
+		} else {
+			user.ExpiryDate = nil // unlimited
+		}
 	}
 	if req.IsActive != nil {
 		user.IsActive = *req.IsActive

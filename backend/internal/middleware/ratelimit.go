@@ -13,6 +13,7 @@ type RateLimiter struct {
 	mu       sync.RWMutex
 	limit    int
 	window   time.Duration
+	done     chan struct{}
 }
 
 func NewRateLimiter(limit int, window time.Duration) *RateLimiter {
@@ -20,6 +21,7 @@ func NewRateLimiter(limit int, window time.Duration) *RateLimiter {
 		requests: make(map[string][]time.Time),
 		limit:    limit,
 		window:   window,
+		done:     make(chan struct{}),
 	}
 
 	// Cleanup old entries every minute
@@ -28,28 +30,37 @@ func NewRateLimiter(limit int, window time.Duration) *RateLimiter {
 	return rl
 }
 
+// Stop terminates the cleanup goroutine.
+func (rl *RateLimiter) Stop() {
+	close(rl.done)
+}
+
 func (rl *RateLimiter) cleanup() {
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		rl.mu.Lock()
-		now := time.Now()
-		for key, timestamps := range rl.requests {
-			// Remove timestamps older than window
-			valid := make([]time.Time, 0)
-			for _, ts := range timestamps {
-				if now.Sub(ts) < rl.window {
-					valid = append(valid, ts)
+	for {
+		select {
+		case <-rl.done:
+			return
+		case <-ticker.C:
+			rl.mu.Lock()
+			now := time.Now()
+			for key, timestamps := range rl.requests {
+				valid := make([]time.Time, 0)
+				for _, ts := range timestamps {
+					if now.Sub(ts) < rl.window {
+						valid = append(valid, ts)
+					}
+				}
+				if len(valid) == 0 {
+					delete(rl.requests, key)
+				} else {
+					rl.requests[key] = valid
 				}
 			}
-			if len(valid) == 0 {
-				delete(rl.requests, key)
-			} else {
-				rl.requests[key] = valid
-			}
+			rl.mu.Unlock()
 		}
-		rl.mu.Unlock()
 	}
 }
 

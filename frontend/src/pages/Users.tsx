@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'preact/hooks'
+import { useState } from 'preact/hooks'
 import { PageLayout } from '../components/layout/PageLayout'
 import { PageHeader } from '../components/layout/PageHeader'
 import { Card, CardContent } from '../components/ui/Card'
@@ -100,7 +100,12 @@ export function Users() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
   const [openDropdownId, setOpenDropdownId] = useState<number | null>(null)
   
-  const { data: response, isLoading, refetch } = useUsers({ page, limit })
+  const { data: response, isLoading, refetch } = useUsers({
+    page,
+    limit,
+    search: searchTerm || undefined,
+    status: statusFilter !== 'all' ? statusFilter : undefined,
+  })
   const { mutate: deleteUser } = useDeleteUser()
   const { mutate: regenerateCredentials } = useRegenerateCredentials()
 
@@ -118,23 +123,7 @@ export function Users() {
   const total = response?.total || 0
   const totalPages = Math.ceil(total / limit)
 
-  const filteredUsers = useMemo(() => {
-    let filtered = users
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase()
-      filtered = filtered.filter((user: User) =>
-        user.username?.toLowerCase().includes(term) ||
-        user.email?.toLowerCase().includes(term) ||
-        user.uuid?.toLowerCase().includes(term)
-      )
-    }
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter((user: User) =>
-        statusFilter === 'active' ? user.is_active : !user.is_active
-      )
-    }
-    return filtered
-  }, [users, searchTerm, statusFilter])
+  // Filtering is now server-side via query params
 
   const handleDelete = async () => {
     if (userToDelete) {
@@ -183,7 +172,7 @@ export function Users() {
                 type="text"
                 placeholder={t('users.searchPlaceholder') || 'Search users...'}
                 value={searchTerm}
-                onChange={(e) => setSearchTerm((e.target as HTMLInputElement).value)}
+                onChange={(e) => { setSearchTerm((e.target as HTMLInputElement).value); setPage(1) }}
                 className="pl-10 h-10 bg-transparent border-none focus:ring-0 shadow-none text-base sm:text-sm placeholder:text-text-tertiary"
               />
             </div>
@@ -191,7 +180,7 @@ export function Users() {
             <div className="flex gap-4 sm:gap-2">
               <Select
                 value={statusFilter}
-                onChange={(e) => setStatusFilter((e.target as HTMLSelectElement).value as 'all' | 'active' | 'inactive')}
+                onChange={(e) => { setStatusFilter((e.target as HTMLSelectElement).value as 'all' | 'active' | 'inactive'); setPage(1) }}
                 options={[
                   { value: 'all', label: t('common.all') || 'All Status' },
                   { value: 'active', label: t('common.active') || 'Active' },
@@ -212,7 +201,7 @@ export function Users() {
 
       {isLoading ? (
         <Card><CardContent className="p-6 space-y-4">{Array(5).fill(0).map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-xl" />)}</CardContent></Card>
-      ) : filteredUsers && filteredUsers.length > 0 ? (
+      ) : users && users.length > 0 ? (
         <>
           <Card className="hidden md:block overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
@@ -227,7 +216,7 @@ export function Users() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border-primary/50 text-text-primary">
-                  {filteredUsers.map((user: User) => (
+                  {users.map((user: User) => (
                     <tr key={user.id} className="hover:bg-bg-hover/50 transition-colors group">
                       <td className="px-6 py-3">
                         <div className="flex items-center gap-3">
@@ -276,7 +265,7 @@ export function Users() {
           </Card>
 
           <div className="grid grid-cols-1 gap-4 md:hidden">
-            {filteredUsers.map((user: User) => (
+            {users.map((user: User) => (
               <Card key={user.id} className="relative overflow-hidden">
                 <CardContent className="p-4 space-y-4">
                   <div className="flex justify-between items-start">
@@ -343,7 +332,7 @@ export function Users() {
       </Modal>
 
       <Modal isOpen={isEditModalOpen} onClose={() => { setIsEditModalOpen(false); setSelectedUser(null) }} title={t('users.editUser')} size="lg">
-        {selectedUser && <UserForm user={selectedUser} onSuccess={() => { setIsEditModalOpen(false); setSelectedUser(null); refetch() }} onCancel={() => { setIsEditModalOpen(false); setSelectedUser(null) }} />}
+        {selectedUser && <EditUserFormWrapper user={selectedUser} onSuccess={() => { setIsEditModalOpen(false); setSelectedUser(null); refetch() }} onCancel={() => { setIsEditModalOpen(false); setSelectedUser(null) }} />}
       </Modal>
 
       <Modal isOpen={isDeleteModalOpen} onClose={() => { setIsDeleteModalOpen(false); setUserToDelete(null) }} title={t('users.deleteUser')}>
@@ -393,5 +382,20 @@ function UserInboundsView({ userId }: { userId: number }) {
         </Card>
       ))}
     </div>
+  )
+}
+
+// Wrapper to fetch user inbounds before rendering edit form
+function EditUserFormWrapper({ user, onSuccess, onCancel }: { user: User; onSuccess: () => void; onCancel: () => void }) {
+  const { data: inbounds } = useUserInbounds(user.id)
+  const inboundIds = Array.isArray(inbounds) ? inbounds.map((ib: Inbound) => ib.id) : []
+
+  return (
+    <UserForm
+      user={user}
+      userInboundIds={inboundIds}
+      onSuccess={onSuccess}
+      onCancel={onCancel}
+    />
   )
 }

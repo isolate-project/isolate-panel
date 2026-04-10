@@ -147,6 +147,13 @@ export function InboundForm({ inbound, onSuccess, onCancel }: InboundFormProps) 
     handleBlur(name as keyof InboundFormData)
   }
 
+  // Cleanup port check timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (portCheckTimeout.current) window.clearTimeout(portCheckTimeout.current)
+    }
+  }, [])
+
   // Initialize core type on mount
   useEffect(() => {
     if (inbound && cores) {

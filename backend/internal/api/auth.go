@@ -10,6 +10,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/isolate-project/isolate-panel/internal/auth"
+	"github.com/isolate-project/isolate-panel/internal/logger"
 	"github.com/isolate-project/isolate-panel/internal/models"
 	"github.com/isolate-project/isolate-panel/internal/services"
 )
@@ -82,7 +83,9 @@ func (h *AuthHandler) Login(c fiber.Ctx) error {
 	// Find admin by username
 	var admin models.Admin
 	if err := h.db.Where("username = ? AND is_active = ?", req.Username, true).First(&admin).Error; err != nil {
-		h.db.Create(&attempt)
+		if dbErr := h.db.Create(&attempt).Error; dbErr != nil {
+			logger.Log.Error().Err(dbErr).Msg("Failed to record login attempt")
+		}
 
 		// Check for multiple failed attempts
 		h.checkFailedLoginAttempts(req.Username, c.IP())
@@ -95,7 +98,9 @@ func (h *AuthHandler) Login(c fiber.Ctx) error {
 	// Verify password
 	valid, err := auth.VerifyPassword(req.Password, admin.PasswordHash)
 	if err != nil || !valid {
-		h.db.Create(&attempt)
+		if dbErr := h.db.Create(&attempt).Error; dbErr != nil {
+			logger.Log.Error().Err(dbErr).Msg("Failed to record login attempt")
+		}
 		h.checkFailedLoginAttempts(req.Username, c.IP())
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": "Invalid username or password",
@@ -105,7 +110,9 @@ func (h *AuthHandler) Login(c fiber.Ctx) error {
 	// Rehash password if it was created with legacy Argon2id parameters
 	if auth.NeedsRehash(req.Password, admin.PasswordHash) {
 		if newHash, err := auth.HashPassword(req.Password); err == nil {
-			h.db.Model(&admin).Update("password_hash", newHash)
+			if dbErr := h.db.Model(&admin).Update("password_hash", newHash).Error; dbErr != nil {
+				logger.Log.Error().Err(dbErr).Msg("Failed to rehash password")
+			}
 		}
 	}
 
@@ -115,7 +122,9 @@ func (h *AuthHandler) Login(c fiber.Ctx) error {
 			return c.JSON(fiber.Map{"requires_totp": true})
 		}
 		if !totp.Validate(req.TotpCode, admin.TOTPSecret) {
-			h.db.Create(&attempt)
+			if dbErr := h.db.Create(&attempt).Error; dbErr != nil {
+				logger.Log.Error().Err(dbErr).Msg("Failed to record login attempt")
+			}
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 				"error": "Invalid TOTP code",
 			})
@@ -158,16 +167,20 @@ func (h *AuthHandler) Login(c fiber.Ctx) error {
 	// Update last login time
 	now := time.Now()
 	admin.LastLoginAt = &now
-	h.db.Save(&admin)
+	if dbErr := h.db.Save(&admin).Error; dbErr != nil {
+		logger.Log.Error().Err(dbErr).Msg("Failed to update last login time")
+	}
 
 	// Record successful login attempt
 	attempt.Success = true
-	h.db.Create(&attempt)
+	if dbErr := h.db.Create(&attempt).Error; dbErr != nil {
+		logger.Log.Error().Err(dbErr).Msg("Failed to record login attempt")
+	}
 
 	return c.JSON(LoginResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
-		ExpiresIn:    int64(h.tokenService.GetRefreshTokenTTL().Seconds()),
+		ExpiresIn:    int64(h.tokenService.GetAccessTokenTTL().Seconds()),
 		Admin: AdminInfo{
 			ID:           admin.ID,
 			Username:     admin.Username,
@@ -209,6 +222,13 @@ func (h *AuthHandler) Refresh(c fiber.Ctx) error {
 		})
 	}
 
+	// Guard against orphaned tokens (admin deleted after token was issued)
+	if refreshToken.Admin.ID == 0 {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid or expired refresh token",
+		})
+	}
+
 	// Generate new access token
 	accessToken, err := h.tokenService.GenerateAccessToken(
 		refreshToken.Admin.ID,
@@ -223,7 +243,7 @@ func (h *AuthHandler) Refresh(c fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{
 		"access_token": accessToken,
-		"expires_in":   int64(h.tokenService.GetRefreshTokenTTL().Seconds()),
+		"expires_in":   int64(h.tokenService.GetAccessTokenTTL().Seconds()),
 	})
 }
 
@@ -464,7 +484,7 @@ func (h *AuthHandler) checkFailedLoginAttempts(username, ip string) {
 	var count int64
 	oneHourAgo := time.Now().Add(-1 * time.Hour)
 	h.db.Model(&models.LoginAttempt{}).
-		Where("ip_address = ? AND success = ? AND created_at > ?", ip, false, oneHourAgo).
+		Where("ip_address = ? AND success = ? AND attempted_at > ?", ip, false, oneHourAgo).
 		Count(&count)
 
 	// Send notification after 5 failed attempts

@@ -1,5 +1,4 @@
--- Add foreign key constraint for inbounds.tls_cert_id referencing certificates.id
-ALTER TABLE inbounds
-ADD CONSTRAINT fk_inbounds_tls_cert
-FOREIGN KEY (tls_cert_id) REFERENCES certificates(id)
-ON DELETE SET NULL;
+-- No-op: foreign key inbounds.tls_cert_id -> certificates.id
+-- already defined in 000004_create_inbounds_table.up.sql.
+-- SQLite does not support ALTER TABLE ... ADD CONSTRAINT.
+SELECT 1;

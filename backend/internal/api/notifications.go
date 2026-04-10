@@ -27,15 +27,12 @@ func (h *NotificationHandler) RegisterRoutes(router fiber.Router) {
 
 	// Notification operations
 	notifications.Get("/", h.ListNotifications)
-	notifications.Get("/:id", h.GetNotification)
-	notifications.Delete("/:id", h.DeleteNotification)
-
-	// Settings
+	// Static routes MUST be before parameterized /:id
 	notifications.Get("/settings", h.GetSettings)
 	notifications.Put("/settings", h.UpdateSettings)
-
-	// Test
 	notifications.Post("/test", h.SendTestNotification)
+	notifications.Get("/:id", h.GetNotification)
+	notifications.Delete("/:id", h.DeleteNotification)
 }
 
 // ListNotifications returns list of notifications
@@ -71,7 +68,7 @@ func (h *NotificationHandler) ListNotifications(c fiber.Ctx) error {
 	notifications, err := h.notificationService.ListNotifications(limit, offset)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -131,7 +128,7 @@ func (h *NotificationHandler) DeleteNotification(c fiber.Ctx) error {
 
 	if err := h.notificationService.DeleteNotification(id); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -153,7 +150,7 @@ func (h *NotificationHandler) GetSettings(c fiber.Ctx) error {
 	settings, err := h.notificationService.GetSettings()
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -184,7 +181,7 @@ func (h *NotificationHandler) UpdateSettings(c fiber.Ctx) error {
 
 	if err := h.notificationService.UpdateSettings(&settings); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -220,7 +217,7 @@ func (h *NotificationHandler) SendTestNotification(c fiber.Ctx) error {
 	settings, err := h.notificationService.GetSettings()
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 

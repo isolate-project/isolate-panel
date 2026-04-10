@@ -137,7 +137,7 @@ export function Header({ onMenuClick }: HeaderProps) {
 
           {/* User Menu */}
           {user && (
-            <div className="group relative ml-2 ext-left">
+            <div className="group relative ml-2 text-left">
               <button className="flex items-center gap-2 rounded-full border border-border-primary bg-bg-secondary/50 p-1 pr-3 transition-colors hover:bg-bg-hover">
                 <div className="flex h-7 w-7 items-center justify-center rounded-full bg-color-primary text-xs font-medium text-white shadow-sm">
                   {user.username.charAt(0).toUpperCase()}

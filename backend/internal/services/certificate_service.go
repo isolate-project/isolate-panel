@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-acme/lego/v4/certificate"
 	"github.com/isolate-project/isolate-panel/internal/acme"
+	"github.com/isolate-project/isolate-panel/internal/logger"
 	"github.com/isolate-project/isolate-panel/internal/models"
 	"gorm.io/gorm"
 )
@@ -70,7 +71,7 @@ func NewCertificateService(db *gorm.DB, config CertificateServiceConfig) (*Certi
 		})
 		if err != nil {
 			// Non-fatal: continue without ACME, manual upload still works
-			fmt.Printf("[WARN] ACME client initialization failed (manual certificate upload still available): %v\n", err)
+			logger.Log.Warn().Err(err).Msg("ACME client initialization failed (manual certificate upload still available)")
 		} else {
 			cs.acmeClient = acmeClient
 		}

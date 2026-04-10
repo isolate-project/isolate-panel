@@ -3,11 +3,12 @@ import { cn } from '../../lib/utils'
 import { Input } from '../ui/Input'
 import { Switch } from '../ui/Switch'
 import { Select } from '../ui/Select'
+import { Slider } from '../ui/Slider'
 
 interface FormFieldProps {
   name: string
   label: string
-  type: 'text' | 'email' | 'password' | 'number' | 'switch' | 'select'
+  type: 'text' | 'email' | 'password' | 'number' | 'switch' | 'select' | 'range'
   value: string | number | boolean | undefined
   onChange: (name: string, value: string | number | boolean) => void
   onBlur?: (name: string) => void
@@ -20,6 +21,10 @@ interface FormFieldProps {
   className?: string
   options?: { value: string; label: string }[]
   children?: ComponentChildren
+  min?: number
+  max?: number
+  step?: number
+  formatLabel?: (value: number) => string
 }
 
 export function FormField({
@@ -38,6 +43,10 @@ export function FormField({
   className,
   options,
   children,
+  min,
+  max,
+  step,
+  formatLabel,
 }: FormFieldProps) {
   const hasError = touched && !!error
 
@@ -52,6 +61,31 @@ export function FormField({
 
   const handleBlur = () => {
     if (onBlur) onBlur(name)
+  }
+
+  if (type === 'range') {
+    return (
+      <div className={cn("space-y-2", className)}>
+        <label className="text-sm font-medium text-text-primary">
+          {label}
+          {required && <span className="text-color-danger ml-1">*</span>}
+        </label>
+        <Slider
+          value={Number(value) || min || 0}
+          onChange={(val) => onChange(name, val)}
+          min={min}
+          max={max}
+          step={step}
+          disabled={disabled}
+          formatLabel={formatLabel}
+        />
+        {hasError ? (
+          <p className="text-xs font-medium text-color-danger">{error}</p>
+        ) : helperText ? (
+          <p className="text-xs text-text-secondary">{helperText}</p>
+        ) : null}
+      </div>
+    )
   }
 
   if (type === 'switch') {

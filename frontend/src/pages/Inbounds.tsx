@@ -12,8 +12,10 @@ import { Input } from '../components/ui/Input'
 import { Select } from '../components/ui/Select'
 import { Drawer } from '../components/ui/Drawer'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '../components/ui/DropdownMenu'
-import { useInbounds, useDeleteInbound } from '../hooks/useInbounds'
+import { useInbounds, useDeleteInbound, useAssignUser, useUnassignUser } from '../hooks/useInbounds'
 import { useUsers } from '../hooks/useUsers'
+import { useQuery } from '../hooks/useQuery'
+import { inboundApi } from '../api/endpoints'
 import { InboundForm } from '../components/forms/InboundForm'
 import type { Inbound, User } from '../types'
 import { Plus, Edit, Trash2, Users as UsersIcon, Search, MoreVertical, Globe, ShieldAlert, Cpu } from 'lucide-preact'
@@ -82,8 +84,18 @@ export function Inbounds() {
   const [drawerMode, setDrawerMode] = useState<'create' | 'edit'>('create')
   const [inboundToEdit, setInboundToEdit] = useState<Inbound | null>(null)
 
+  const { mutate: assignUser, isLoading: isAssigning } = useAssignUser()
+  const { mutate: unassignUser, isLoading: isUnassigning } = useUnassignUser()
+
   const allInbounds: Inbound[] = Array.isArray(inbounds) ? inbounds : []
   const allUsers: User[] = Array.isArray(usersResponse?.users) ? usersResponse.users : (Array.isArray(usersResponse) ? usersResponse as unknown as User[] : [])
+
+  const { data: assignedUsersData, refetch: refetchAssigned } = useQuery<{ users: User[]; total: number }>(
+    inboundForUsers ? `inbound-users-${inboundForUsers.id}` : 'inbound-users-none',
+    () => inboundApi.getUsers(inboundForUsers!.id).then((res) => res.data as { users: User[]; total: number }),
+    { enabled: !!inboundForUsers }
+  )
+  const assignedUserIds = new Set((assignedUsersData?.users ?? []).map((u: User) => u.id))
 
   const filteredInbounds = allInbounds.filter((inbound) => {
     const matchesSearch = searchTerm
@@ -267,23 +279,44 @@ export function Inbounds() {
           <div className="space-y-4">
             <p className="text-sm text-text-secondary mb-4">Select which users are allowed to connect through this inbound.</p>
             <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-2">
-              {allUsers.map((user) => (
-                <div key={user.id} className="flex items-center justify-between p-3 border border-border-primary rounded-xl hover:bg-bg-tertiary/30 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-color-primary/10 text-color-primary flex items-center justify-center font-bold text-sm">
-                      {user.username.charAt(0).toUpperCase()}
+              {allUsers.map((user) => {
+                const isAssigned = assignedUserIds.has(user.id)
+                const isBusy = isAssigning || isUnassigning
+                return (
+                  <div key={user.id} className="flex items-center justify-between p-3 border border-border-primary rounded-xl hover:bg-bg-tertiary/30 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-color-primary/10 text-color-primary flex items-center justify-center font-bold text-sm">
+                        {user.username.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="font-medium text-text-primary text-sm">{user.username}</div>
+                        <Badge variant={user.is_active ? 'success' : 'secondary'} className="text-[10px] mt-0.5">{user.is_active ? 'Active' : 'Disabled'}</Badge>
+                      </div>
                     </div>
                     <div>
-                      <div className="font-medium text-text-primary text-sm">{user.username}</div>
-                      <Badge variant={user.is_active ? 'success' : 'secondary'} className="text-[10px] mt-0.5">{user.is_active ? 'Active' : 'Disabled'}</Badge>
+                      {isAssigned ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={isBusy}
+                          onClick={() => unassignUser({ inboundId: inboundForUsers.id, userId: user.id }).then(() => refetchAssigned()).catch(() => {})}
+                        >
+                          Unassign
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={isBusy}
+                          onClick={() => assignUser({ inboundId: inboundForUsers.id, userId: user.id }).then(() => refetchAssigned()).catch(() => {})}
+                        >
+                          Assign
+                        </Button>
+                      )}
                     </div>
                   </div>
-                  <div>
-                    {/* Simplified mock assignment logic - in real app, check if user is assigned */}
-                    <Button variant="outline" size="sm" onClick={() => {}}>Assign</Button>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         )}

@@ -47,11 +47,11 @@ func (h *UsersHandler) CreateUser(c fiber.Ctx) error {
 	user, err := h.userService.CreateUser(&req, adminID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(h.formatUserResponse(user))
+	return c.Status(fiber.StatusCreated).JSON(h.formatUserResponseWithCredentials(user))
 }
 
 // ListUsers lists all users
@@ -68,6 +68,8 @@ func (h *UsersHandler) CreateUser(c fiber.Ctx) error {
 func (h *UsersHandler) ListUsers(c fiber.Ctx) error {
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	pageSize, _ := strconv.Atoi(c.Query("page_size", "20"))
+	search := c.Query("search")
+	status := c.Query("status") // "active", "inactive", or "" for all
 
 	if page < 1 {
 		page = 1
@@ -76,7 +78,7 @@ func (h *UsersHandler) ListUsers(c fiber.Ctx) error {
 		pageSize = 20
 	}
 
-	users, total, err := h.userService.ListUsers(page, pageSize)
+	users, total, err := h.userService.ListUsers(page, pageSize, search, status)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to list users",
@@ -156,7 +158,7 @@ func (h *UsersHandler) UpdateUser(c fiber.Ctx) error {
 	user, err := h.userService.UpdateUser(uint(id), &req)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -184,7 +186,7 @@ func (h *UsersHandler) DeleteUser(c fiber.Ctx) error {
 
 	if err := h.userService.DeleteUser(uint(id)); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -215,13 +217,13 @@ func (h *UsersHandler) RegenerateCredentials(c fiber.Ctx) error {
 	user, err := h.userService.RegenerateCredentials(uint(id))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
 	return c.JSON(fiber.Map{
 		"message": "Credentials regenerated successfully",
-		"user":    h.formatUserResponse(user),
+		"user":    h.formatUserResponseWithCredentials(user),
 	})
 }
 
@@ -251,20 +253,16 @@ func (h *UsersHandler) GetUserInbounds(c fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(fiber.Map{
-		"inbounds": inbounds,
-	})
+	return c.JSON(inbounds)
 }
 
-// formatUserResponse formats a user model to response
+// formatUserResponse formats a user model to response (without sensitive credentials)
 func (h *UsersHandler) formatUserResponse(user *models.User) services.UserResponse {
 	response := services.UserResponse{
 		ID:                user.ID,
 		Username:          user.Username,
 		Email:             user.Email,
 		UUID:              user.UUID,
-		Password:          user.Password,
-		Token:             user.Token,
 		SubscriptionToken: user.SubscriptionToken,
 		TrafficLimitBytes: user.TrafficLimitBytes,
 		TrafficUsedBytes:  user.TrafficUsedBytes,
@@ -278,5 +276,13 @@ func (h *UsersHandler) formatUserResponse(user *models.User) services.UserRespon
 		response.ExpiryDate = &expiryStr
 	}
 
+	return response
+}
+
+// formatUserResponseWithCredentials includes password and token (for create/regenerate only)
+func (h *UsersHandler) formatUserResponseWithCredentials(user *models.User) services.UserResponse {
+	response := h.formatUserResponse(user)
+	response.Password = user.Password
+	response.Token = user.Token
 	return response
 }

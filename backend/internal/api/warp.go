@@ -93,7 +93,7 @@ func (h *WarpHandler) GetWarpRoutes(c fiber.Ctx) error {
 	routes, err := h.warpService.GetWarpRoutesForCore(uint(coreID))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -165,7 +165,7 @@ func (h *WarpHandler) CreateWarpRoute(c fiber.Ctx) error {
 
 	if err := h.warpService.DB().Create(&route).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -224,7 +224,7 @@ func (h *WarpHandler) UpdateWarpRoute(c fiber.Ctx) error {
 
 	if err := h.warpService.DB().Save(&route).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -252,7 +252,7 @@ func (h *WarpHandler) DeleteWarpRoute(c fiber.Ctx) error {
 
 	if err := h.warpService.DB().Delete(&models.WarpRoute{}, id).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -288,7 +288,7 @@ func (h *WarpHandler) ToggleWarpRoute(c fiber.Ctx) error {
 	route.IsEnabled = !route.IsEnabled
 	if err := h.warpService.DB().Save(&route).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -320,7 +320,7 @@ func (h *WarpHandler) SyncWarpRoutes(c fiber.Ctx) error {
 		var cores []models.Core
 		if err := h.warpService.DB().Find(&cores).Error; err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": err.Error(),
+				"error": "Internal server error",
 			})
 		}
 		var errors []string
@@ -359,7 +359,7 @@ func (h *WarpHandler) SyncWarpRoutes(c fiber.Ctx) error {
 
 	if err := h.configService.RegenerateAndReload(core.Name); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -382,7 +382,7 @@ func (h *WarpHandler) GetWarpStatus(c fiber.Ctx) error {
 	status, err := h.warpService.GetStatus()
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -405,7 +405,7 @@ func (h *WarpHandler) RegisterWARP(c fiber.Ctx) error {
 	account, err := h.warpService.RegisterWARP()
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -413,13 +413,13 @@ func (h *WarpHandler) RegisterWARP(c fiber.Ctx) error {
 	config, err := h.warpService.GenerateWireGuardConfig()
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
 	if err := h.warpService.SaveWireGuardConfig(config); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -475,7 +475,7 @@ func (h *WarpHandler) ApplyWarpPreset(c fiber.Ctx) error {
 
 	if err := h.warpService.ApplyPreset(presetName, uint(coreID)); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -514,7 +514,7 @@ func (h *WarpHandler) GetGeoRules(c fiber.Ctx) error {
 	rules, err := h.geoService.GetGeoRulesForCore(uint(coreID))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -586,7 +586,7 @@ func (h *WarpHandler) CreateGeoRule(c fiber.Ctx) error {
 
 	if err := h.geoService.CreateGeoRule(&rule); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -647,7 +647,7 @@ func (h *WarpHandler) UpdateGeoRule(c fiber.Ctx) error {
 
 	if err := h.geoService.UpdateGeoRule(&existing); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -690,7 +690,7 @@ func (h *WarpHandler) DeleteGeoRule(c fiber.Ctx) error {
 
 	if err := h.geoService.DeleteGeoRule(uint(id), uint(coreID)); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -741,7 +741,7 @@ func (h *WarpHandler) ToggleGeoRule(c fiber.Ctx) error {
 	rule.IsEnabled = !rule.IsEnabled
 	if err := h.geoService.ToggleGeoRule(uint(id), uint(coreID), rule.IsEnabled); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -763,7 +763,7 @@ func (h *WarpHandler) GetCountries(c fiber.Ctx) error {
 	countries, err := h.geoService.GetCountries()
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -785,7 +785,7 @@ func (h *WarpHandler) GetCategories(c fiber.Ctx) error {
 	categories, err := h.geoService.GetCategories()
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -807,7 +807,7 @@ func (h *WarpHandler) GetGeoDatabases(c fiber.Ctx) error {
 	databases, err := h.geoService.GetGeoDatabases()
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -829,7 +829,7 @@ func (h *WarpHandler) GetGeoDatabases(c fiber.Ctx) error {
 func (h *WarpHandler) UpdateGeoDatabases(c fiber.Ctx) error {
 	if err := h.geoService.UpdateAllDatabases(); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 

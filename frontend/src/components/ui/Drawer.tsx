@@ -65,7 +65,7 @@ export function Drawer({
 
       <div 
         className={cn(
-          "relative flex h-full flex-col bg-bg-secondary border-l border-border-primary shadow-2xl",
+          "relative flex h-full flex-col bg-bg-secondary border-l border-border-primary shadow-2xl animate-slideInRight",
           sizeClasses[size],
           className
         )}

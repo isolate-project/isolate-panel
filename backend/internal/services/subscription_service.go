@@ -448,20 +448,20 @@ func (s *SubscriptionService) generateTrojanLink(user models.User, inbound model
 	params.Set("type", getStringOrDefault(config, "transport", "tcp"))
 
 	return fmt.Sprintf("trojan://%s@%s:%d?%s#%s",
-		user.Password, server, inbound.Port,
+		user.UUID, server, inbound.Port,
 		params.Encode(), url.PathEscape(inbound.Name))
 }
 
 func (s *SubscriptionService) generateSSLink(user models.User, inbound models.Inbound, config map[string]interface{}, server string) string {
 	method := getStringOrDefault(config, "method", "aes-256-gcm")
-	userInfo := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", method, user.Password)))
+	userInfo := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", method, user.UUID)))
 	return fmt.Sprintf("ss://%s@%s:%d#%s",
 		userInfo, server, inbound.Port, url.PathEscape(inbound.Name))
 }
 
 func (s *SubscriptionService) generateHysteria2Link(user models.User, inbound models.Inbound, _ map[string]interface{}, server string) string {
 	return fmt.Sprintf("hysteria2://%s@%s:%d?insecure=1#%s",
-		user.Password, server, inbound.Port, url.PathEscape(inbound.Name))
+		user.UUID, server, inbound.Port, url.PathEscape(inbound.Name))
 }
 
 // generateClashProxy generates a Clash proxy entry
@@ -492,15 +492,15 @@ func (s *SubscriptionService) generateClashProxy(user models.User, inbound model
 			getStringOrDefault(config, "transport", "tcp")), name
 	case "trojan":
 		return fmt.Sprintf("  - name: %s\n    type: trojan\n    server: %s\n    port: %d\n    password: %s\n    sni: %s\n    skip-cert-verify: true\n",
-			name, server, inbound.Port, user.Password, server), name
+			name, server, inbound.Port, user.UUID, server), name
 	case "shadowsocks":
 		return fmt.Sprintf("  - name: %s\n    type: ss\n    server: %s\n    port: %d\n    cipher: %s\n    password: %s\n",
 			name, server, inbound.Port,
 			getStringOrDefault(config, "method", "aes-256-gcm"),
-			user.Password), name
+			user.UUID), name
 	case "hysteria2":
 		return fmt.Sprintf("  - name: %s\n    type: hysteria2\n    server: %s\n    port: %d\n    password: %s\n    skip-cert-verify: true\n",
-			name, server, inbound.Port, user.Password), name
+			name, server, inbound.Port, user.UUID), name
 	default:
 		return "", ""
 	}
@@ -560,7 +560,7 @@ func (s *SubscriptionService) generateSingboxOutbound(user models.User, inbound 
 			"tag":         inbound.Name,
 			"server":      server,
 			"server_port": inbound.Port,
-			"password":    user.Password,
+			"password":    user.UUID,
 		}
 		if inbound.TLSEnabled {
 			ob["tls"] = map[string]interface{}{
@@ -577,7 +577,7 @@ func (s *SubscriptionService) generateSingboxOutbound(user models.User, inbound 
 			"server":      server,
 			"server_port": inbound.Port,
 			"method":      getStringOrDefault(config, "method", "aes-256-gcm"),
-			"password":    user.Password,
+			"password":    user.UUID,
 		}
 	case "hysteria2":
 		return map[string]interface{}{
@@ -585,7 +585,7 @@ func (s *SubscriptionService) generateSingboxOutbound(user models.User, inbound 
 			"tag":         inbound.Name,
 			"server":      server,
 			"server_port": inbound.Port,
-			"password":    user.Password,
+			"password":    user.UUID,
 			"tls": map[string]interface{}{
 				"enabled":  true,
 				"insecure": true,
@@ -608,11 +608,13 @@ func getStringOrDefault(config map[string]interface{}, key, defaultVal string) s
 }
 
 func generateShortCode(length int) (string, error) {
-	bytes := make([]byte, length)
-	if _, err := rand.Read(bytes); err != nil {
+	// Each byte produces 2 hex chars, so we need ceil(length/2) bytes
+	nBytes := (length + 1) / 2
+	b := make([]byte, nBytes)
+	if _, err := rand.Read(b); err != nil {
 		return "", err
 	}
-	return hex.EncodeToString(bytes)[:length], nil
+	return hex.EncodeToString(b)[:length], nil
 }
 
 func generateSubscriptionToken() string {

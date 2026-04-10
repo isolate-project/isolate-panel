@@ -6,6 +6,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/isolate-project/isolate-panel/internal/logger"
 	"github.com/isolate-project/isolate-panel/internal/models"
 	"github.com/isolate-project/isolate-panel/internal/protocol"
 )
@@ -83,7 +84,7 @@ func (s *OutboundService) CreateOutbound(outbound *models.Outbound) error {
 	// Trigger config regeneration
 	if s.configService != nil {
 		if err := s.configService.RegenerateAndReload(coreModel.Name); err != nil {
-			fmt.Printf("Warning: failed to regenerate config for %s: %v\n", coreModel.Name, err)
+			logger.Log.Warn().Err(err).Str("core", coreModel.Name).Msg("Failed to regenerate config")
 		}
 	}
 
@@ -175,7 +176,7 @@ func (s *OutboundService) UpdateOutbound(id uint, updates map[string]interface{}
 	// Trigger config regeneration
 	if s.configService != nil {
 		if err := s.configService.RegenerateAndReload(coreModel.Name); err != nil {
-			fmt.Printf("Warning: failed to regenerate config for %s: %v\n", coreModel.Name, err)
+			logger.Log.Warn().Err(err).Str("core", coreModel.Name).Msg("Failed to regenerate config")
 		}
 	}
 
@@ -203,7 +204,7 @@ func (s *OutboundService) DeleteOutbound(id uint) error {
 	// Trigger config regeneration
 	if s.configService != nil {
 		if err := s.configService.RegenerateAndReload(coreModel.Name); err != nil {
-			fmt.Printf("Warning: failed to regenerate config for %s: %v\n", coreModel.Name, err)
+			logger.Log.Warn().Err(err).Str("core", coreModel.Name).Msg("Failed to regenerate config")
 		}
 	}
 

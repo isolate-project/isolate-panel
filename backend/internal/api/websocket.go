@@ -85,8 +85,14 @@ func (h *DashboardHub) Run() {
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
+	ticketCleanup := time.NewTicker(1 * time.Minute)
+	defer ticketCleanup.Stop()
+
 	for {
 		select {
+		case <-ticketCleanup.C:
+			purgeExpiredTickets()
+
 		case conn := <-h.register:
 			h.mu.Lock()
 			h.clients[conn] = struct{}{}
@@ -144,9 +150,17 @@ func (h *DashboardHub) collectStats() ([]byte, error) {
 
 func (h *DashboardHub) broadcastAll(payload []byte) {
 	h.mu.RLock()
-	defer h.mu.RUnlock()
+	var failed []*fwebsocket.Conn
 	for conn := range h.clients {
-		_ = conn.WriteMessage(fwebsocket.TextMessage, payload)
+		if err := conn.WriteMessage(fwebsocket.TextMessage, payload); err != nil {
+			failed = append(failed, conn)
+		}
+	}
+	h.mu.RUnlock()
+
+	for _, conn := range failed {
+		h.unregister <- conn
+		conn.Close()
 	}
 }
 
@@ -176,6 +190,17 @@ func (h *DashboardHub) IssueWSTicket(c fiber.Ctx) error {
 	wsTicketsMu.Unlock()
 
 	return c.JSON(fiber.Map{"ticket": ticket})
+}
+
+func purgeExpiredTickets() {
+	wsTicketsMu.Lock()
+	defer wsTicketsMu.Unlock()
+	now := time.Now()
+	for k, t := range wsTickets {
+		if now.After(t.expiresAt) {
+			delete(wsTickets, k)
+		}
+	}
 }
 
 func validateAndConsumeTicket(ticket string) bool {

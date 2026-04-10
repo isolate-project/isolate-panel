@@ -2,9 +2,9 @@ name: Tests
 
 on:
   push:
-    branches: [main, develop]
+    branches: [master, develop]
   pull_request:
-    branches: [main]
+    branches: [master]
 
 jobs:
   backend-test:
@@ -66,7 +66,7 @@ jobs:
       - name: TypeScript check
         run: |
           cd frontend
-          npm run type-check
+          npm run typecheck
 
       - name: ESLint check
         run: |
@@ -118,6 +118,9 @@ jobs:
           go-version: '1.25'
           cache: true
           cache-dependency-path: cli/go.sum
+
+      - name: Install CGO dependencies
+        run: sudo apt-get install -y gcc libc6-dev
 
       - name: Install dependencies
         run: |
@@ -178,6 +181,72 @@ jobs:
           cd frontend
           npm ci
           npm run lint
+
+  e2e-live:
+    name: E2E Live Tests (Real Backend)
+    runs-on: ubuntu-latest
+    needs: [backend-test, frontend-test]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Install Playwright browsers
+        run: |
+          cd frontend
+          npx playwright install chromium --with-deps
+
+      - name: Build and start test backend
+        run: |
+          docker compose -f docker/docker-compose.test.yml up -d --build
+        timeout-minutes: 10
+
+      - name: Wait for backend health
+        run: |
+          echo "Waiting for backend to become healthy..."
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8080/health | grep -q '"status":"healthy"'; then
+              echo "Backend is healthy!"
+              exit 0
+            fi
+            echo "  Attempt $i/60 - waiting 3s..."
+            sleep 3
+          done
+          echo "Backend did not become healthy in time"
+          docker compose -f docker/docker-compose.test.yml logs
+          exit 1
+        timeout-minutes: 5
+
+      - name: Run live E2E tests
+        run: |
+          cd frontend
+          npm run test:e2e:live
+        timeout-minutes: 10
+
+      - name: Stop test backend
+        if: always()
+        run: |
+          docker compose -f docker/docker-compose.test.yml down -v --remove-orphans
+
+      - name: Upload live E2E report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-live
+          path: frontend/playwright-report-live/
+          retention-days: 30
 
   build-verification:
     name: Build Verification

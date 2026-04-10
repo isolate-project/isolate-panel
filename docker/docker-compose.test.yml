@@ -1,0 +1,40 @@
+name: isolate-panel-test
+
+services:
+  isolate-panel:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: isolate-panel-test
+    ports:
+      - "8080:8080"
+    environment:
+      - APP_ENV=development
+      - PORT=8080
+      - DATABASE_PATH=/app/data/isolate-panel.db
+      - LOG_LEVEL=debug
+      - JWT_SECRET=test-jwt-secret-for-e2e-tests-only
+      - JWT_EXPIRY_HOURS=720
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=admin
+      - MONITORING_MODE=lite
+      - TZ=UTC
+    volumes:
+      # Override supervisord config to autostart all cores
+      - ./supervisord.test.conf:/etc/supervisord.conf:ro
+    tmpfs:
+      # Ephemeral database — clean slate every run
+      - /app/data:size=256m
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 5s
+      start_period: 30s
+      retries: 10
+    restart: "no"
+    networks:
+      - test-network
+
+networks:
+  test-network:
+    driver: bridge

@@ -1,0 +1,100 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e6]:
+      - img [ref=e8]
+      - generic [ref=e14]: Isolate Panel
+    - navigation [ref=e16]:
+      - link "Dashboard" [ref=e17] [cursor=pointer]:
+        - /url: /
+        - img [ref=e18]
+        - text: Dashboard
+      - link "Users" [ref=e21] [cursor=pointer]:
+        - /url: /users
+        - img [ref=e22]
+        - text: Users
+      - link "Inbounds" [ref=e27] [cursor=pointer]:
+        - /url: /inbounds
+        - img [ref=e28]
+        - text: Inbounds
+      - link "Outbounds" [ref=e30] [cursor=pointer]:
+        - /url: /outbounds
+        - img [ref=e31]
+        - text: Outbounds
+      - link "Cores" [ref=e33] [cursor=pointer]:
+        - /url: /cores
+        - img [ref=e34]
+        - text: Cores
+      - link "Certificates" [ref=e37] [cursor=pointer]:
+        - /url: /certificates
+        - img [ref=e38]
+        - text: Certificates
+      - link "Connections" [ref=e40] [cursor=pointer]:
+        - /url: /connections
+        - img [ref=e41]
+        - text: Connections
+      - link "WARP Routes" [ref=e43] [cursor=pointer]:
+        - /url: /warp
+        - img [ref=e44]
+        - text: WARP Routes
+      - link "GeoIP/GeoSite" [ref=e49] [cursor=pointer]:
+        - /url: /geo
+        - img [ref=e50]
+        - text: GeoIP/GeoSite
+      - link "Backups" [ref=e53] [cursor=pointer]:
+        - /url: /backups
+        - img [ref=e54]
+        - text: Backups
+      - link "Notifications" [ref=e58] [cursor=pointer]:
+        - /url: /notifications
+        - img [ref=e59]
+        - text: Notifications
+    - link "Settings" [ref=e63] [cursor=pointer]:
+      - /url: /settings
+      - img [ref=e64]
+      - text: Settings
+  - generic [ref=e67]:
+    - banner [ref=e68]:
+      - generic [ref=e70]:
+        - button "Toggle theme" [ref=e71]:
+          - img [ref=e72]
+        - button "Change language" [ref=e75]:
+          - img [ref=e76]
+        - button "A admin" [ref=e80]:
+          - generic [ref=e81]: A
+          - generic [ref=e82]: admin
+    - main [ref=e83]:
+      - generic [ref=e85]:
+        - generic [ref=e86]:
+          - heading "Users" [level=1] [ref=e87]
+          - paragraph [ref=e88]: Manage proxy users and their credentials
+        - button "Add User" [ref=e90]:
+          - img [ref=e91]
+          - text: Add User
+      - generic [ref=e94]:
+        - generic [ref=e95]:
+          - img [ref=e96]
+          - textbox "Search by username, email, or UUID..." [ref=e100]
+        - generic [ref=e102]:
+          - generic [ref=e104]:
+            - combobox [ref=e105]:
+              - option "All" [selected]
+              - option "Active"
+              - option "Inactive"
+            - img
+          - generic [ref=e107]:
+            - combobox [ref=e108]:
+              - option "10 / page"
+              - option "20 / page" [selected]
+              - option "50 / page"
+            - img
+      - generic [ref=e110]:
+        - img [ref=e112]
+        - paragraph [ref=e114]: No users found
+        - paragraph [ref=e115]: Create a user to give them access to the internet.
+        - button "Add User" [ref=e116]:
+          - img [ref=e117]
+          - text: Add User
+```

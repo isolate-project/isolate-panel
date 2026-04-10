@@ -30,15 +30,16 @@ func (h *BackupHandler) RegisterRoutes(router fiber.Router) {
 
 	// Read-only operations (any authenticated admin)
 	backup.Get("/", h.ListBackups)
-	backup.Get("/:id", h.GetBackup)
+	// Static routes MUST be before parameterized /:id
 	backup.Get("/schedule", h.GetSchedule)
+	backup.Get("/:id", h.GetBackup)
 
 	// Destructive operations (super-admin only)
 	backup.Post("/create", middleware.RequireSuperAdmin(), h.CreateBackup)
+	backup.Post("/schedule", middleware.RequireSuperAdmin(), h.SetSchedule)
 	backup.Post("/:id/restore", middleware.RequireSuperAdmin(), h.RestoreBackup)
 	backup.Delete("/:id", middleware.RequireSuperAdmin(), h.DeleteBackup)
 	backup.Get("/:id/download", middleware.RequireSuperAdmin(), h.DownloadBackup)
-	backup.Post("/schedule", middleware.RequireSuperAdmin(), h.SetSchedule)
 }
 
 // ListBackups returns list of all backups
@@ -54,7 +55,7 @@ func (h *BackupHandler) ListBackups(c fiber.Ctx) error {
 	backups, err := h.backupService.ListBackups()
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -126,7 +127,7 @@ func (h *BackupHandler) CreateBackup(c fiber.Ctx) error {
 	backup, err := h.backupService.CreateBackup(req)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -159,7 +160,7 @@ func (h *BackupHandler) RestoreBackup(c fiber.Ctx) error {
 
 	if err := h.backupService.RestoreBackup(id); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -188,7 +189,7 @@ func (h *BackupHandler) DeleteBackup(c fiber.Ctx) error {
 
 	if err := h.backupService.DeleteBackup(id); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -219,7 +220,7 @@ func (h *BackupHandler) DownloadBackup(c fiber.Ctx) error {
 	filePath, filename, err := h.backupService.DownloadBackup(id)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -248,7 +249,7 @@ func (h *BackupHandler) GetSchedule(c fiber.Ctx) error {
 	schedule, err := h.backupScheduler.GetSchedule()
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 

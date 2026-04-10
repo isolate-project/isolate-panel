@@ -5,12 +5,12 @@ import { Card, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Select } from '../components/ui/Select'
+import { Slider } from '../components/ui/Slider'
 import { Spinner } from '../components/ui/Spinner'
-import { Alert } from '../components/ui/Alert'
 import { useThemeStore } from '../stores/themeStore'
 import { useToastStore } from '../stores/toastStore'
 import { systemApi } from '../api/endpoints'
-import { Alert as AlertBanner } from '../components/ui/Alert'
+import { Alert } from '../components/ui/Alert'
 import { useTranslation } from 'react-i18next'
 import { Moon, Sun, Globe, Save } from 'lucide-preact'
 
@@ -189,245 +189,237 @@ export function Settings() {
 
       {isLoadingSettings ? (
         <Card className="flex items-center justify-center py-12">
-      <CardContent className="p-6">
-          <Spinner size="lg" />
-              </CardContent>
-    </Card>
+          <CardContent className="p-6">
+            <Spinner size="lg" />
+          </CardContent>
+        </Card>
       ) : (
         <div className="space-y-6">
           {/* Appearance Settings */}
           <Card>
-      <CardContent className="p-6">
-            <h3 className="text-lg font-semibold text-primary mb-4">
-              {t('settings.appearance')}
-            </h3>
+            <CardContent className="p-6">
+              <h3 className="text-lg font-semibold text-primary mb-4">
+                {t('settings.appearance')}
+              </h3>
 
-            <div className="space-y-4">
-              {/* Theme Selector */}
-              <div>
-                <label className="block text-sm font-medium text-primary mb-2">
-                  {t('settings.theme')}
-                </label>
-                <div className="flex gap-3">
-                  <Button
-                    variant={theme === 'light' ? 'primary' : 'secondary'}
-                    onClick={() => setTheme('light')}
-                    className="flex-1"
-                  >
-                    <Sun className="w-4 h-4 mr-2" />
-                    {t('settings.lightMode')}
-                  </Button>
-                  <Button
-                    variant={theme === 'dark' ? 'primary' : 'secondary'}
-                    onClick={() => setTheme('dark')}
-                    className="flex-1"
-                  >
-                    <Moon className="w-4 h-4 mr-2" />
-                    {t('settings.darkMode')}
-                  </Button>
+              <div className="space-y-4">
+                {/* Theme Selector */}
+                <div>
+                  <label className="block text-sm font-medium text-primary mb-2">
+                    {t('settings.theme')}
+                  </label>
+                  <div className="flex gap-3">
+                    <Button
+                      variant={theme === 'light' ? 'primary' : 'secondary'}
+                      onClick={() => setTheme('light')}
+                      className="flex-1"
+                    >
+                      <Sun className="w-4 h-4 mr-2" />
+                      {t('settings.lightMode')}
+                    </Button>
+                    <Button
+                      variant={theme === 'dark' ? 'primary' : 'secondary'}
+                      onClick={() => setTheme('dark')}
+                      className="flex-1"
+                    >
+                      <Moon className="w-4 h-4 mr-2" />
+                      {t('settings.darkMode')}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Language Selector */}
+                <div>
+                  <label className="block text-sm font-medium text-primary mb-2">
+                    <Globe className="w-4 h-4 inline mr-2" />
+                    {t('settings.language')}
+                  </label>
+                  <Select
+                    value={i18n.language}
+                    onChange={handleLanguageChange}
+                    options={[
+                      { value: 'en', label: 'English' },
+                      { value: 'ru', label: 'Русский' },
+                      { value: 'zh', label: '中文' },
+                    ]}
+                    fullWidth
+                  />
                 </div>
               </div>
-
-              {/* Language Selector */}
-              <div>
-                <label className="block text-sm font-medium text-primary mb-2">
-                  <Globe className="w-4 h-4 inline mr-2" />
-                  {t('settings.language')}
-                </label>
-                <Select
-                  value={i18n.language}
-                  onChange={handleLanguageChange}
-                  options={[
-                    { value: 'en', label: 'English' },
-                    { value: 'ru', label: 'Русский' },
-                    { value: 'zh', label: '中文' },
-                  ]}
-                  fullWidth
-                />
-              </div>
-            </div>
-                </CardContent>
-    </Card>
+            </CardContent>
+          </Card>
 
           {/* General Settings */}
           <Card>
-      <CardContent className="p-6">
-            <h3 className="text-lg font-semibold text-primary mb-4">
-              {t('settings.general')}
-            </h3>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-primary mb-2">
-                  {t('settings.panelName')}
-                </label>
-                <Input
-                  name="panel_name"
-                  type="text"
-                  value={settings.panel_name}
-                  onChange={handleSettingChange}
-                  placeholder={t('common.appName')}
-                  error={errors.panel_name}
-                  fullWidth
-                />
+            <CardContent className="p-6">
+              <h3 className="text-lg font-semibold text-primary mb-4">
+                {t('settings.general')}
+              </h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-primary mb-2">
+                    {t('settings.panelName')}
+                  </label>
+                  <Input
+                    name="panel_name"
+                    type="text"
+                    value={settings.panel_name}
+                    onChange={handleSettingChange}
+                    placeholder={t('common.appName')}
+                    error={errors.panel_name}
+                    fullWidth
+                  />
+                </div>
               </div>
-            </div>
-                </CardContent>
-    </Card>
+            </CardContent>
+          </Card>
 
           {/* Monitoring Mode Settings */}
           <Card>
-      <CardContent className="p-6">
-            <h3 className="text-lg font-semibold text-primary mb-4">
-              {t('settings.monitoringMode')}
-            </h3>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-primary mb-2">
-                  {t('settings.monitoringModeLabel')}
-                </label>
-                <Select
-                  name="monitoring_mode"
-                  value={monitoring.mode}
-                  onChange={handleMonitoringChange}
-                  options={[
-                    { value: 'lite', label: t('settings.monitoringModeLite') },
-                    { value: 'full', label: t('settings.monitoringModeFull') },
-                  ]}
-                  fullWidth
-                />
-                <div className="mt-3 p-3 bg-secondary/50 rounded-lg">
-                  <AlertBanner variant="info" className="text-sm">
-                    {monitoring.mode === 'lite' 
-                      ? t('settings.monitoringModeLiteDesc')
-                      : t('settings.monitoringModeFullDesc')
-                    }
-                  </AlertBanner>
+            <CardContent className="p-6">
+              <h3 className="text-lg font-semibold text-primary mb-4">
+                {t('settings.monitoringMode')}
+              </h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-primary mb-2">
+                    {t('settings.monitoringModeLabel')}
+                  </label>
+                  <Select
+                    name="monitoring_mode"
+                    value={monitoring.mode}
+                    onChange={handleMonitoringChange}
+                    options={[
+                      { value: 'lite', label: t('settings.monitoringModeLite') },
+                      { value: 'full', label: t('settings.monitoringModeFull') },
+                    ]}
+                    fullWidth
+                  />
+                  <div className="mt-3 p-3 bg-secondary/50 rounded-lg">
+                    <Alert variant="info" className="text-sm">
+                      {monitoring.mode === 'lite'
+                        ? t('settings.monitoringModeLiteDesc')
+                        : t('settings.monitoringModeFullDesc')
+                      }
+                    </Alert>
+                  </div>
+                </div>
+                <div className="pt-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-tertiary">{t('settings.currentInterval')}</span>
+                    <span className="font-medium text-primary">
+                      {monitoring.interval} {t('settings.seconds')}
+                    </span>
+                  </div>
                 </div>
               </div>
-
-              <div className="pt-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-tertiary">{t('settings.currentInterval')}</span>
-                  <span className="font-medium text-primary">
-                    {monitoring.interval} {t('settings.seconds')}
-                  </span>
-                </div>
-              </div>
-            </div>
-                </CardContent>
-    </Card>
+            </CardContent>
+          </Card>
 
           {/* Traffic Management */}
           <Card>
-      <CardContent className="p-6">
-            <h3 className="text-lg font-semibold text-primary mb-4">
-              {t('settings.trafficManagement') || 'Traffic Management'}
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-primary mb-2">
-                  {t('settings.trafficResetSchedule') || 'Auto-reset Traffic Schedule'}
-                </label>
-                <Select
-                  name="traffic_reset_schedule"
-                  value={trafficResetSchedule}
-                  onChange={handleTrafficResetChange}
-                  options={[
-                    { value: 'disabled', label: t('settings.trafficResetDisabled') || 'Disabled' },
-                    { value: 'weekly', label: t('settings.trafficResetWeekly') || 'Weekly (every Monday)' },
-                    { value: 'monthly', label: t('settings.trafficResetMonthly') || 'Monthly (1st of month)' },
-                  ]}
-                  fullWidth
-                />
-                <p className="mt-1 text-xs text-tertiary">
-                  {t('settings.trafficResetHint') || 'Automatically resets all user traffic counters on the selected schedule.'}
-                </p>
+            <CardContent className="p-6">
+              <h3 className="text-lg font-semibold text-primary mb-4">
+                {t('settings.trafficManagement') || 'Traffic Management'}
+              </h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-primary mb-2">
+                    {t('settings.trafficResetSchedule') || 'Auto-reset Traffic Schedule'}
+                  </label>
+                  <Select
+                    name="traffic_reset_schedule"
+                    value={trafficResetSchedule}
+                    onChange={handleTrafficResetChange}
+                    options={[
+                      { value: 'disabled', label: t('settings.trafficResetDisabled') || 'Disabled' },
+                      { value: 'weekly', label: t('settings.trafficResetWeekly') || 'Weekly (every Monday)' },
+                      { value: 'monthly', label: t('settings.trafficResetMonthly') || 'Monthly (1st of month)' },
+                    ]}
+                    fullWidth
+                  />
+                  <p className="mt-1 text-xs text-tertiary">
+                    {t('settings.trafficResetHint') || 'Automatically resets all user traffic counters on the selected schedule.'}
+                  </p>
+                </div>
               </div>
-            </div>
-                </CardContent>
-    </Card>
+            </CardContent>
+          </Card>
 
           {/* Security Settings */}
           <Card>
-      <CardContent className="p-6">
-            <h3 className="text-lg font-semibold text-primary mb-4">
-              {t('settings.security')}
-            </h3>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-primary mb-2">
-                  {t('settings.jwtTokenTTL')} ({t('settings.seconds')})
-                </label>
-                <Input
-                  name="jwt_access_token_ttl"
-                  type="number"
-                  value={settings.jwt_access_token_ttl}
-                  onChange={handleSettingChange}
-                  placeholder="900"
-                  error={errors.jwt_access_token_ttl}
-                  fullWidth
-                />
-                <p className="mt-1 text-xs text-tertiary">
-                  {t('settings.jwtTokenTTLHint')}
-                </p>
+            <CardContent className="p-6">
+              <h3 className="text-lg font-semibold text-primary mb-4">
+                {t('settings.security')}
+              </h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-primary mb-2">
+                    {t('settings.jwtTokenTTL')}
+                  </label>
+                  <Slider
+                    value={Number(settings.jwt_access_token_ttl) || 900}
+                    onChange={(val) => setSettings((s) => ({ ...s, jwt_access_token_ttl: String(val) }))}
+                    min={60}
+                    max={86400}
+                    step={60}
+                    formatLabel={(v) => v >= 3600 ? `${Math.floor(v / 3600)}h${v % 3600 ? ` ${Math.floor((v % 3600) / 60)}m` : ''}` : `${Math.floor(v / 60)}m`}
+                  />
+                  {errors.jwt_access_token_ttl && <p className="text-xs text-danger mt-1">{errors.jwt_access_token_ttl}</p>}
+                  <p className="mt-1 text-xs text-tertiary">
+                    {t('settings.jwtTokenTTLHint')}
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-primary mb-2">
+                    {t('settings.refreshTokenTTL')}
+                  </label>
+                  <Slider
+                    value={Number(settings.jwt_refresh_token_ttl) || 604800}
+                    onChange={(val) => setSettings((s) => ({ ...s, jwt_refresh_token_ttl: String(val) }))}
+                    min={3600}
+                    max={2592000}
+                    step={3600}
+                    formatLabel={(v) => v >= 86400 ? `${Math.floor(v / 86400)}d` : `${Math.floor(v / 3600)}h`}
+                  />
+                  {errors.jwt_refresh_token_ttl && <p className="text-xs text-danger mt-1">{errors.jwt_refresh_token_ttl}</p>}
+                  <p className="mt-1 text-xs text-tertiary">
+                    {t('settings.refreshTokenTTLHint')}
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-primary mb-2">
+                    {t('settings.maxLoginAttempts')}
+                  </label>
+                  <Slider
+                    value={Number(settings.max_login_attempts) || 5}
+                    onChange={(val) => setSettings((s) => ({ ...s, max_login_attempts: String(val) }))}
+                    min={1}
+                    max={100}
+                    step={1}
+                  />
+                  {errors.max_login_attempts && <p className="text-xs text-danger mt-1">{errors.max_login_attempts}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-primary mb-2">
+                    {t('settings.logLevel')}
+                  </label>
+                  <Select
+                    name="log_level"
+                    value={settings.log_level}
+                    onChange={handleSettingChange}
+                    options={[
+                      { value: 'debug', label: t('settings.logLevelDebug') },
+                      { value: 'info', label: t('settings.logLevelInfo') },
+                      { value: 'warn', label: t('settings.logLevelWarning') },
+                      { value: 'error', label: t('settings.logLevelError') },
+                    ]}
+                    fullWidth
+                  />
+                </div>
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-primary mb-2">
-                  {t('settings.refreshTokenTTL')} ({t('settings.seconds')})
-                </label>
-                <Input
-                  name="jwt_refresh_token_ttl"
-                  type="number"
-                  value={settings.jwt_refresh_token_ttl}
-                  onChange={handleSettingChange}
-                  placeholder="604800"
-                  error={errors.jwt_refresh_token_ttl}
-                  fullWidth
-                />
-                <p className="mt-1 text-xs text-tertiary">
-                  {t('settings.refreshTokenTTLHint')}
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-primary mb-2">
-                  {t('settings.maxLoginAttempts')}
-                </label>
-                <Input
-                  name="max_login_attempts"
-                  type="number"
-                  value={settings.max_login_attempts}
-                  onChange={handleSettingChange}
-                  placeholder="5"
-                  error={errors.max_login_attempts}
-                  fullWidth
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-primary mb-2">
-                  {t('settings.logLevel')}
-                </label>
-                <Select
-                  name="log_level"
-                  value={settings.log_level}
-                  onChange={handleSettingChange}
-                  options={[
-                    { value: 'debug', label: t('settings.logLevelDebug') },
-                    { value: 'info', label: t('settings.logLevelInfo') },
-                    { value: 'warn', label: t('settings.logLevelWarning') },
-                    { value: 'error', label: t('settings.logLevelError') },
-                  ]}
-                  fullWidth
-                />
-              </div>
-            </div>
-                </CardContent>
-    </Card>
+            </CardContent>
+          </Card>
 
           {/* Info Alert */}
           <Alert variant="info">

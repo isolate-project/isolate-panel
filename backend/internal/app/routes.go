@@ -8,6 +8,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
+	"github.com/isolate-project/isolate-panel/internal/api"
 	"github.com/isolate-project/isolate-panel/internal/middleware"
 	"github.com/isolate-project/isolate-panel/internal/version"
 )
@@ -128,6 +129,12 @@ SwaggerUIBundle({
 	)
 	protected.Get("/me", a.AuthH.Me)
 
+	// System
+	systemGrp := protected.Group("/system")
+	systemGrp.Get("/resources", a.SystemH.GetResources)
+	systemGrp.Get("/connections", a.SystemH.GetConnections)
+	systemGrp.Post("/emergency-cleanup", middleware.AuthRateLimiter(a.HeavyRL), a.SystemH.EmergencyCleanup)
+
 	// Cores
 	coresGrp := protected.Group("/cores")
 	coresGrp.Get("/", a.CoresH.ListCores)
@@ -136,6 +143,7 @@ SwaggerUIBundle({
 	coresGrp.Post("/:name/stop", middleware.AuthRateLimiter(a.HeavyRL), middleware.AuditAction(a.Audit, "core.stop", "core"), a.CoresH.StopCore)
 	coresGrp.Post("/:name/restart", middleware.AuthRateLimiter(a.HeavyRL), middleware.AuditAction(a.Audit, "core.restart", "core"), a.CoresH.RestartCore)
 	coresGrp.Get("/:name/status", a.CoresH.GetCoreStatus)
+	coresGrp.Get("/:name/logs", api.GetCoreLogs(a.Cores))
 
 	// Users
 	usersGrp := protected.Group("/users")
@@ -157,15 +165,16 @@ SwaggerUIBundle({
 	inboundsGrp := protected.Group("/inbounds")
 	inboundsGrp.Get("/", a.InboundsH.ListInbounds)
 	inboundsGrp.Post("/", a.InboundsH.CreateInbound)
+	// Static routes MUST be registered before parameterized /:id
+	inboundsGrp.Get("/core/:core_id", a.InboundsH.GetInboundsByCore)
+	inboundsGrp.Get("/check-port", a.InboundsH.CheckPort)
+	inboundsGrp.Post("/assign", a.InboundsH.AssignInboundToUser)
+	inboundsGrp.Post("/unassign", a.InboundsH.UnassignInboundFromUser)
 	inboundsGrp.Get("/:id", a.InboundsH.GetInbound)
 	inboundsGrp.Put("/:id", a.InboundsH.UpdateInbound)
 	inboundsGrp.Delete("/:id", a.InboundsH.DeleteInbound)
-	inboundsGrp.Get("/core/:core_id", a.InboundsH.GetInboundsByCore)
-	inboundsGrp.Post("/assign", a.InboundsH.AssignInboundToUser)
-	inboundsGrp.Post("/unassign", a.InboundsH.UnassignInboundFromUser)
 	inboundsGrp.Get("/:id/users", a.InboundsH.GetInboundUsers)
 	inboundsGrp.Post("/:id/users/bulk", a.InboundsH.BulkAssignUsers)
-	inboundsGrp.Get("/check-port", a.InboundsH.CheckPort)
 
 	// Outbounds
 	outboundsGrp := protected.Group("/outbounds")

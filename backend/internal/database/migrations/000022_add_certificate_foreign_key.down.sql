@@ -1,3 +1,3 @@
--- Drop foreign key constraint for inbounds.tls_cert_id
-ALTER TABLE inbounds
-DROP CONSTRAINT IF EXISTS fk_inbounds_tls_cert;
+-- No-op: matches the no-op up migration.
+-- SQLite does not support ALTER TABLE ... DROP CONSTRAINT.
+SELECT 1;

@@ -8,10 +8,10 @@ import i18n from '../i18n'
 // Stable fetcher function (not recreated on each render)
 const fetchCoresList = () => coreApi.list().then((res) => res.data)
 
-// List all cores - NO POLLING for now
+// List all cores with status polling
 export function useCores() {
   return useQuery('cores', fetchCoresList, {
-    refetchInterval: undefined, // Disabled polling
+    refetchInterval: 5000,
   })
 }
 
@@ -24,14 +24,14 @@ export function useCore(name: string) {
   )
 }
 
-// Get core status - NO POLLING for now
+// Get core status with polling
 export function useCoreStatus(name: string) {
   return useQuery(
     `core-status-${name}`,
     () => coreApi.status(name).then((res) => res.data),
     {
       enabled: !!name,
-      refetchInterval: undefined, // Disabled polling
+      refetchInterval: 5000,
     }
   )
 }

@@ -82,7 +82,7 @@ func (h *StatsHandler) GetUserTrafficStats(c fiber.Ctx) error {
 
 	if err := query.Scan(&stats).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -130,7 +130,7 @@ func (h *StatsHandler) GetActiveConnections(c fiber.Ctx) error {
 		connections, err := h.connectionTracker.GetUserConnections(uint(userID))
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": err.Error(),
+				"error": "Internal server error",
 			})
 		}
 
@@ -144,7 +144,7 @@ func (h *StatsHandler) GetActiveConnections(c fiber.Ctx) error {
 	var connections []models.ActiveConnection
 	if err := h.db.Find(&connections).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -177,7 +177,7 @@ func (h *StatsHandler) DisconnectUser(c fiber.Ctx) error {
 	connections, err := h.connectionTracker.GetUserConnections(uint(userID))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -307,15 +307,21 @@ func (h *StatsHandler) GetDashboardStats(c fiber.Ctx) error {
 
 	// Get total users count
 	var totalUsers int64
-	h.db.Model(&models.User{}).Where("is_active = ?", true).Count(&totalUsers)
+	if err := h.db.Model(&models.User{}).Where("is_active = ?", true).Count(&totalUsers).Error; err != nil {
+		totalUsers = 0
+	}
 
 	// Get total traffic (sum from users)
 	var totalTraffic int64
-	h.db.Model(&models.User{}).Select("SUM(traffic_used_bytes)").Scan(&totalTraffic)
+	if err := h.db.Model(&models.User{}).Select("SUM(traffic_used_bytes)").Scan(&totalTraffic).Error; err != nil {
+		totalTraffic = 0
+	}
 
 	// Get cores running count
 	var coresRunning int64
-	h.db.Model(&models.Core{}).Where("is_running = ?", true).Count(&coresRunning)
+	if err := h.db.Model(&models.Core{}).Where("is_running = ?", true).Count(&coresRunning).Error; err != nil {
+		coresRunning = 0
+	}
 
 	return c.JSON(fiber.Map{
 		"active_connections": connCount,
@@ -370,7 +376,7 @@ func (h *StatsHandler) GetTrafficOverview(c fiber.Ctx) error {
 
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -429,7 +435,7 @@ func (h *StatsHandler) GetTopUsers(c fiber.Ctx) error {
 
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 

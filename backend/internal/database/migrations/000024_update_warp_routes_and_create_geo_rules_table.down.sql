@@ -1,6 +1,5 @@
 -- Drop geo_rules table
 DROP INDEX IF EXISTS idx_geo_rules_priority;
-DROP INDEX IF EXISTS idx_geo_rules_priority;
 DROP INDEX IF EXISTS idx_geo_rules_core_id;
 DROP TABLE IF EXISTS geo_rules;
 

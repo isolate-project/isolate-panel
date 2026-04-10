@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/isolate-project/isolate-panel/internal/cores"
+	"github.com/isolate-project/isolate-panel/internal/logger"
 	"github.com/isolate-project/isolate-panel/internal/models"
 )
 
@@ -425,7 +426,9 @@ func convertInbound(db *gorm.DB, inbound models.Inbound) (*InboundConfig, error)
 	// Add Reality settings if enabled (extends TLS)
 	if inbound.RealityEnabled && inbound.RealityConfigJSON != "" {
 		var realitySettings map[string]interface{}
-		if err := json.Unmarshal([]byte(inbound.RealityConfigJSON), &realitySettings); err == nil {
+		if err := json.Unmarshal([]byte(inbound.RealityConfigJSON), &realitySettings); err != nil {
+			logger.Log.Warn().Err(err).Uint("inbound_id", inbound.ID).Msg("Failed to parse RealityConfigJSON")
+		} else {
 			realityConfig := &RealityInlineConfig{
 				Enabled: true,
 			}
@@ -473,7 +476,9 @@ func convertInbound(db *gorm.DB, inbound models.Inbound) (*InboundConfig, error)
 	// Apply transport settings from ConfigJSON
 	if inbound.ConfigJSON != "" {
 		var cfgSettings map[string]interface{}
-		if err := json.Unmarshal([]byte(inbound.ConfigJSON), &cfgSettings); err == nil {
+		if err := json.Unmarshal([]byte(inbound.ConfigJSON), &cfgSettings); err != nil {
+			logger.Log.Warn().Err(err).Uint("inbound_id", inbound.ID).Msg("Failed to parse ConfigJSON")
+		} else {
 			if transport, ok := cfgSettings["transport"].(string); ok && transport != "" && transport != "tcp" {
 				switch transport {
 				case "ws":
@@ -664,8 +669,9 @@ func applyProtocolSettings(config *InboundConfig, protocol string, configJSON st
 	case "http", "socks5", "mixed":
 		// Apply username/password if provided
 		if username, ok := settings["username"].(string); ok && username != "" {
+			password, _ := settings["password"].(string)
 			usersList := []map[string]string{
-				{"username": username, "password": settings["password"].(string)},
+				{"username": username, "password": password},
 			}
 			if data, err := json.Marshal(usersList); err == nil {
 				config.Users = data

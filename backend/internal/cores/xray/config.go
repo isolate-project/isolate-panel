@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/isolate-project/isolate-panel/internal/cores"
+	"github.com/isolate-project/isolate-panel/internal/logger"
 	"github.com/isolate-project/isolate-panel/internal/models"
 )
 
@@ -208,7 +209,7 @@ func GenerateConfig(ctx *cores.ConfigContext, coreID uint) (*Config, error) {
 		Listen:   "127.0.0.1",
 		Port:     10085,
 		Protocol: "dokodemo-door",
-		Settings: mustMarshal(map[string]interface{}{
+		Settings: safeMarshal(map[string]interface{}{
 			"address": "127.0.0.1",
 		}),
 	})
@@ -236,7 +237,7 @@ func GenerateConfig(ctx *cores.ConfigContext, coreID uint) (*Config, error) {
 		config.Outbounds = append(config.Outbounds, OutboundConfig{
 			Tag:      "direct",
 			Protocol: "freedom",
-			Settings: mustMarshal(map[string]interface{}{
+			Settings: safeMarshal(map[string]interface{}{
 				"domainStrategy": "UseIP",
 			}),
 		})
@@ -350,7 +351,9 @@ func convertInbound(db *gorm.DB, inbound models.Inbound) (*InboundConfig, error)
 	// Add Reality settings if enabled (overrides TLS)
 	if inbound.RealityEnabled && inbound.RealityConfigJSON != "" {
 		var realitySettings map[string]interface{}
-		if err := json.Unmarshal([]byte(inbound.RealityConfigJSON), &realitySettings); err == nil {
+		if err := json.Unmarshal([]byte(inbound.RealityConfigJSON), &realitySettings); err != nil {
+			logger.Log.Warn().Err(err).Uint("inbound_id", inbound.ID).Msg("Failed to parse RealityConfigJSON")
+		} else {
 			realityConfig := &RealityConfig{}
 
 			if dest, ok := realitySettings["dest"].(string); ok {
@@ -386,7 +389,9 @@ func convertInbound(db *gorm.DB, inbound models.Inbound) (*InboundConfig, error)
 	// Apply transport settings from ConfigJSON
 	if inbound.ConfigJSON != "" {
 		var cfgSettings map[string]interface{}
-		if err := json.Unmarshal([]byte(inbound.ConfigJSON), &cfgSettings); err == nil {
+		if err := json.Unmarshal([]byte(inbound.ConfigJSON), &cfgSettings); err != nil {
+			logger.Log.Warn().Err(err).Uint("inbound_id", inbound.ID).Msg("Failed to parse ConfigJSON")
+		} else {
 			if transport, ok := cfgSettings["transport"].(string); ok && transport != "" && transport != "tcp" {
 				if config.StreamSettings == nil {
 					config.StreamSettings = &StreamConfig{Network: "tcp"}
@@ -622,11 +627,11 @@ func buildOutboundSettings(protocol string, baseSettings json.RawMessage) (json.
 	return json.Marshal(settings)
 }
 
-// mustMarshal marshals data to JSON, panics on error
-func mustMarshal(v interface{}) json.RawMessage {
+// safeMarshal marshals data to JSON, returns empty object on error
+func safeMarshal(v interface{}) json.RawMessage {
 	data, err := json.Marshal(v)
 	if err != nil {
-		panic(err)
+		return json.RawMessage(`{}`)
 	}
 	return data
 }

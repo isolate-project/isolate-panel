@@ -186,7 +186,7 @@ func (h *SettingsHandler) GetTrafficResetSchedule(c fiber.Ctx) error {
 	}
 	schedule, err := h.trafficResetScheduler.GetSchedule()
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Internal server error"})
 	}
 	return c.JSON(fiber.Map{"schedule": schedule})
 }
@@ -221,7 +221,7 @@ func (h *SettingsHandler) UpdateTrafficResetSchedule(c fiber.Ctx) error {
 		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "scheduler not available"})
 	}
 	if err := h.trafficResetScheduler.UpdateSchedule(req.Schedule); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Internal server error"})
 	}
 	return c.JSON(fiber.Map{"success": true, "schedule": req.Schedule})
 }

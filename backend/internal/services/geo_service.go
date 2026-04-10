@@ -141,7 +141,10 @@ func (s *GeoService) downloadFile(url, filename string) error {
 		os.Remove(tmpPath)
 		return err
 	}
-	file.Close()
+	if err := file.Close(); err != nil {
+		os.Remove(tmpPath)
+		return fmt.Errorf("failed to close file %s: %w", tmpPath, err)
+	}
 
 	// Rename to final path
 	finalPath := filepath.Join(s.geoDir, filename)

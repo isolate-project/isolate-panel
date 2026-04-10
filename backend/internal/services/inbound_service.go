@@ -6,6 +6,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/isolate-project/isolate-panel/internal/logger"
 	"github.com/isolate-project/isolate-panel/internal/models"
 )
 
@@ -88,7 +89,7 @@ func (s *InboundService) CreateInbound(inbound *models.Inbound) error {
 	// Trigger core lifecycle check (auto-start if needed)
 	if err := s.lifecycleManager.OnInboundCreated(inbound); err != nil {
 		// Log error but don't fail the creation
-		fmt.Printf("Warning: failed to start core: %v\n", err)
+		logger.Log.Warn().Err(err).Msg("Failed to start core after inbound creation")
 	}
 
 	return nil
@@ -134,38 +135,32 @@ func (s *InboundService) UpdateInbound(id uint, updates map[string]interface{}) 
 	wasEnabled := inbound.IsEnabled
 
 	// Check if port is being changed and if it's available
-	if newPortUint, ok := updates["port"].(uint); ok && int(newPortUint) != inbound.Port {
-		newPort := int(newPortUint)
-		if s.portManager != nil {
-			available, reason, err := s.portManager.IsPortAvailable(newPort, &id)
-			if err != nil {
-				return nil, fmt.Errorf("failed to check port: %w", err)
-			}
-			if !available {
-				return nil, fmt.Errorf("%s", reason)
-			}
-		} else {
-			var existing models.Inbound
-			err := s.db.Where("port = ? AND core_id = ? AND id != ?", newPort, inbound.CoreID, id).First(&existing).Error
-			if err == nil {
-				return nil, fmt.Errorf("port %d is already in use", newPort)
-			}
+	if portVal, ok := updates["port"]; ok {
+		var newPort int
+		var hasPort bool
+		switch v := portVal.(type) {
+		case float64:
+			newPort, hasPort = int(v), true
+		case int:
+			newPort, hasPort = v, true
+		case uint:
+			newPort, hasPort = int(v), true
 		}
-	} else if newPortInt, ok := updates["port"].(int); ok && newPortInt != inbound.Port {
-		newPort := newPortInt
-		if s.portManager != nil {
-			available, reason, err := s.portManager.IsPortAvailable(newPort, &id)
-			if err != nil {
-				return nil, fmt.Errorf("failed to check port: %w", err)
-			}
-			if !available {
-				return nil, fmt.Errorf("%s", reason)
-			}
-		} else {
-			var existing models.Inbound
-			err := s.db.Where("port = ? AND core_id = ? AND id != ?", newPort, inbound.CoreID, id).First(&existing).Error
-			if err == nil {
-				return nil, fmt.Errorf("port %d is already in use", newPort)
+		if hasPort && newPort != inbound.Port {
+			if s.portManager != nil {
+				available, reason, err := s.portManager.IsPortAvailable(newPort, &id)
+				if err != nil {
+					return nil, fmt.Errorf("failed to check port: %w", err)
+				}
+				if !available {
+					return nil, fmt.Errorf("%s", reason)
+				}
+			} else {
+				var existing models.Inbound
+				err := s.db.Where("port = ? AND core_id = ? AND id != ?", newPort, inbound.CoreID, id).First(&existing).Error
+				if err == nil {
+					return nil, fmt.Errorf("port %d is already in use", newPort)
+				}
 			}
 		}
 	}
@@ -212,7 +207,7 @@ func (s *InboundService) UpdateInbound(id uint, updates map[string]interface{}) 
 	// Trigger config regeneration and core lifecycle check
 	if s.lifecycleManager != nil {
 		if err := s.lifecycleManager.OnInboundUpdated(&inbound, wasEnabled); err != nil {
-			fmt.Printf("Warning: failed to update core lifecycle: %v\n", err)
+			logger.Log.Warn().Err(err).Msg("Failed to update core lifecycle")
 		}
 	}
 
@@ -234,7 +229,7 @@ func (s *InboundService) DeleteInbound(id uint) error {
 	// Trigger core lifecycle check (auto-stop if no more inbounds)
 	if s.lifecycleManager != nil {
 		if err := s.lifecycleManager.OnInboundDeleted(&inbound); err != nil {
-			fmt.Printf("Warning: failed to update core lifecycle: %v\n", err)
+			logger.Log.Warn().Err(err).Msg("Failed to update core lifecycle")
 		}
 	}
 

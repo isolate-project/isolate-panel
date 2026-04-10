@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/isolate-project/isolate-panel/internal/models"
+	"github.com/isolate-project/isolate-panel/internal/version"
 	"gorm.io/gorm"
 )
 
@@ -130,7 +131,10 @@ func (s *BackupService) CreateBackup(req BackupRequest) (*models.Backup, error) 
 		IncludeWARP:     req.IncludeWARP,
 		IncludeGeo:      req.IncludeGeo,
 	}
-	sourceJSON, _ := json.Marshal(backupSource)
+	sourceJSON, err := json.Marshal(backupSource)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal backup source: %w", err)
+	}
 	backup.BackupSource = string(sourceJSON)
 
 	if err := s.db.Create(backup).Error; err != nil {
@@ -396,7 +400,7 @@ func (s *BackupService) createMetadata(tmpDir string, backup *models.Backup) err
 
 	metadata := models.BackupMetadata{
 		Version:             "1.0",
-		IsolatePanelVersion: "0.2.0", // TODO: get from build info
+		IsolatePanelVersion: version.Version,
 		DatabaseMigration:   migrationVersion,
 		CoresIncluded:       []string{"xray", "singbox", "mihomo"},
 		Hostname:            hostname,

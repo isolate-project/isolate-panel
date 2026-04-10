@@ -77,20 +77,28 @@ type NotificationMetadata struct {
 
 // NotificationSettings represents notification settings
 type NotificationSettings struct {
-	WebhookEnabled   bool   `json:"webhook_enabled"`
-	WebhookURL       string `json:"webhook_url"`
-	WebhookSecret    string `json:"webhook_secret"`
-	TelegramEnabled  bool   `json:"telegram_enabled"`
-	TelegramBotToken string `json:"telegram_bot_token"`
-	TelegramChatID   string `json:"telegram_chat_id"`
+	ID               uint      `gorm:"primaryKey" json:"id"`
+	WebhookEnabled   bool      `json:"webhook_enabled"`
+	WebhookURL       string    `gorm:"size:255" json:"webhook_url"`
+	WebhookSecret    string    `gorm:"size:255" json:"webhook_secret"`
+	TelegramEnabled  bool      `json:"telegram_enabled"`
+	TelegramBotToken string    `gorm:"size:255" json:"telegram_bot_token"`
+	TelegramChatID   string    `gorm:"size:100" json:"telegram_chat_id"`
 	// Event toggles
-	NotifyQuotaExceeded bool `json:"notify_quota_exceeded"`
-	NotifyExpiryWarning bool `json:"notify_expiry_warning"`
-	NotifyCertRenewed   bool `json:"notify_cert_renewed"`
-	NotifyCoreError     bool `json:"notify_core_error"`
-	NotifyFailedLogin   bool `json:"notify_failed_login"`
-	NotifyUserCreated   bool `json:"notify_user_created"`
-	NotifyUserDeleted   bool `json:"notify_user_deleted"`
+	NotifyQuotaExceeded bool      `json:"notify_quota_exceeded"`
+	NotifyExpiryWarning bool      `json:"notify_expiry_warning"`
+	NotifyCertRenewed   bool      `json:"notify_cert_renewed"`
+	NotifyCoreError     bool      `json:"notify_core_error"`
+	NotifyFailedLogin   bool      `json:"notify_failed_login"`
+	NotifyUserCreated   bool      `json:"notify_user_created"`
+	NotifyUserDeleted   bool      `json:"notify_user_deleted"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
+}
+
+// TableName returns the table name for NotificationSettings
+func (NotificationSettings) TableName() string {
+	return "notification_settings"
 }
 
 // DefaultNotificationSettings returns default notification settings

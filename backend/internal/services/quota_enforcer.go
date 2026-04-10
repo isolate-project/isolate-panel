@@ -120,8 +120,10 @@ func (qe *QuotaEnforcer) EnableUser(ctx context.Context, user *models.User) erro
 	qe.log.Info().Uint("user_id", user.ID).Str("username", user.Username).Msg("User re-enabled")
 
 	// Reset warning state
+	qe.mu.Lock()
 	delete(qe.warned80, user.ID)
 	delete(qe.warned90, user.ID)
+	qe.mu.Unlock()
 
 	// Targeted reload: regenerate for affected cores
 	qe.reloadAffectedCores(user.ID)
@@ -142,8 +144,10 @@ func (qe *QuotaEnforcer) ResetUserTraffic(userID uint) error {
 	}
 
 	// Reset warning state
+	qe.mu.Lock()
 	delete(qe.warned80, userID)
 	delete(qe.warned90, userID)
+	qe.mu.Unlock()
 
 	qe.log.Info().Uint("user_id", userID).Msg("User traffic counter reset")
 
@@ -164,8 +168,10 @@ func (qe *QuotaEnforcer) ResetAllTraffic() error {
 		return err
 	}
 	// Clear warning state after successful commit
+	qe.mu.Lock()
 	qe.warned80 = make(map[uint]bool)
 	qe.warned90 = make(map[uint]bool)
+	qe.mu.Unlock()
 	return nil
 }
 

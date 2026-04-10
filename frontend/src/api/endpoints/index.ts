@@ -22,7 +22,7 @@ export const authApi = {
 
 // User endpoints
 export const userApi = {
-  list: (params?: { page?: number; limit?: number }) =>
+  list: (params?: { page?: number; page_size?: number; search?: string; status?: string }) =>
     apiClient.get('/users', { params }),
 
   get: (id: number) => apiClient.get(`/users/${id}`),

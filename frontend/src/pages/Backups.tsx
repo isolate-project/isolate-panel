@@ -101,7 +101,7 @@ export function Backups() {
 
       // Handle retention setting
       const settings = settingsRes.data.data || []
-      const retentionSetting = settings.find((s: any) => s.key === 'backup_retention_count')
+      const retentionSetting = settings.find((s: { key: string; value: string }) => s.key === 'backup_retention_count')
       if (retentionSetting) {
         setRetentionCount(parseInt(retentionSetting.value) || 3)
       }
@@ -123,8 +123,9 @@ export function Backups() {
         ...backupOptions,
       })
       loadData()
-    } catch (err: any) {
-      addToast({ type: 'error', message: 'Failed to create backup: ' + (err.response?.data?.error || err.message) })
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } }; message?: string }
+      addToast({ type: 'error', message: 'Failed to create backup: ' + (axiosErr.response?.data?.error || axiosErr.message) })
     } finally {
       setCreating(false)
     }
@@ -143,8 +144,9 @@ export function Backups() {
           await backupApi.restore(id, true)
           setModal(prev => ({ ...prev, show: false }))
           addToast({ type: 'success', message: 'Restore operation started! The panel will restart after completion.' })
-        } catch (err: any) {
-          addToast({ type: 'error', message: 'Failed to restore: ' + (err.response?.data?.error || err.message) })
+        } catch (err: unknown) {
+          const axiosErr = err as { response?: { data?: { error?: string } }; message?: string }
+          addToast({ type: 'error', message: 'Failed to restore: ' + (axiosErr.response?.data?.error || axiosErr.message) })
         } finally {
           setModal(prev => ({ ...prev, loading: false }))
         }
@@ -165,8 +167,9 @@ export function Backups() {
           await backupApi.delete(id)
           loadData()
           setModal(prev => ({ ...prev, show: false }))
-        } catch (err: any) {
-          addToast({ type: 'error', message: 'Failed to delete: ' + (err.response?.data?.error || err.message) })
+        } catch (err: unknown) {
+          const axiosErr = err as { response?: { data?: { error?: string } }; message?: string }
+          addToast({ type: 'error', message: 'Failed to delete: ' + (axiosErr.response?.data?.error || axiosErr.message) })
         } finally {
           setModal(prev => ({ ...prev, loading: false }))
         }
@@ -186,8 +189,9 @@ export function Backups() {
       link.click()
       document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
-    } catch (err: any) {
-      addToast({ type: 'error', message: 'Failed to download: ' + (err.response?.data?.error || err.message) })
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } }; message?: string }
+      addToast({ type: 'error', message: 'Failed to download: ' + (axiosErr.response?.data?.error || axiosErr.message) })
     }
   }
 
@@ -196,8 +200,9 @@ export function Backups() {
       await backupApi.setSchedule(cronExpression || '')
       setShowScheduleForm(false)
       loadData()
-    } catch (err: any) {
-      addToast({ type: 'error', message: 'Failed to set schedule: ' + (err.response?.data?.error || err.message) })
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } }; message?: string }
+      addToast({ type: 'error', message: 'Failed to set schedule: ' + (axiosErr.response?.data?.error || axiosErr.message) })
     }
   }
 
@@ -208,8 +213,9 @@ export function Backups() {
         'backup_retention_count': retentionCount.toString()
       })
       addToast({ type: 'success', message: 'Retention policy updated' })
-    } catch (err: any) {
-      addToast({ type: 'error', message: 'Failed to update retention: ' + (err.response?.data?.error || err.message) })
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } }; message?: string }
+      addToast({ type: 'error', message: 'Failed to update retention: ' + (axiosErr.response?.data?.error || axiosErr.message) })
     } finally {
       setSavingRetention(false)
     }

@@ -86,7 +86,7 @@ func (h *CoresHandler) StartCore(c fiber.Ctx) error {
 
 	if err := h.coreManager.StartCore(name); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -117,7 +117,7 @@ func (h *CoresHandler) StopCore(c fiber.Ctx) error {
 
 	if err := h.coreManager.StopCore(name); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -148,7 +148,7 @@ func (h *CoresHandler) RestartCore(c fiber.Ctx) error {
 
 	if err := h.coreManager.RestartCore(name); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 

@@ -20,6 +20,7 @@ type TokenService struct {
 	// blacklist stores revoked access token hashes with their expiry times
 	blacklist   map[string]time.Time
 	blacklistMu sync.RWMutex
+	done        chan struct{}
 }
 
 type Claims struct {
@@ -36,6 +37,7 @@ func NewTokenService(secret string, accessTTL, refreshTTL time.Duration) *TokenS
 		refreshTokenTTL: refreshTTL,
 		issuer:          "isolate-panel",
 		blacklist:       make(map[string]time.Time),
+		done:            make(chan struct{}),
 	}
 	go ts.cleanupBlacklist()
 	return ts
@@ -44,16 +46,26 @@ func NewTokenService(secret string, accessTTL, refreshTTL time.Duration) *TokenS
 func (ts *TokenService) cleanupBlacklist() {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
-	for range ticker.C {
-		now := time.Now()
-		ts.blacklistMu.Lock()
-		for hash, expiry := range ts.blacklist {
-			if now.After(expiry) {
-				delete(ts.blacklist, hash)
+	for {
+		select {
+		case <-ticker.C:
+			now := time.Now()
+			ts.blacklistMu.Lock()
+			for hash, expiry := range ts.blacklist {
+				if now.After(expiry) {
+					delete(ts.blacklist, hash)
+				}
 			}
+			ts.blacklistMu.Unlock()
+		case <-ts.done:
+			return
 		}
-		ts.blacklistMu.Unlock()
 	}
+}
+
+// Stop stops the background cleanup goroutine
+func (ts *TokenService) Stop() {
+	close(ts.done)
 }
 
 // GenerateAccessToken generates a new JWT access token
@@ -128,6 +140,11 @@ func (ts *TokenService) ValidateAccessToken(tokenString string) (*Claims, error)
 	}
 
 	return nil, fmt.Errorf("invalid token")
+}
+
+// GetAccessTokenTTL returns the access token TTL
+func (ts *TokenService) GetAccessTokenTTL() time.Duration {
+	return ts.accessTokenTTL
 }
 
 // GetRefreshTokenTTL returns the refresh token TTL

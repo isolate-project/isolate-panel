@@ -168,7 +168,7 @@ func (h *SubscriptionsHandler) GetUserShortURL(c fiber.Ctx) error {
 	shortURL, err := h.subscriptionService.GetOrCreateShortURL(uint(userID), token)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -236,7 +236,7 @@ func (h *SubscriptionsHandler) GetAccessStats(c fiber.Ctx) error {
 	stats, err := h.subscriptionService.GetAccessStats(uint(userID), days)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -264,7 +264,7 @@ func (h *SubscriptionsHandler) RegenerateToken(c fiber.Ctx) error {
 	newToken, err := h.subscriptionService.RegenerateToken(uint(userID))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 

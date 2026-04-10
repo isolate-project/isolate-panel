@@ -73,10 +73,10 @@ type DataConfig struct {
 }
 
 type NotificationsConfig struct {
+	WebhookURL     string `mapstructure:"webhook_url"`
+	WebhookSecret  string `mapstructure:"webhook_secret"`
 	TelegramToken  string `mapstructure:"telegram_token"`
 	TelegramChatID string `mapstructure:"telegram_chat_id"`
-	WebhookURL     string `mapstructure:"webhook_url"`
-	EmailSMTP      string `mapstructure:"email_smtp"`
 }
 
 type TrafficConfig struct {

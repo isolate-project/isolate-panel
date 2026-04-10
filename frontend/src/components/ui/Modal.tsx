@@ -117,7 +117,7 @@ export function Modal({
         ref={dialogRef}
         className={cn(
           'relative w-full rounded-2xl bg-bg-primary border border-border-primary shadow-2xl',
-          'animate-in fade-in zoom-in-95 duration-200',
+          'animate-modalIn',
           sizeClasses[size]
         )}
       >

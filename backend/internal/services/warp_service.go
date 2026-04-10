@@ -285,18 +285,18 @@ func (s *WARPService) GenerateWireGuardConfig() (string, error) {
 
 	// Generate WireGuard config with real assigned addresses
 	addressV4 := "172.16.0.2/32"
-	addressV6 := "2606:4700:110:8f77:XXXX::1/128"
 	if account.IPv4Address != "" {
 		addressV4 = account.IPv4Address + "/32"
 	}
+
+	addressLines := fmt.Sprintf("Address = %s", addressV4)
 	if account.IPv6Address != "" {
-		addressV6 = account.IPv6Address + "/128"
+		addressLines += fmt.Sprintf("\nAddress = %s/128", account.IPv6Address)
 	}
 
 	config := fmt.Sprintf(`[Interface]
 PrivateKey = %s
-Address = %s
-Address = %s
+%s
 DNS = 1.1.1.1, 1.0.0.1, 2606:4700:4700::1111
 
 [Peer]
@@ -304,7 +304,7 @@ PublicKey = %s
 Endpoint = %s
 AllowedIPs = 0.0.0.0/0, ::/0
 PersistentKeepalive = 30
-`, account.PrivateKey, addressV4, addressV6, warpPublicKey, warpEndpoint)
+`, account.PrivateKey, addressLines, warpPublicKey, warpEndpoint)
 
 	return config, nil
 }

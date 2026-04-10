@@ -11,7 +11,8 @@ export const userSchema = z.object({
     .regex(/^[a-zA-Z0-9_-]+$/, { message: 'validation.usernameFormat' }),
   email: z.string().email({ message: 'validation.emailInvalid' }).optional().or(z.literal('')),
   traffic_limit_bytes: z.number().min(0, { message: 'validation.trafficPositive' }).optional(),
-  expiry_date: z.string().datetime().optional().or(z.literal('')),
+  expiry_days: z.number().min(1, { message: 'validation.expiryDaysMin' }).optional(),
+  unlimited: z.boolean().default(false),
   is_active: z.boolean().default(true),
 })
 
@@ -20,7 +21,7 @@ export type UserFormData = z.infer<typeof userSchema>
 // Inbound validation schema
 export const inboundSchema = z.object({
   name: z.string().min(1, { message: 'validation.nameRequired' }).max(100, { message: 'validation.nameTooLong' }),
-  protocol: z.enum(['vmess', 'vless', 'trojan', 'shadowsocks', 'hysteria2', 'tuic']),
+  protocol: z.string().min(1, { message: 'validation.protocolRequired' }),
   port: z
     .number()
     .min(1, { message: 'validation.portRange' })

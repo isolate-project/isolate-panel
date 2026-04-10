@@ -46,7 +46,7 @@ func (h *CertificatesHandler) ListCertificates(c fiber.Ctx) error {
 	certs, err := h.certService.ListCertificates()
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -74,7 +74,7 @@ func (h *CertificatesHandler) ListCertificatesDropdown(c fiber.Ctx) error {
 	certs, err := h.certService.ListCertificates()
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -175,7 +175,7 @@ func (h *CertificatesHandler) RequestCertificate(c fiber.Ctx) error {
 	cert, err := h.certService.RequestCertificate(req.Domain, req.IsWildcard)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -207,7 +207,7 @@ func (h *CertificatesHandler) RenewCertificate(c fiber.Ctx) error {
 	cert, err := h.certService.RenewCertificate(uint(id))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -237,7 +237,7 @@ func (h *CertificatesHandler) RevokeCertificate(c fiber.Ctx) error {
 
 	if err := h.certService.RevokeCertificate(uint(id)); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -266,7 +266,7 @@ func (h *CertificatesHandler) DeleteCertificate(c fiber.Ctx) error {
 
 	if err := h.certService.DeleteCertificate(uint(id)); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 

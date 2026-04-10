@@ -307,7 +307,7 @@ func (h *InboundsHandler) GetInboundUsers(c fiber.Ctx) error {
 	users, err := h.inboundService.GetInboundUsers(uint(id))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -401,7 +401,7 @@ func (h *InboundsHandler) CheckPort(c fiber.Ctx) error {
 	available, reason, err := h.portManager.IsPortAvailable(port, excludeID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": "Internal server error",
 		})
 	}
 

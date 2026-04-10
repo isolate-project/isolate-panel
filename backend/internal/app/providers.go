@@ -67,6 +67,7 @@ type App struct {
 	DashboardHub *api.DashboardHub
 
 	// API handlers
+	SystemH        *api.SystemHandler
 	AuthH          *api.AuthHandler
 	CoresH         *api.CoresHandler
 	UsersH         *api.UsersHandler
@@ -128,8 +129,8 @@ func NewApp(cfg *appconfig.Config, db *database.Database) (*App, error) {
 
 	// Notifications (early — other services depend on it)
 	a.Notifications = services.NewNotificationService(db.DB,
+		cfg.Notifications.WebhookURL, cfg.Notifications.WebhookSecret,
 		cfg.Notifications.TelegramToken, cfg.Notifications.TelegramChatID,
-		cfg.Notifications.WebhookURL, cfg.Notifications.EmailSMTP,
 	)
 	if err := a.Notifications.Initialize(); err != nil {
 		log.Warn().Err(err).Msg("Failed to initialize Notification service")
@@ -228,6 +229,7 @@ func NewApp(cfg *appconfig.Config, db *database.Database) (*App, error) {
 	a.Lifecycle.SetNotificationService(a.Notifications)
 
 	// API handlers
+	a.SystemH = api.NewSystemHandler(a.Connections, a.Cores)
 	a.AuthH = api.NewAuthHandler(db.DB, a.TokenSvc, a.Notifications)
 	a.CoresH = api.NewCoresHandler(a.Cores)
 	a.UsersH = api.NewUsersHandler(a.Users)

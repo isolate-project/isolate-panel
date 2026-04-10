@@ -10,6 +10,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/isolate-project/isolate-panel/internal/cores"
+	"github.com/isolate-project/isolate-panel/internal/logger"
 	"github.com/isolate-project/isolate-panel/internal/models"
 )
 
@@ -319,7 +320,9 @@ func convertInboundToProxy(db *gorm.DB, inbound models.Inbound) (*Proxy, error) 
 		}
 
 		var realitySettings map[string]interface{}
-		if err := json.Unmarshal([]byte(inbound.RealityConfigJSON), &realitySettings); err == nil {
+		if err := json.Unmarshal([]byte(inbound.RealityConfigJSON), &realitySettings); err != nil {
+			logger.Log.Warn().Err(err).Uint("inbound_id", inbound.ID).Msg("Failed to parse RealityConfigJSON")
+		} else {
 			realityOpts := make(map[string]interface{})
 			if pk, ok := realitySettings["publicKey"].(string); ok {
 				realityOpts["public-key"] = pk
@@ -343,7 +346,9 @@ func convertInboundToProxy(db *gorm.DB, inbound models.Inbound) (*Proxy, error) 
 	// Apply transport settings from ConfigJSON
 	if inbound.ConfigJSON != "" {
 		var cfgSettings map[string]interface{}
-		if err := json.Unmarshal([]byte(inbound.ConfigJSON), &cfgSettings); err == nil {
+		if err := json.Unmarshal([]byte(inbound.ConfigJSON), &cfgSettings); err != nil {
+			logger.Log.Warn().Err(err).Uint("inbound_id", inbound.ID).Msg("Failed to parse ConfigJSON")
+		} else {
 			if transport, ok := cfgSettings["transport"].(string); ok && transport != "" && transport != "tcp" {
 				if proxy.Extra == nil {
 					proxy.Extra = make(map[string]interface{})
