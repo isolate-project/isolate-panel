@@ -47,7 +47,7 @@ func (h *UsersHandler) CreateUser(c fiber.Ctx) error {
 	user, err := h.userService.CreateUser(&req, adminID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
+			"error": "Internal server error: " + err.Error(),
 		})
 	}
 
@@ -280,9 +280,11 @@ func (h *UsersHandler) formatUserResponse(user *models.User) services.UserRespon
 }
 
 // formatUserResponseWithCredentials includes password and token (for create/regenerate only)
-func (h *UsersHandler) formatUserResponseWithCredentials(user *models.User) services.UserResponse {
+func (h *UsersHandler) formatUserResponseWithCredentials(user *models.User) services.CreateUserResponse {
 	response := h.formatUserResponse(user)
-	response.Password = user.Password
 	response.Token = user.Token
-	return response
+	return services.CreateUserResponse{
+		UserResponse: response,
+		Password:     user.Password,
+	}
 }

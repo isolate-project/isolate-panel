@@ -892,6 +892,10 @@ func (s *BackupService) restoreDatabase(tmpDir string) error {
 	}
 
 	// Legacy .sql format — requires sqlite3 CLI
+	if _, err := exec.LookPath("sqlite3"); err != nil {
+		return fmt.Errorf("legacy .sql backup format requires sqlite3 CLI which is not installed; please re-create backup in new format")
+	}
+
 	dumpData, err := os.ReadFile(srcPath)
 	if err != nil {
 		return err
@@ -1051,8 +1055,8 @@ func (s *BackupService) GetSchedule() (string, error) {
 
 // SetSchedule sets the backup schedule
 func (s *BackupService) SetSchedule(cronExpr string) error {
-	// Clear existing schedules
-	s.db.Model(&models.Backup{}).Update("schedule_cron", "")
+	// Clear existing schedules (only records that have a schedule set)
+	s.db.Model(&models.Backup{}).Where("schedule_cron IS NOT NULL AND schedule_cron != ''").Update("schedule_cron", "")
 
 	// Set new schedule on latest backup record
 	var backup models.Backup

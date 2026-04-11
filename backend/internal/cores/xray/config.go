@@ -214,9 +214,50 @@ func GenerateConfig(ctx *cores.ConfigContext, coreID uint) (*Config, error) {
 		}),
 	})
 
+	// Batch-load all user mappings for this core's inbounds (eliminates N+1)
+	inboundIDs := make([]uint, len(inbounds))
+	for i, ib := range inbounds {
+		inboundIDs[i] = ib.ID
+	}
+
+	usersByInbound := make(map[uint][]models.User)
+	if len(inboundIDs) > 0 {
+		var mappings []models.UserInboundMapping
+		if err := db.Where("inbound_id IN ?", inboundIDs).Find(&mappings).Error; err != nil {
+			return nil, fmt.Errorf("failed to batch-load user mappings: %w", err)
+		}
+
+		allUserIDs := make(map[uint]bool)
+		for _, m := range mappings {
+			allUserIDs[m.UserID] = true
+		}
+
+		var allUsers []models.User
+		if len(allUserIDs) > 0 {
+			uids := make([]uint, 0, len(allUserIDs))
+			for uid := range allUserIDs {
+				uids = append(uids, uid)
+			}
+			if err := db.Where("id IN ?", uids).Find(&allUsers).Error; err != nil {
+				return nil, fmt.Errorf("failed to batch-load users: %w", err)
+			}
+		}
+
+		userMap := make(map[uint]models.User)
+		for _, u := range allUsers {
+			userMap[u.ID] = u
+		}
+
+		for _, m := range mappings {
+			if user, ok := userMap[m.UserID]; ok {
+				usersByInbound[m.InboundID] = append(usersByInbound[m.InboundID], user)
+			}
+		}
+	}
+
 	// Add user inbounds
 	for _, inbound := range inbounds {
-		inboundConfig, err := convertInbound(db, inbound)
+		inboundConfig, err := convertInbound(db, inbound, usersByInbound[inbound.ID])
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert inbound %d: %w", inbound.ID, err)
 		}
@@ -290,26 +331,7 @@ func GenerateConfig(ctx *cores.ConfigContext, coreID uint) (*Config, error) {
 }
 
 // convertInbound converts database inbound model to Xray inbound config
-func convertInbound(db *gorm.DB, inbound models.Inbound) (*InboundConfig, error) {
-	// Get users assigned to this inbound
-	var userMappings []models.UserInboundMapping
-	if err := db.Where("inbound_id = ?", inbound.ID).Find(&userMappings).Error; err != nil {
-		return nil, fmt.Errorf("failed to get user mappings: %w", err)
-	}
-
-	// Get users
-	userIDs := make([]uint, len(userMappings))
-	for i, m := range userMappings {
-		userIDs[i] = m.UserID
-	}
-
-	var users []models.User
-	if len(userIDs) > 0 {
-		if err := db.Where("id IN ?", userIDs).Find(&users).Error; err != nil {
-			return nil, fmt.Errorf("failed to get users: %w", err)
-		}
-	}
-
+func convertInbound(db *gorm.DB, inbound models.Inbound, users []models.User) (*InboundConfig, error) {
 	// Build settings based on protocol
 	settings, err := buildInboundSettings(inbound.Protocol, []byte(inbound.ConfigJSON), users)
 	if err != nil {

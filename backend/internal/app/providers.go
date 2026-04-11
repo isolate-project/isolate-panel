@@ -120,8 +120,8 @@ func NewApp(cfg *appconfig.Config, db *database.Database) (*App, error) {
 		time.Duration(cfg.JWT.RefreshTokenTTL)*time.Second,
 	)
 	a.LoginRL = middleware.NewRateLimiter(5, time.Minute)
-	a.ProtectedRL = middleware.NewRateLimiter(60, time.Minute)
-	a.HeavyRL = middleware.NewRateLimiter(10, time.Minute)
+	a.ProtectedRL = middleware.NewRateLimiter(600, time.Minute)
+	a.HeavyRL = middleware.NewRateLimiter(60, time.Minute)
 
 	// Audit
 	a.Audit = services.NewAuditService(db.DB)

@@ -56,7 +56,7 @@ test.describe('Users (live)', () => {
     await expect(dialog).not.toBeVisible({ timeout: 10_000 })
 
     // New user should appear in the list
-    await expect(page.getByText(username)).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByText(username).first()).toBeVisible({ timeout: 10_000 })
   })
 
   test('should search users', async ({ page }) => {

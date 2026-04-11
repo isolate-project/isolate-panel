@@ -122,12 +122,15 @@ export function useQuery<T>(
     }
   }, [enabled, key, cacheTime])
 
-  // Initial load - only once
+  const prevKeyRef = useRef<string>(key)
+
+  // Initial load or key change
   useEffect(() => {
-    if (enabled && !hasLoadedRef.current) {
+    if (enabled && (!hasLoadedRef.current || prevKeyRef.current !== key)) {
+      prevKeyRef.current = key
       fetchData()
     }
-  }, [enabled, fetchData])
+  }, [enabled, key, fetchData])
 
   // Polling - only if refetchInterval is set
   useEffect(() => {

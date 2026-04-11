@@ -280,9 +280,50 @@ func GenerateConfig(ctx *cores.ConfigContext, coreID uint) (*Config, error) {
 		},
 	}
 
+	// Batch-load all user mappings for this core's inbounds (eliminates N+1)
+	inboundIDs := make([]uint, len(inbounds))
+	for i, ib := range inbounds {
+		inboundIDs[i] = ib.ID
+	}
+
+	usersByInbound := make(map[uint][]models.User)
+	if len(inboundIDs) > 0 {
+		var mappings []models.UserInboundMapping
+		if err := db.Where("inbound_id IN ?", inboundIDs).Find(&mappings).Error; err != nil {
+			return nil, fmt.Errorf("failed to batch-load user mappings: %w", err)
+		}
+
+		allUserIDs := make(map[uint]bool)
+		for _, m := range mappings {
+			allUserIDs[m.UserID] = true
+		}
+
+		var allUsers []models.User
+		if len(allUserIDs) > 0 {
+			uids := make([]uint, 0, len(allUserIDs))
+			for uid := range allUserIDs {
+				uids = append(uids, uid)
+			}
+			if err := db.Where("id IN ?", uids).Find(&allUsers).Error; err != nil {
+				return nil, fmt.Errorf("failed to batch-load users: %w", err)
+			}
+		}
+
+		userMap := make(map[uint]models.User)
+		for _, u := range allUsers {
+			userMap[u.ID] = u
+		}
+
+		for _, m := range mappings {
+			if user, ok := userMap[m.UserID]; ok {
+				usersByInbound[m.InboundID] = append(usersByInbound[m.InboundID], user)
+			}
+		}
+	}
+
 	// Add user inbounds
 	for _, inbound := range inbounds {
-		inboundConfig, err := convertInbound(db, inbound)
+		inboundConfig, err := convertInbound(db, inbound, usersByInbound[inbound.ID])
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert inbound %d: %w", inbound.ID, err)
 		}
@@ -358,25 +399,7 @@ func GenerateConfig(ctx *cores.ConfigContext, coreID uint) (*Config, error) {
 }
 
 // convertInbound converts database inbound model to Sing-box inbound config
-func convertInbound(db *gorm.DB, inbound models.Inbound) (*InboundConfig, error) {
-	// Get users assigned to this inbound
-	var userMappings []models.UserInboundMapping
-	if err := db.Where("inbound_id = ?", inbound.ID).Find(&userMappings).Error; err != nil {
-		return nil, fmt.Errorf("failed to get user mappings: %w", err)
-	}
-
-	userIDs := make([]uint, len(userMappings))
-	for i, m := range userMappings {
-		userIDs[i] = m.UserID
-	}
-
-	var users []models.User
-	if len(userIDs) > 0 {
-		if err := db.Where("id IN ?", userIDs).Find(&users).Error; err != nil {
-			return nil, fmt.Errorf("failed to get users: %w", err)
-		}
-	}
-
+func convertInbound(db *gorm.DB, inbound models.Inbound, users []models.User) (*InboundConfig, error) {
 	// Map protocol name to Sing-box inbound type
 	singboxType := mapSingboxProtocol(inbound.Protocol)
 
@@ -597,9 +620,13 @@ func buildUsers(protocol string, configJSON string, users []models.User) (json.R
 		// TUIC v5 uses UUID + password auth
 		tuicUsers := make([]TUICUser, 0, len(users))
 		for _, user := range users {
+			password := user.UUID
+			if user.Token != nil && *user.Token != "" {
+				password = *user.Token
+			}
 			tuicUsers = append(tuicUsers, TUICUser{
 				UUID:     user.UUID,
-				Password: user.UUID, // Can be different; for now same
+				Password: password,
 				Name:     fmt.Sprintf("user_%d", user.ID),
 			})
 		}
@@ -685,9 +712,17 @@ func convertOutbound(outbound models.Outbound) (*OutboundConfig, error) {
 	singboxType := mapSingboxOutboundProtocol(outbound.Protocol)
 	tag := fmt.Sprintf("%s_%d", outbound.Protocol, outbound.ID)
 
+	extra := make(map[string]interface{})
+	if outbound.ConfigJSON != "" {
+		if err := json.Unmarshal([]byte(outbound.ConfigJSON), &extra); err != nil {
+			logger.Log.Warn().Err(err).Uint("outbound_id", outbound.ID).Msg("Failed to parse outbound ConfigJSON")
+		}
+	}
+
 	return &OutboundConfig{
-		Type: singboxType,
-		Tag:  tag,
+		Type:  singboxType,
+		Tag:   tag,
+		Extra: extra,
 	}, nil
 }
 

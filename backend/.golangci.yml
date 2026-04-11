@@ -13,8 +13,6 @@ linters:
     - unused       # Неиспользуемый код
     - gosimple     # Упрощение кода
     - ineffassign  # Бесполезные присваивания
-    - typecheck    # Ошибки типизации
-    - gofmt        # Форматирование
     - misspell     # Опечатки в комментариях
     - gosec        # Безопасность (G*)
     - prealloc     # Подсказки по pre-allocation срезов

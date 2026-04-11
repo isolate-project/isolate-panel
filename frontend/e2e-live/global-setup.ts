@@ -6,8 +6,8 @@ import { writeFileSync } from 'fs'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 const COMPOSE_FILE = resolve(__dirname, '../../docker/docker-compose.test.yml')
-const BACKEND_URL = 'http://localhost:8080/health'
-const LOGIN_URL = 'http://localhost:8080/api/auth/login'
+const BACKEND_URL = 'http://127.0.0.1:8080/health'
+const LOGIN_URL = 'http://127.0.0.1:8080/api/auth/login'
 const TOKEN_FILE = resolve(__dirname, '.auth-tokens.json')
 const MAX_WAIT_MS = 120_000
 const POLL_INTERVAL_MS = 2_000

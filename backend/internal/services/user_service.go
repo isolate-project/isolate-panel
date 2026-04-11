@@ -33,7 +33,7 @@ func NewUserService(db *gorm.DB, notificationService *NotificationService) *User
 
 type CreateUserRequest struct {
 	Username          string `json:"username" validate:"required,min=3,max=50"`
-	Email             string `json:"email" validate:"email"`
+	Email             string `json:"email" validate:"omitempty,email"`
 	Password          string `json:"password"`
 	TrafficLimitBytes *int64 `json:"traffic_limit_bytes"`
 	ExpiryDays        *int   `json:"expiry_days"`
@@ -55,7 +55,6 @@ type UserResponse struct {
 	Username          string  `json:"username"`
 	Email             string  `json:"email"`
 	UUID              string  `json:"uuid"`
-	Password          string  `json:"password,omitempty"`
 	Token             *string `json:"token,omitempty"`
 	SubscriptionToken string  `json:"subscription_token"`
 	TrafficLimitBytes *int64  `json:"traffic_limit_bytes"`
@@ -64,6 +63,12 @@ type UserResponse struct {
 	IsActive          bool    `json:"is_active"`
 	IsOnline          bool    `json:"is_online"`
 	CreatedAt         string  `json:"created_at"`
+}
+
+// CreateUserResponse includes sensitive credentials — returned only on Create/Regenerate
+type CreateUserResponse struct {
+	UserResponse
+	Password string  `json:"password"`
 }
 
 // CreateUser creates a new user with auto-generated credentials
@@ -373,9 +378,12 @@ func (us *UserService) CheckExpiringUsers() {
 
 		daysLeft := int(user.ExpiryDate.Sub(now).Hours() / 24)
 
-		// Send notification for 7, 3, and 1 days
+		// Send notification for 7, 3, and 1 days — but only if not already notified for this threshold
 		if daysLeft == 7 || daysLeft == 3 || daysLeft == 1 {
-			us.notificationService.NotifyExpiryWarning(user, daysLeft)
+			if user.LastExpiryNotifiedDays == nil || *user.LastExpiryNotifiedDays != daysLeft {
+				us.notificationService.NotifyExpiryWarning(user, daysLeft)
+				us.db.Model(user).Update("last_expiry_notified_days", daysLeft)
+			}
 		}
 	}
 }

@@ -76,13 +76,13 @@ func (s *ConfigService) RegenerateConfig(coreName string) error {
 	switch coreName {
 	case "singbox":
 		configPath = filepath.Join(s.configDir, "singbox", "config.json")
-		err = s.generateSingboxConfig(inbounds, outbounds, configPath)
+		err = s.generateSingboxConfig(coreModel.ID, inbounds, outbounds, configPath)
 	case "xray":
 		configPath = filepath.Join(s.configDir, "xray", "config.json")
-		err = s.generateXrayConfig(inbounds, outbounds, configPath)
+		err = s.generateXrayConfig(coreModel.ID, inbounds, outbounds, configPath)
 	case "mihomo":
 		configPath = filepath.Join(s.configDir, "mihomo", "config.yaml")
-		err = s.generateMihomoConfig(inbounds, outbounds, configPath)
+		err = s.generateMihomoConfig(coreModel.ID, inbounds, outbounds, configPath)
 	default:
 		return fmt.Errorf("unknown core type: %s", coreName)
 	}
@@ -122,14 +122,7 @@ func (s *ConfigService) RegenerateAndReload(coreName string) error {
 }
 
 // generateSingboxConfig generates Sing-box configuration
-func (s *ConfigService) generateSingboxConfig(inbounds []models.Inbound, outbounds []models.Outbound, path string) error {
-	if len(inbounds) == 0 {
-		return fmt.Errorf("no inbounds provided")
-	}
-
-	// Use the first inbound's core ID
-	coreID := inbounds[0].CoreID
-
+func (s *ConfigService) generateSingboxConfig(coreID uint, inbounds []models.Inbound, outbounds []models.Outbound, path string) error {
 	config, err := singboxcore.GenerateConfig(s.configContext(), coreID)
 	if err != nil {
 		return err
@@ -149,14 +142,7 @@ func (s *ConfigService) generateSingboxConfig(inbounds []models.Inbound, outboun
 }
 
 // generateXrayConfig generates Xray configuration
-func (s *ConfigService) generateXrayConfig(inbounds []models.Inbound, outbounds []models.Outbound, path string) error {
-	if len(inbounds) == 0 {
-		return fmt.Errorf("no inbounds provided")
-	}
-
-	// Use the first inbound's core ID
-	coreID := inbounds[0].CoreID
-
+func (s *ConfigService) generateXrayConfig(coreID uint, inbounds []models.Inbound, outbounds []models.Outbound, path string) error {
 	config, err := xraycore.GenerateConfig(s.configContext(), coreID)
 	if err != nil {
 		return err
@@ -176,14 +162,7 @@ func (s *ConfigService) generateXrayConfig(inbounds []models.Inbound, outbounds 
 }
 
 // generateMihomoConfig generates Mihomo configuration
-func (s *ConfigService) generateMihomoConfig(inbounds []models.Inbound, outbounds []models.Outbound, path string) error {
-	if len(inbounds) == 0 {
-		return fmt.Errorf("no inbounds provided")
-	}
-
-	// Use the first inbound's core ID
-	coreID := inbounds[0].CoreID
-
+func (s *ConfigService) generateMihomoConfig(coreID uint, inbounds []models.Inbound, outbounds []models.Outbound, path string) error {
 	config, err := mihomocore.GenerateConfig(s.configContext(), coreID)
 	if err != nil {
 		return err

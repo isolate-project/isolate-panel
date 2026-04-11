@@ -3,8 +3,15 @@ import { App } from './app.tsx'
 import './index.css'
 
 // Initialize theme on app start
-const savedTheme = localStorage.getItem('theme-storage')
-const theme = savedTheme ? JSON.parse(savedTheme)?.state?.theme : 'dark'
+let theme = 'dark'
+try {
+  const savedTheme = localStorage.getItem('theme-storage')
+  if (savedTheme) {
+    theme = JSON.parse(savedTheme)?.state?.theme ?? 'dark'
+  }
+} catch {
+  // corrupted localStorage — use default
+}
 document.documentElement.setAttribute('data-theme', theme)
 
 render(<App />, document.getElementById('app')!)

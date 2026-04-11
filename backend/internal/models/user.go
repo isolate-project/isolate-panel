@@ -24,6 +24,9 @@ type User struct {
 	IsActive bool `gorm:"default:true" json:"is_active"`
 	IsOnline bool `gorm:"default:false" json:"is_online"`
 
+	// Notification tracking
+	LastExpiryNotifiedDays *int `json:"-"` // Prevents duplicate expiry notifications
+
 	// Metadata
 	CreatedAt        time.Time  `json:"created_at"`
 	UpdatedAt        time.Time  `json:"updated_at"`

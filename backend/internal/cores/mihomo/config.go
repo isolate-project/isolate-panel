@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 	"gorm.io/gorm"
@@ -93,9 +94,50 @@ func GenerateConfig(ctx *cores.ConfigContext, coreID uint) (*Config, error) {
 		Rules:              make([]string, 0),
 	}
 
+	// Batch-load all user mappings for this core's inbounds (eliminates N+1)
+	inboundIDs := make([]uint, len(inbounds))
+	for i, ib := range inbounds {
+		inboundIDs[i] = ib.ID
+	}
+
+	usersByInbound := make(map[uint][]models.User)
+	if len(inboundIDs) > 0 {
+		var mappings []models.UserInboundMapping
+		if err := db.Where("inbound_id IN ?", inboundIDs).Find(&mappings).Error; err != nil {
+			return nil, fmt.Errorf("failed to batch-load user mappings: %w", err)
+		}
+
+		allUserIDs := make(map[uint]bool)
+		for _, m := range mappings {
+			allUserIDs[m.UserID] = true
+		}
+
+		var allUsers []models.User
+		if len(allUserIDs) > 0 {
+			uids := make([]uint, 0, len(allUserIDs))
+			for uid := range allUserIDs {
+				uids = append(uids, uid)
+			}
+			if err := db.Where("id IN ?", uids).Find(&allUsers).Error; err != nil {
+				return nil, fmt.Errorf("failed to batch-load users: %w", err)
+			}
+		}
+
+		userMap := make(map[uint]models.User)
+		for _, u := range allUsers {
+			userMap[u.ID] = u
+		}
+
+		for _, m := range mappings {
+			if user, ok := userMap[m.UserID]; ok {
+				usersByInbound[m.InboundID] = append(usersByInbound[m.InboundID], user)
+			}
+		}
+	}
+
 	// Add inbounds as proxies
 	for _, inbound := range inbounds {
-		proxy, err := convertInboundToProxy(db, inbound)
+		proxy, err := convertInboundToProxy(db, inbound, usersByInbound[inbound.ID])
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert inbound %d: %w", inbound.ID, err)
 		}
@@ -143,24 +185,16 @@ func GenerateConfig(ctx *cores.ConfigContext, coreID uint) (*Config, error) {
 }
 
 // convertInboundToProxy converts database inbound to Mihomo proxy
-func convertInboundToProxy(db *gorm.DB, inbound models.Inbound) (*Proxy, error) {
-	// Get users assigned to this inbound
-	var userMappings []models.UserInboundMapping
-	if err := db.Where("inbound_id = ?", inbound.ID).Find(&userMappings).Error; err != nil {
-		return nil, fmt.Errorf("failed to get user mappings: %w", err)
-	}
-
-	// Get users
-	userIDs := make([]uint, len(userMappings))
-	for i, m := range userMappings {
-		userIDs[i] = m.UserID
-	}
-
-	var users []models.User
-	if len(userIDs) > 0 {
-		if err := db.Where("id IN ?", userIDs).Find(&users).Error; err != nil {
-			return nil, fmt.Errorf("failed to get users: %w", err)
+func convertInboundToProxy(db *gorm.DB, inbound models.Inbound, users []models.User) (*Proxy, error) {
+	// Parse inbound ConfigJSON once for all protocol cases
+	var cfgSettings map[string]interface{}
+	if inbound.ConfigJSON != "" {
+		if err := json.Unmarshal([]byte(inbound.ConfigJSON), &cfgSettings); err != nil {
+			logger.Log.Warn().Msgf(" Failed to parse ConfigJSON for inbound %d: %v", inbound.ID, err)
 		}
+	}
+	if cfgSettings == nil {
+		cfgSettings = make(map[string]interface{})
 	}
 
 	// Build proxy based on protocol
@@ -178,11 +212,29 @@ func convertInboundToProxy(db *gorm.DB, inbound models.Inbound) (*Proxy, error) 
 	// Add protocol-specific settings
 	switch inbound.Protocol {
 	case "shadowsocks":
-		proxy.Cipher = "chacha20-poly1305"
-		// For Mihomo, we need to handle multiple users differently
-		// Using first user's password for simplicity
-		if len(users) > 0 {
-			proxy.Password = users[0].UUID
+		proxy.Cipher = getStringOrDefault(cfgSettings, "method", "2022-blake3-aes-128-gcm")
+		// For 2022 ciphers: use server-level password + multi-user list
+		if strings.HasPrefix(proxy.Cipher, "2022-") {
+			if serverPass, ok := cfgSettings["password"].(string); ok {
+				proxy.Password = serverPass
+			}
+			if len(users) > 0 {
+				proxy.Users = make([]ProxyUser, len(users))
+				for i, user := range users {
+					proxy.Users[i] = ProxyUser{
+						Name:     fmt.Sprintf("user_%d", user.ID),
+						Password: user.UUID,
+					}
+				}
+			}
+		} else {
+			// For AEAD ciphers: multi-user not supported, use first user
+			if len(users) > 1 {
+				logger.Log.Warn().Msgf(" Mihomo SS with AEAD cipher %q supports only 1 user on inbound %q; using first user", proxy.Cipher, inbound.Name)
+			}
+			if len(users) > 0 {
+				proxy.Password = users[0].UUID
+			}
 		}
 	case "trojan":
 		if len(users) > 0 {
@@ -256,12 +308,15 @@ func convertInboundToProxy(db *gorm.DB, inbound models.Inbound) (*Proxy, error) 
 	case "sudoku":
 		// Sudoku protocol (Mihomo exclusive)
 		proxy.Type = "sudoku"
-		proxy.Password = "sudoku-password" // Should be from inbound settings
+		if pass, ok := cfgSettings["password"].(string); ok {
+			proxy.Password = pass
+		}
 	case "ssr":
 		// ShadowsocksR (Mihomo exclusive)
 		proxy.Type = "ssr"
-		proxy.Protocol = "origin"
-		proxy.Obfs = "plain"
+		proxy.Protocol = getStringOrDefault(cfgSettings, "protocol", "origin")
+		proxy.Obfs = getStringOrDefault(cfgSettings, "obfs", "plain")
+		proxy.Cipher = getStringOrDefault(cfgSettings, "method", "chacha20-poly1305")
 		if len(users) > 0 {
 			proxy.Password = users[0].UUID
 		}
@@ -518,4 +573,14 @@ func ReadConfig(path string) (*Config, error) {
 	}
 
 	return &config, nil
+}
+
+// getStringOrDefault returns a string value from the config map or the default
+func getStringOrDefault(config map[string]interface{}, key, defaultVal string) string {
+	if v, ok := config[key]; ok {
+		if s, ok := v.(string); ok {
+			return s
+		}
+	}
+	return defaultVal
 }

@@ -2,10 +2,12 @@ package cores
 
 import (
 	"fmt"
+	"net"
 	"time"
 
 	"gorm.io/gorm"
 
+	"github.com/isolate-project/isolate-panel/internal/logger"
 	"github.com/isolate-project/isolate-panel/internal/models"
 )
 
@@ -72,6 +74,14 @@ func (cm *CoreManager) StartCore(name string) error {
 
 	if err := cm.db.Save(&core).Error; err != nil {
 		return fmt.Errorf("failed to update core status: %w", err)
+	}
+
+	// Health check: verify first inbound port is actually listening
+	var firstInbound models.Inbound
+	if err := cm.db.Where("core_id = ? AND is_enabled = ?", core.ID, true).Order("id ASC").First(&firstInbound).Error; err == nil {
+		if err := cm.waitForPort(firstInbound.Port, 10*time.Second); err != nil {
+			logger.Log.Warn().Int("port", firstInbound.Port).Str("core", name).Msg("Core started but port not yet listening")
+		}
 	}
 
 	return nil
@@ -154,6 +164,14 @@ func (cm *CoreManager) RestartCore(name string) error {
 		return fmt.Errorf("failed to update core status: %w", err)
 	}
 
+	// Health check: verify first inbound port is actually listening
+	var firstInbound models.Inbound
+	if err := cm.db.Where("core_id = ? AND is_enabled = ?", core.ID, true).Order("id ASC").First(&firstInbound).Error; err == nil {
+		if err := cm.waitForPort(firstInbound.Port, 10*time.Second); err != nil {
+			logger.Log.Warn().Int("port", firstInbound.Port).Str("core", name).Msg("Core restarted but port not yet listening")
+		}
+	}
+
 	return nil
 }
 
@@ -205,6 +223,20 @@ func (cm *CoreManager) waitForProcess(name string, maxRetries int) error {
 		}
 	}
 	return fmt.Errorf("process %s did not start within expected time", name)
+}
+
+// waitForPort waits for a TCP port to become available
+func (cm *CoreManager) waitForPort(port int, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), 500*time.Millisecond)
+		if err == nil {
+			conn.Close()
+			return nil
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	return fmt.Errorf("port %d not listening after %s", port, timeout)
 }
 
 // IsCoreRunning checks if a core is running

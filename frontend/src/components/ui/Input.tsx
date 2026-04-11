@@ -1,5 +1,7 @@
 import { clsx } from 'clsx'
 
+import { JSX } from 'preact'
+
 interface InputProps {
   type?: 'text' | 'email' | 'password' | 'number' | 'tel' | 'url'
   id?: string
@@ -13,8 +15,9 @@ interface InputProps {
   helperText?: string
   fullWidth?: boolean
   isInvalid?: boolean
-  onChange?: (e: Event) => void
-  onBlur?: (e: Event) => void
+  onChange?: JSX.GenericEventHandler<HTMLInputElement>
+  onInput?: JSX.GenericEventHandler<HTMLInputElement>
+  onBlur?: JSX.GenericEventHandler<HTMLInputElement>
   className?: string
   min?: string | number
   max?: string | number
@@ -34,6 +37,7 @@ export function Input({
   fullWidth = false,
   isInvalid,
   onChange,
+  onInput,
   onBlur,
   className,
   min,
@@ -75,6 +79,7 @@ export function Input({
         disabled={disabled}
         required={required}
         onChange={onChange}
+        onInput={onInput}
         onBlur={onBlur}
         min={min}
         max={max}

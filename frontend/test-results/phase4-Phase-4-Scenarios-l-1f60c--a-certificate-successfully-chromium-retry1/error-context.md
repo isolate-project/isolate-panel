@@ -1,0 +1,97 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e6]:
+      - img [ref=e8]
+      - generic [ref=e14]: Isolate Panel
+    - navigation [ref=e16]:
+      - link "Dashboard" [ref=e17] [cursor=pointer]:
+        - /url: /
+        - img [ref=e18]
+        - text: Dashboard
+      - link "Users" [ref=e21] [cursor=pointer]:
+        - /url: /users
+        - img [ref=e22]
+        - text: Users
+      - link "Inbounds" [ref=e27] [cursor=pointer]:
+        - /url: /inbounds
+        - img [ref=e28]
+        - text: Inbounds
+      - link "Outbounds" [ref=e30] [cursor=pointer]:
+        - /url: /outbounds
+        - img [ref=e31]
+        - text: Outbounds
+      - link "Cores" [ref=e33] [cursor=pointer]:
+        - /url: /cores
+        - img [ref=e34]
+        - text: Cores
+      - link "Certificates" [ref=e37] [cursor=pointer]:
+        - /url: /certificates
+        - img [ref=e38]
+        - text: Certificates
+      - link "Connections" [ref=e40] [cursor=pointer]:
+        - /url: /connections
+        - img [ref=e41]
+        - text: Connections
+      - link "WARP Routes" [ref=e43] [cursor=pointer]:
+        - /url: /warp
+        - img [ref=e44]
+        - text: WARP Routes
+      - link "GeoIP/GeoSite" [ref=e49] [cursor=pointer]:
+        - /url: /geo
+        - img [ref=e50]
+        - text: GeoIP/GeoSite
+      - link "Backups" [ref=e53] [cursor=pointer]:
+        - /url: /backups
+        - img [ref=e54]
+        - text: Backups
+      - link "Notifications" [ref=e58] [cursor=pointer]:
+        - /url: /notifications
+        - img [ref=e59]
+        - text: Notifications
+    - link "Settings" [ref=e63] [cursor=pointer]:
+      - /url: /settings
+      - img [ref=e64]
+      - text: Settings
+  - generic [ref=e67]:
+    - banner [ref=e68]:
+      - generic [ref=e69]:
+        - generic [ref=e71]:
+          - generic [ref=e72]:
+            - img [ref=e73]
+            - generic [ref=e75]: RAM 0%
+          - generic [ref=e77]:
+            - img [ref=e78]
+            - generic [ref=e81]: CPU 0%
+        - generic [ref=e82]:
+          - button "Toggle theme" [ref=e83]:
+            - img [ref=e84]
+          - button "Change language" [ref=e87]:
+            - img [ref=e88]
+          - button "A admin" [ref=e92]:
+            - generic [ref=e93]: A
+            - generic [ref=e94]: admin
+    - main [ref=e95]:
+      - generic [ref=e97]:
+        - generic [ref=e98]:
+          - heading "Certificates" [level=1] [ref=e99]
+          - paragraph [ref=e100]: Manage TLS certificates for your domains
+        - generic [ref=e101]:
+          - button "Upload Certificate" [ref=e102]:
+            - img [ref=e103]
+            - text: Upload Certificate
+          - button "Request Certificate" [ref=e106]:
+            - img [ref=e107]
+            - text: Request Certificate
+      - table [ref=e111]:
+        - rowgroup [ref=e112]:
+          - row "Domain Issuer Validity Status Actions" [ref=e113]:
+            - columnheader "Domain" [ref=e114]
+            - columnheader "Issuer" [ref=e115]
+            - columnheader "Validity" [ref=e116]
+            - columnheader "Status" [ref=e117]
+            - columnheader "Actions" [ref=e118]
+        - rowgroup
+```

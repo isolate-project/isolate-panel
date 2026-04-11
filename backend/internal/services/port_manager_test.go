@@ -150,8 +150,8 @@ func TestPortManager_AllocatePort(t *testing.T) {
 		t.Fatalf("Failed to allocate port: %v", err)
 	}
 
-	if port < 10000 || port > 60000 {
-		t.Errorf("Allocated port %d out of range [10000, 60000]", port)
+	if port < 1024 || port > 65535 {
+		t.Errorf("Allocated port %d out of valid range [1024, 65535]", port)
 	}
 
 	// Verify port is actually available

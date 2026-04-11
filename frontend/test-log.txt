@@ -1,0 +1,345 @@
+
+[global-setup] Starting test backend via Docker Compose...
+ Image isolate-panel-test-isolate-panel Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 600B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 3.57kB done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/golang:1.25-alpine
+#3 DONE 0.0s
+
+#4 [internal] load metadata for docker.io/library/node:22-alpine
+#4 DONE 1.7s
+
+#5 [internal] load metadata for docker.io/library/alpine:3.21
+#5 DONE 1.8s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 2B done
+#6 DONE 0.0s
+
+#7 [go-builder 1/8] FROM docker.io/library/golang:1.25-alpine
+#7 DONE 0.0s
+
+#8 [node-builder 1/6] FROM docker.io/library/node:22-alpine@sha256:4d64b49e6c891c8fc821007cb1cdc6c0db7773110ac2c34bf2e6960adef62ed3
+#8 DONE 0.0s
+
+#9 [stage-2  1/16] FROM docker.io/library/alpine:3.21@sha256:c3f8e73fdb79deaebaa2037150150191b9dcbfba68b4a46d70103204c53f4709
+#9 DONE 0.0s
+
+#10 [internal] load build context
+#10 transferring context: 4.42MB 0.3s done
+#10 DONE 0.3s
+
+#11 [node-builder 3/6] COPY frontend/package.json frontend/package-lock.json ./
+#11 CACHED
+
+#12 [node-builder 2/6] WORKDIR /app
+#12 CACHED
+
+#13 [node-builder 4/6] RUN npm install
+#13 CACHED
+
+#14 [node-builder 5/6] COPY frontend/ ./
+#14 DONE 1.5s
+
+#15 [node-builder 6/6] RUN npm run build
+#15 0.311 
+#15 0.311 > isolate-panel-frontend@0.1.0 build
+#15 0.311 > tsc --noEmit && vite build
+#15 0.311 
+#15 4.166 vite v6.4.1 building for production...
+#15 4.236 transforming...
+#15 6.014 ✓ 1953 modules transformed.
+#15 6.127 rendering chunks...
+#15 6.198 computing gzip size...
+#15 6.207 dist/index.html                              0.69 kB │ gzip:  0.41 kB
+#15 6.207 dist/assets/index-BcPQU1Qg.css              77.48 kB │ gzip: 12.50 kB
+#15 6.207 dist/assets/format-PX7upuwp.js               0.19 kB │ gzip:  0.17 kB
+#15 6.207 dist/assets/check-DZxIE_ux.js                0.29 kB │ gzip:  0.24 kB
+#15 6.207 dist/assets/square-BWdvuKB4.js               0.31 kB │ gzip:  0.25 kB
+#15 6.207 dist/assets/plus-BwQRseEP.js                 0.32 kB │ gzip:  0.25 kB
+#15 6.207 dist/assets/zap-BcYH7sC0.js                  0.43 kB │ gzip:  0.31 kB
+#15 6.207 dist/assets/useDocumentTitle-CqD8bYl0.js     0.45 kB │ gzip:  0.31 kB
+#15 6.207 dist/assets/useProtocols-CzBjlPdp.js         0.47 kB │ gzip:  0.27 kB
+#15 6.207 dist/assets/refresh-cw-BaCkEEAH.js           0.48 kB │ gzip:  0.32 kB
+#15 6.207 dist/assets/save-DOnr1DUZ.js                 0.50 kB │ gzip:  0.33 kB
+#15 6.207 dist/assets/trash-2-BUG9EKG_.js              0.50 kB │ gzip:  0.31 kB
+#15 6.207 dist/assets/shield-alert-BltBX6Dm.js         0.52 kB │ gzip:  0.36 kB
+#15 6.207 dist/assets/chevron-right-yc2c6EE7.js        0.54 kB │ gzip:  0.28 kB
+#15 6.207 dist/assets/useMutation-vGHMOWi8.js          0.58 kB │ gzip:  0.38 kB
+#15 6.207 dist/assets/NotFound-CQLTkx1o.js             0.69 kB │ gzip:  0.40 kB
+#15 6.207 dist/assets/square-pen-C5UFGXDH.js           0.78 kB │ gzip:  0.40 kB
+#15 6.207 dist/assets/Progress-Bq7oDoar.js             0.82 kB │ gzip:  0.53 kB
+#15 6.207 dist/assets/useCores-sl8J57cb.js             0.96 kB │ gzip:  0.37 kB
+#15 6.207 dist/assets/Alert-NxZjAlHL.js                1.17 kB │ gzip:  0.59 kB
+#15 6.207 dist/assets/Input-B_fWGg90.js                1.21 kB │ gzip:  0.62 kB
+#15 6.207 dist/assets/Badge-Buv7SLgq.js                1.32 kB │ gzip:  0.58 kB
+#15 6.207 dist/assets/useUsers-Aon01VYc.js             1.45 kB │ gzip:  0.54 kB
+#15 6.207 dist/assets/shield-OcMnxVZt.js               1.67 kB │ gzip:  0.62 kB
+#15 6.207 dist/assets/useInbounds-DZJkBbnG.js          1.71 kB │ gzip:  0.51 kB
+#15 6.207 dist/assets/Modal-rs34g6_n.js                2.03 kB │ gzip:  0.97 kB
+#15 6.207 dist/assets/Slider-CGlGabqT.js               2.18 kB │ gzip:  1.04 kB
+#15 6.207 dist/assets/Login-zvyS4wt0.js                2.31 kB │ gzip:  1.12 kB
+#15 6.207 dist/assets/FormField-DX3MNNke.js            2.82 kB │ gzip:  1.08 kB
+#15 6.207 dist/assets/Card-B-jHKBIJ.js                 3.13 kB │ gzip:  1.34 kB
+#15 6.207 dist/assets/validators-9EteXR5N.js           3.29 kB │ gzip:  1.34 kB
+#15 6.207 dist/assets/ActiveConnections-DCjIfoLD.js    5.35 kB │ gzip:  1.87 kB
+#15 6.207 dist/assets/Notifications-CB6pGmai.js        5.53 kB │ gzip:  1.77 kB
+#15 6.207 dist/assets/useTranslation-D5knchCx.js       5.63 kB │ gzip:  2.61 kB
+#15 6.207 dist/assets/Cores-Bd8Jwnuo.js                6.44 kB │ gzip:  2.28 kB
+#15 6.207 dist/assets/GeoRules-Bph_4nWy.js             7.86 kB │ gzip:  2.18 kB
+#15 6.207 dist/assets/WarpRoutes-CWA6URg9.js           8.53 kB │ gzip:  2.26 kB
+#15 6.207 dist/assets/Settings-mZFxgQQw.js             8.73 kB │ gzip:  2.54 kB
+#15 6.207 dist/assets/Outbounds-2AzgRDYl.js            9.14 kB │ gzip:  2.92 kB
+#15 6.207 dist/assets/Certificates-B8bIuJsU.js         9.51 kB │ gzip:  2.57 kB
+#15 6.207 dist/assets/InboundEdit-DtPwA28q.js         10.53 kB │ gzip:  3.11 kB
+#15 6.207 dist/assets/InboundCreate-Fbho7Cc5.js       10.99 kB │ gzip:  3.33 kB
+#15 6.207 dist/assets/InboundDetail-DOUI8vY4.js       12.81 kB │ gzip:  3.41 kB
+#15 6.207 dist/assets/Backups-Iz9tow0p.js             13.23 kB │ gzip:  4.01 kB
+#15 6.207 dist/assets/Inbounds-D7fva2pc.js            16.38 kB │ gzip:  5.29 kB
+#15 6.207 dist/assets/PageHeader-Dh_yk4Ed.js          17.19 kB │ gzip:  5.00 kB
+#15 6.207 dist/assets/Users-BEPULxL-.js               27.21 kB │ gzip:  7.84 kB
+#15 6.207 dist/assets/useForm-DaWRyNh0.js             67.96 kB │ gzip: 18.58 kB
+#15 6.207 dist/assets/Dashboard-BAm01Lcn.js          196.99 kB │ gzip: 68.44 kB
+#15 6.207 dist/assets/index-B5-29TPq.js              228.04 kB │ gzip: 76.44 kB
+#15 6.207 ✓ built in 2.01s
+#15 DONE 6.3s
+
+#16 [go-builder 5/8] RUN go mod download
+#16 CACHED
+
+#17 [go-builder 4/8] COPY backend/go.mod backend/go.sum ./
+#17 CACHED
+
+#18 [stage-2  5/16] COPY --from=go-builder /app/server /usr/local/bin/isolate-panel
+#18 CACHED
+
+#19 [stage-2  6/16] COPY --from=go-builder /app/isolate-migrate /usr/local/bin/isolate-migrate
+#19 CACHED
+
+#20 [stage-2  8/16] COPY docker/cores/xray/xray /usr/local/bin/cores/xray
+#20 CACHED
+
+#21 [stage-2 11/16] COPY docker/config.yaml /app/configs/config.yaml
+#21 CACHED
+
+#22 [stage-2  9/16] COPY docker/cores/mihomo/mihomo /usr/local/bin/cores/mihomo
+#22 CACHED
+
+#23 [stage-2 15/16] COPY docker/docker-healthcheck.sh /docker-healthcheck.sh
+#23 CACHED
+
+#24 [stage-2 10/16] COPY docker/cores/singbox/sing-box /usr/local/bin/cores/sing-box
+#24 CACHED
+
+#25 [go-builder 2/8] WORKDIR /app
+#25 CACHED
+
+#26 [go-builder 8/8] RUN CGO_ENABLED=1 GOOS=linux go build     -ldflags="-w -s"     -o /app/isolate-migrate     ./cmd/migrate/main.go
+#26 CACHED
+
+#27 [stage-2  2/16] WORKDIR /app
+#27 CACHED
+
+#28 [stage-2 14/16] COPY docker/docker-entrypoint.sh /docker-entrypoint.sh
+#28 CACHED
+
+#29 [go-builder 6/8] COPY backend/ ./
+#29 CACHED
+
+#30 [go-builder 3/8] RUN apk add --no-cache git gcc musl-dev sqlite-dev
+#30 CACHED
+
+#31 [stage-2 12/16] RUN mkdir -p /app/configs &&     chmod +x /usr/local/bin/cores/xray &&     chmod +x /usr/local/bin/cores/mihomo &&     chmod +x /usr/local/bin/cores/sing-box &&     setcap cap_net_bind_service+ep /usr/local/bin/cores/xray &&     setcap cap_net_bind_service+ep /usr/local/bin/cores/mihomo &&     setcap cap_net_bind_service+ep /usr/local/bin/cores/sing-box &&     setcap cap_net_bind_service+ep /usr/local/bin/isolate-panel &&     echo "✅ Cores pre-installed with cap_net_bind_service"
+#31 CACHED
+
+#32 [go-builder 7/8] RUN CGO_ENABLED=1 GOOS=linux go build     -ldflags="-w -s -X 'main.Version=0.1.0'"     -o /app/server     ./cmd/server/main.go
+#32 CACHED
+
+#33 [stage-2  3/16] RUN apk add --no-cache     ca-certificates     tzdata     sqlite     supervisor     wget     curl     bash     libcap
+#33 CACHED
+
+#34 [stage-2  4/16] RUN addgroup -S isolate && adduser -S -G isolate -h /app isolate
+#34 CACHED
+
+#35 [stage-2 13/16] COPY docker/supervisord.conf /etc/supervisord.conf
+#35 CACHED
+
+#36 [stage-2  7/16] COPY --from=node-builder /app/dist /var/www/html
+#36 CACHED
+
+#37 [stage-2 16/16] RUN mkdir -p /app/data /var/log/isolate-panel /var/log/supervisor &&     chmod +x /docker-entrypoint.sh &&     chmod +x /docker-healthcheck.sh &&     chown -R isolate:isolate /app /var/log/isolate-panel
+#37 CACHED
+
+#38 exporting to image
+#38 exporting layers done
+#38 writing image sha256:8e6d5b24dbe7ad3738a54eeef923bbf34deb67fe787e95f0526ba17d27f6357a done
+#38 naming to docker.io/library/isolate-panel-test-isolate-panel done
+#38 DONE 0.0s
+
+#39 resolving provenance for metadata file
+#39 DONE 0.0s
+ Image isolate-panel-test-isolate-panel Built 
+ Network isolate-panel-test_test-network Creating 
+ Network isolate-panel-test_test-network Created 
+ Container isolate-panel-test Creating 
+ Container isolate-panel-test Created 
+ Container isolate-panel-test Starting 
+ Container isolate-panel-test Started 
+ Container isolate-panel-test Waiting 
+ Container isolate-panel-test Healthy 
+[global-setup] Waiting for backend health check...
+[global-setup] Backend is healthy!
+[global-setup] Admin login successful, tokens cached.
+
+
+Running 5 tests using 1 worker
+
+[1A[2K[1/5] [chromium] › e2e-live/users.spec.ts:9:3 › Users (live) › should display users page
+[1A[2K[2/5] [chromium] › e2e-live/users.spec.ts:17:3 › Users (live) › should show empty state or user list
+[1A[2K[3/5] [chromium] › e2e-live/users.spec.ts:29:3 › Users (live) › should open Add User dialog
+[1A[2K[4/5] [chromium] › e2e-live/users.spec.ts:40:3 › Users (live) › should create a new user
+[1A[2K[5/5] [chromium] › e2e-live/users.spec.ts:40:3 › Users (live) › should create a new user (retry #1)
+[1A[2K  1) [chromium] › e2e-live/users.spec.ts:40:3 › Users (live) › should create a new user ────────────
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByText('testuser_1775900050419')
+    Expected: visible
+    Error: strict mode violation: getByText('testuser_1775900050419') resolved to 2 elements:
+        1) <p class="font-semibold text-text-primary">testuser_1775900050419</p> aka getByRole('table').getByText('testuser_1775900050419')
+        2) <p class="font-semibold text-base text-text-primary">testuser_1775900050419</p> aka getByText('testuser_1775900050419').nth(1)
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 10000ms[22m
+    [2m  - waiting for getByText('testuser_1775900050419')[22m
+
+
+      57 |
+      58 |     // New user should appear in the list
+    > 59 |     await expect(page.getByText(username)).toBeVisible({ timeout: 10_000 })
+         |                                            ^
+      60 |   })
+      61 |
+      62 |   test('should search users', async ({ page }) => {
+        at /mnt/Games/syncthing-shared-folder/isolate-panel/frontend/e2e-live/users.spec.ts:59:44
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/users-Users-live-should-create-a-new-user-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/users-Users-live-should-create-a-new-user-chromium/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByText('testuser_1775900051956')
+    Expected: visible
+    Error: strict mode violation: getByText('testuser_1775900051956') resolved to 2 elements:
+        1) <p class="font-semibold text-text-primary">testuser_1775900051956</p> aka getByRole('table').getByText('testuser_1775900051956')
+        2) <p class="font-semibold text-base text-text-primary">testuser_1775900051956</p> aka getByText('testuser_1775900051956').nth(1)
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 10000ms[22m
+    [2m  - waiting for getByText('testuser_1775900051956')[22m
+
+
+      57 |
+      58 |     // New user should appear in the list
+    > 59 |     await expect(page.getByText(username)).toBeVisible({ timeout: 10_000 })
+         |                                            ^
+      60 |   })
+      61 |
+      62 |   test('should search users', async ({ page }) => {
+        at /mnt/Games/syncthing-shared-folder/isolate-panel/frontend/e2e-live/users.spec.ts:59:44
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/users-Users-live-should-create-a-new-user-chromium-retry1/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/users-Users-live-should-create-a-new-user-chromium-retry1/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/users-Users-live-should-create-a-new-user-chromium-retry1/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/users-Users-live-should-create-a-new-user-chromium-retry1/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K[6/5] (retries) [chromium] › e2e-live/users.spec.ts:62:3 › Users (live) › should search users
+[1A[2K[7/5] (retries) [chromium] › e2e-live/users.spec.ts:62:3 › Users (live) › should search users (retry #1)
+[1A[2K  2) [chromium] › e2e-live/users.spec.ts:62:3 › Users (live) › should search users ─────────────────
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBeTruthy[2m()[22m
+
+    Received: [31mfalse[39m
+
+      76 |       const isEmpty = await emptyState.isVisible().catch(() => false)
+      77 |
+    > 78 |       expect(rowCount === 0 || isEmpty).toBeTruthy()
+         |                                         ^
+      79 |     }
+      80 |   })
+      81 | })
+        at /mnt/Games/syncthing-shared-folder/isolate-panel/frontend/e2e-live/users.spec.ts:78:41
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/users-Users-live-should-search-users-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/users-Users-live-should-search-users-chromium/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBeTruthy[2m()[22m
+
+    Received: [31mfalse[39m
+
+      76 |       const isEmpty = await emptyState.isVisible().catch(() => false)
+      77 |
+    > 78 |       expect(rowCount === 0 || isEmpty).toBeTruthy()
+         |                                         ^
+      79 |     }
+      80 |   })
+      81 | })
+        at /mnt/Games/syncthing-shared-folder/isolate-panel/frontend/e2e-live/users.spec.ts:78:41
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/users-Users-live-should-search-users-chromium-retry1/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/users-Users-live-should-search-users-chromium-retry1/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/users-Users-live-should-search-users-chromium-retry1/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/users-Users-live-should-search-users-chromium-retry1/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+[global-teardown] Stopping test backend...
+ Container isolate-panel-test Stopping 
+ Container isolate-panel-test Stopped 
+ Container isolate-panel-test Removing 
+ Container isolate-panel-test Removed 
+ Network isolate-panel-test_test-network Removing 
+ Network isolate-panel-test_test-network Removed 
+[global-teardown] Done.
+
+[1A[2K  2 failed
+    [chromium] › e2e-live/users.spec.ts:40:3 › Users (live) › should create a new user ─────────────
+    [chromium] › e2e-live/users.spec.ts:62:3 › Users (live) › should search users ──────────────────
+  3 passed (41.3s)
+
+  Serving HTML report at http://localhost:9323. Press Ctrl+C to quit.

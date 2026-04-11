@@ -172,7 +172,7 @@ export function Users() {
                 type="text"
                 placeholder={t('users.searchPlaceholder') || 'Search users...'}
                 value={searchTerm}
-                onChange={(e) => { setSearchTerm((e.target as HTMLInputElement).value); setPage(1) }}
+                onInput={(e) => { setSearchTerm((e.target as HTMLInputElement).value); setPage(1) }}
                 className="pl-10 h-10 bg-transparent border-none focus:ring-0 shadow-none text-base sm:text-sm placeholder:text-text-tertiary"
               />
             </div>
