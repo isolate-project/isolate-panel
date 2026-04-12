@@ -163,14 +163,14 @@ jobs:
         run: sudo apt-get install -y gcc libc6-dev
 
       - name: Run golangci-lint (backend)
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v7
         with:
           version: v2.11.4
           working-directory: backend
           args: --timeout=5m
 
       - name: Run golangci-lint (CLI)
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v7
         with:
           version: v2.11.4
           working-directory: cli

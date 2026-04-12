@@ -33,7 +33,7 @@ jobs:
           go test ./... -timeout=120s
 
       - name: Backend lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v7
         with:
           version: v2.11.4
           working-directory: backend
