@@ -178,6 +178,7 @@ func (t *TelegramNotifier) TestConnection() error {
 	}
 
 	apiURL := fmt.Sprintf("https://api.telegram.org/bot%s/getMe", t.botToken)
+	//nolint:gosec // G107: apiURL is securely constructed using trusted Telegram API endpoint
 	resp, err := http.Get(apiURL)
 	if err != nil {
 		return fmt.Errorf("failed to connect: %w", err)

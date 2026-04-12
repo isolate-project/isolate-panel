@@ -125,7 +125,7 @@ func SingboxWARPOutbound(account *WARPAccount) map[string]interface{} {
 
 // SingboxWARPRouteRules converts WARP routes to Sing-box route rules
 func SingboxWARPRouteRules(routes []models.WarpRoute) []map[string]interface{} {
-	var rules []map[string]interface{}
+	rules := make([]map[string]interface{}, 0, len(routes))
 	for _, route := range routes {
 		rule := map[string]interface{}{
 			"outbound": warpTag,
@@ -178,7 +178,7 @@ func XrayWARPOutbound(account *WARPAccount) (tag string, protocol string, settin
 
 // XrayWARPRoutingRules converts WARP routes to Xray routing rules
 func XrayWARPRoutingRules(routes []models.WarpRoute) []map[string]interface{} {
-	var rules []map[string]interface{}
+	rules := make([]map[string]interface{}, 0, len(routes))
 	for _, route := range routes {
 		rule := map[string]interface{}{
 			"type":        "field",
@@ -228,7 +228,7 @@ func MihomoWARPProxy(account *WARPAccount) map[string]interface{} {
 
 // MihomoWARPRules converts WARP routes to Mihomo rule strings
 func MihomoWARPRules(routes []models.WarpRoute) []string {
-	var rules []string
+	rules := make([]string, 0, len(routes))
 	for _, route := range routes {
 		switch route.ResourceType {
 		case "domain":

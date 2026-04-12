@@ -50,7 +50,7 @@ func mapGeoAction(action string) string {
 
 // SingboxGeoRouteRules converts GeoRules to Sing-box route rules
 func SingboxGeoRouteRules(rules []models.GeoRule, geoDir string) []map[string]interface{} {
-	var routeRules []map[string]interface{}
+	routeRules := make([]map[string]interface{}, 0, len(rules))
 	for _, rule := range rules {
 		rr := map[string]interface{}{
 			"outbound": mapGeoAction(rule.Action),
@@ -83,7 +83,7 @@ func SingboxGeoAssets(geoDir string) map[string]string {
 
 // XrayGeoRoutingRules converts GeoRules to Xray routing rules
 func XrayGeoRoutingRules(rules []models.GeoRule) []map[string]interface{} {
-	var routingRules []map[string]interface{}
+	routingRules := make([]map[string]interface{}, 0, len(rules))
 	for _, rule := range rules {
 		rr := map[string]interface{}{
 			"type":        "field",
@@ -106,7 +106,7 @@ func XrayGeoRoutingRules(rules []models.GeoRule) []map[string]interface{} {
 
 // MihomoGeoRules converts GeoRules to Mihomo rule strings
 func MihomoGeoRules(rules []models.GeoRule) []string {
-	var mihomoRules []string
+	mihomoRules := make([]string, 0, len(rules))
 	for _, rule := range rules {
 		outbound := mapGeoAction(rule.Action)
 		// Mihomo uses uppercase outbound tag for built-in: DIRECT, REJECT

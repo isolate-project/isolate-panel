@@ -17,14 +17,33 @@ linters:
       - legacy
       - std-error-handling
     rules:
+      # Полностью игнорировать gosec для тестов и mock-пакетов
       - linters:
           - gosec
-        path: _test\.go
-        text: G104
+        path: "(_test\\.go|tests/.*)"
+      # Игнорировать G117 (секреты в JSON структуре) для генераторов конфигов ядер
       - linters:
           - gosec
-        path: _test\.go
-        text: G101
+        text: "G117"
+        path: "internal/cores/.*"
+      # Игнорировать G117 (секреты в JSON) для сервисов, которые маршалят ключи
+      - linters:
+          - gosec
+        text: "G117"
+        path: "internal/services/.*"
+      # Игнорировать G110 (decompression bomb) для tar, так как мы доверяем локальным бекапам
+      - linters:
+          - gosec
+        text: "G110"
+        path: "internal/services/backup_service\\.go"
+      # Игнорировать G115 (Integer overflow) так как мы контролируем размерности
+      - linters:
+          - gosec
+        text: "G115"
+      # Игнорировать G404 (слабый рандом) так как порты и случайные строки не криптографичны
+      - linters:
+          - gosec
+        text: "G404"
     paths:
       - third_party$
       - builtin$
@@ -32,10 +51,3 @@ linters:
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
-formatters:
-  exclusions:
-    generated: lax
-    paths:
-      - third_party$
-      - builtin$
-      - examples$

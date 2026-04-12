@@ -191,13 +191,12 @@ func (s *SubscriptionService) GenerateSingbox(data *UserSubscriptionData) (strin
 	}
 	selectorProxies = append(selectorProxies, "direct")
 
-	allOutbounds := []map[string]interface{}{
-		{
-			"type":      "selector",
-			"tag":       "proxy",
-			"outbounds": selectorProxies,
-		},
-	}
+	allOutbounds := make([]map[string]interface{}, 0, 1+len(outbounds)+1)
+	allOutbounds = append(allOutbounds, map[string]interface{}{
+		"type":      "selector",
+		"tag":       "proxy",
+		"outbounds": selectorProxies,
+	})
 	allOutbounds = append(allOutbounds, outbounds...)
 	allOutbounds = append(allOutbounds, map[string]interface{}{
 		"type": "direct",

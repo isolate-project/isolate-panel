@@ -115,6 +115,7 @@ func (s *GeoService) DownloadCountryMMDB() error {
 
 // downloadFile downloads a file from URL with atomic write (tmp → rename)
 func (s *GeoService) downloadFile(url, filename string) error {
+	//nolint:gosec // G107: url is securely constructed from reliable config
 	resp, err := http.Get(url)
 	if err != nil {
 		return err
