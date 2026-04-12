@@ -240,8 +240,8 @@ EOL
     log_warning "IMPORTANT: Save these credentials securely!"
     echo ""
     echo -e "${GREEN}Admin Credentials:${NC}"
-    echo "  Username: ${BLUE}admin${NC}"
-    echo "  Password: ${BLUE}${ADMIN_PASSWORD}${NC}"
+    echo -e "  Username: ${BLUE}admin${NC}"
+    echo -e "  Password: ${BLUE}${ADMIN_PASSWORD}${NC}"
     echo ""
     log_warning "Change the password after first login!"
 }
