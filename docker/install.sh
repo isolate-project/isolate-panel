@@ -4,6 +4,11 @@
 # =============================================================================
 # Automated installation script for Docker-based deployment
 # Supports Ubuntu, Debian, CentOS, and other major Linux distributions
+#
+# Usage:
+#   Install:    bash install.sh
+#   Update:     bash install.sh --update
+#   Uninstall:  bash install.sh --uninstall
 # =============================================================================
 
 set -e
@@ -17,6 +22,10 @@ NC='\033[0m' # No Color
 
 # Installation directory
 INSTALL_DIR="/opt/isolate-panel"
+
+# GitHub repository
+GITHUB_REPO="isolate-project/isolate-panel"
+GITHUB_RAW="https://raw.githubusercontent.com/${GITHUB_REPO}/main"
 
 # =============================================================================
 # Helper Functions
@@ -105,15 +114,15 @@ install_docker() {
             apt-get update
             apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release
             curl -fsSL https://download.docker.com/linux/$OS/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-            echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/$OS $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/$OS $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
             apt-get update
-            apt-get install -y docker-ce docker-ce-cli containerd.io
+            apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
             ;;
-        centos|rhel|fedora)
+        centos|rhel|fedora|rocky|alma)
             log_info "Installing Docker for $OS..."
             yum install -y yum-utils
             yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-            yum install -y docker-ce docker-ce-cli containerd.io
+            yum install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
             systemctl enable docker
             ;;
         *)
@@ -131,47 +140,26 @@ install_docker() {
 check_docker_compose() {
     print_step "Checking Docker Compose"
     
-    if command -v docker compose &> /dev/null; then
-        COMPOSE_VERSION=$(docker compose version | cut -d' ' -f4)
-        log_success "Docker Compose is already installed (version $COMPOSE_VERSION)"
+    if docker compose version &> /dev/null; then
+        COMPOSE_VERSION=$(docker compose version --short)
+        log_success "Docker Compose is available (version $COMPOSE_VERSION)"
     elif command -v docker-compose &> /dev/null; then
         COMPOSE_VERSION=$(docker-compose --version | cut -d' ' -f3)
-        log_success "Docker Compose is already installed (version $COMPOSE_VERSION)"
-        # Create alias for newer syntax
-        alias docker-compose='docker compose'
+        log_success "Docker Compose (standalone) is available (version $COMPOSE_VERSION)"
     else
-        log_warning "Docker Compose is not installed"
-        install_docker_compose
+        log_error "Docker Compose is not available. Please install Docker Compose v2."
+        log_info "Try: apt-get install docker-compose-plugin"
+        exit 1
     fi
 }
 
-install_docker_compose() {
-    log_info "Installing Docker Compose..."
-    
-    COMPOSE_VERSION="v2.24.0"
-    ARCH=$(uname -m)
-    
-    case $ARCH in
-        x86_64)
-            ARCH="x86_64"
-            ;;
-        aarch64|arm64)
-            ARCH="aarch64"
-            ;;
-        *)
-            log_error "Unsupported architecture: $ARCH"
-            exit 1
-            ;;
-    esac
-    
-    curl -L "https://github.com/docker/compose/releases/download/$COMPOSE_VERSION/docker-compose-$(uname -s)-$ARCH" -o /usr/local/bin/docker-compose
-    chmod +x /usr/local/bin/docker-compose
-    
-    # Also install as docker compose plugin
-    mkdir -p /usr/libexec/docker/cli-plugins
-    cp /usr/local/bin/docker-compose /usr/libexec/docker/cli-plugins/docker-compose
-    
-    log_success "Docker Compose installed successfully"
+# Helper: run docker compose (v2 plugin or standalone)
+compose_cmd() {
+    if docker compose version &> /dev/null; then
+        docker compose "$@"
+    else
+        docker-compose "$@"
+    fi
 }
 
 # =============================================================================
@@ -193,14 +181,14 @@ download_files() {
     # Check if we're running from a cloned repository
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     
-    if [ -f "$SCRIPT_DIR/docker-compose.yml" ]; then
+    if [ -f "$SCRIPT_DIR/docker-compose.production.yml" ]; then
         log_info "Copying from local repository..."
-        cp "$SCRIPT_DIR/docker-compose.yml" "$INSTALL_DIR/"
+        cp "$SCRIPT_DIR/docker-compose.production.yml" "$INSTALL_DIR/docker-compose.yml"
         cp "$SCRIPT_DIR/.env.example" "$INSTALL_DIR/.env.example"
     else
         log_info "Downloading from GitHub..."
-        curl -sL "https://raw.githubusercontent.com/isolate-project/isolate-panel/main/docker/docker-compose.yml" -o "$INSTALL_DIR/docker-compose.yml"
-        curl -sL "https://raw.githubusercontent.com/isolate-project/isolate-panel/main/docker/.env.example" -o "$INSTALL_DIR/.env.example"
+        curl -sL "${GITHUB_RAW}/docker/docker-compose.production.yml" -o "$INSTALL_DIR/docker-compose.yml"
+        curl -sL "${GITHUB_RAW}/docker/.env.example" -o "$INSTALL_DIR/.env.example"
     fi
     
     log_success "Configuration files downloaded"
@@ -210,7 +198,7 @@ generate_env() {
     print_step "Generating environment configuration"
     
     # Generate JWT secret
-    JWT_SECRET=$(openssl rand -base64 64)
+    JWT_SECRET=$(openssl rand -base64 64 | tr -d '\n')
     
     # Generate admin password
     ADMIN_PASSWORD=$(openssl rand -base64 16 | tr -dc 'a-zA-Z0-9' | head -c 16)
@@ -251,7 +239,7 @@ EOL
     echo ""
     log_warning "IMPORTANT: Save these credentials securely!"
     echo ""
-    echo -e "${GREEN}Default Admin Credentials:${NC}"
+    echo -e "${GREEN}Admin Credentials:${NC}"
     echo "  Username: ${BLUE}admin${NC}"
     echo "  Password: ${BLUE}${ADMIN_PASSWORD}${NC}"
     echo ""
@@ -267,25 +255,113 @@ start_services() {
     
     cd "$INSTALL_DIR"
     
-    # Pull and start containers
-    if command -v docker-compose &> /dev/null; then
-        docker-compose up -d
-    else
-        docker compose up -d
-    fi
+    # Pull image and start container
+    compose_cmd pull
+    compose_cmd up -d
     
     # Wait for container to be healthy
     log_info "Waiting for container to start..."
-    sleep 5
+    
+    local max_attempts=30
+    local attempt=1
+    while [ $attempt -le $max_attempts ]; do
+        if [ "$(docker inspect -f '{{.State.Health.Status}}' isolate-panel 2>/dev/null)" = "healthy" ]; then
+            break
+        fi
+        echo -n "."
+        sleep 2
+        attempt=$((attempt + 1))
+    done
+    echo ""
     
     # Check status
-    if command -v docker-compose &> /dev/null; then
-        docker-compose ps
+    compose_cmd ps
+    
+    if [ "$(docker inspect -f '{{.State.Health.Status}}' isolate-panel 2>/dev/null)" = "healthy" ]; then
+        log_success "Isolate Panel is running and healthy"
     else
-        docker compose ps
+        log_warning "Container is starting but not yet healthy. Check logs: docker logs isolate-panel"
+    fi
+}
+
+# =============================================================================
+# Update
+# =============================================================================
+
+update_panel() {
+    print_step "Updating Isolate Panel"
+    
+    if [ ! -d "$INSTALL_DIR" ]; then
+        log_error "Isolate Panel is not installed at $INSTALL_DIR"
+        exit 1
     fi
     
-    log_success "Isolate Panel started successfully"
+    cd "$INSTALL_DIR"
+    
+    # Download latest docker-compose
+    log_info "Downloading latest configuration..."
+    curl -sL "${GITHUB_RAW}/docker/docker-compose.production.yml" -o "$INSTALL_DIR/docker-compose.yml.new"
+    mv "$INSTALL_DIR/docker-compose.yml.new" "$INSTALL_DIR/docker-compose.yml"
+    
+    # Pull and restart
+    log_info "Pulling latest image..."
+    compose_cmd pull
+    
+    log_info "Restarting..."
+    compose_cmd up -d
+    
+    log_success "Isolate Panel updated to latest version"
+    compose_cmd ps
+}
+
+# =============================================================================
+# Uninstall
+# =============================================================================
+
+uninstall_panel() {
+    echo ""
+    echo -e "${RED}========================================${NC}"
+    echo -e "${RED}  Isolate Panel Uninstaller${NC}"
+    echo -e "${RED}========================================${NC}"
+    echo ""
+    
+    if [ ! -d "$INSTALL_DIR" ]; then
+        log_error "Isolate Panel is not installed at $INSTALL_DIR"
+        exit 1
+    fi
+    
+    # Confirm
+    read -p "Are you sure you want to uninstall Isolate Panel? [y/N] " confirm
+    if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+        echo "Cancelled."
+        exit 0
+    fi
+    
+    # Ask about data
+    read -p "Delete ALL data (database, configs, cores, backups)? [y/N] " delete_data
+    
+    # Stop containers
+    log_info "Stopping containers..."
+    cd "$INSTALL_DIR" 2>/dev/null && compose_cmd down --remove-orphans 2>/dev/null || true
+    
+    if [[ "$delete_data" == "y" || "$delete_data" == "Y" ]]; then
+        log_warning "Removing all data..."
+        rm -rf "$INSTALL_DIR"
+        log_success "All data removed"
+    else
+        log_info "Removing config files (keeping data/)..."
+        rm -f "$INSTALL_DIR/docker-compose.yml"
+        rm -f "$INSTALL_DIR/.env"
+        rm -f "$INSTALL_DIR/.env.example"
+        echo -e "${GREEN}Data preserved at: $INSTALL_DIR/data/${NC}"
+        echo "To fully remove: rm -rf $INSTALL_DIR"
+    fi
+    
+    # Remove Docker image
+    docker rmi ghcr.io/isolate-project/isolate-panel:latest 2>/dev/null || true
+    
+    echo ""
+    log_success "Isolate Panel has been uninstalled."
 }
 
 # =============================================================================
@@ -293,56 +369,96 @@ start_services() {
 # =============================================================================
 
 print_summary() {
+    local SERVER_IP
+    SERVER_IP=$(curl -s4 ifconfig.me 2>/dev/null || echo "your-server-ip")
+    
     echo ""
     echo -e "${GREEN}========================================${NC}"
-    echo -e "${GREEN}  Installation Complete!${NC}"
+    echo -e "${GREEN}  Installation Complete! 🎉${NC}"
     echo -e "${GREEN}========================================${NC}"
-    echo ""
-    echo -e "${BLUE}Panel URL:${NC} http://localhost:8080"
     echo ""
     echo -e "${BLUE}Access via SSH tunnel:${NC}"
-    echo "  ssh -L 8080:localhost:8080 user@your-server"
+    echo "  ssh -L 8080:localhost:8080 root@${SERVER_IP}"
+    echo "  Then open: http://localhost:8080"
     echo ""
     echo -e "${BLUE}Management commands:${NC}"
     echo "  cd $INSTALL_DIR"
-    if command -v docker-compose &> /dev/null; then
-        echo "  docker-compose ps          # Check status"
-        echo "  docker-compose logs -f     # View logs"
-        echo "  docker-compose stop        # Stop panel"
-        echo "  docker-compose start       # Start panel"
-        echo "  docker-compose restart     # Restart panel"
-    else
-        echo "  docker compose ps          # Check status"
-        echo "  docker compose logs -f     # View logs"
-        echo "  docker compose stop        # Stop panel"
-        echo "  docker compose start       # Start panel"
-        echo "  docker compose restart     # Restart panel"
-    fi
+    echo "  docker compose ps            # Check status"
+    echo "  docker compose logs -f       # View logs"
+    echo "  docker compose restart       # Restart panel"
     echo ""
-    echo -e "${BLUE}Configuration files:${NC}"
-    echo "  $INSTALL_DIR/.env              # Environment variables"
-    echo "  $INSTALL_DIR/docker-compose.yml # Docker configuration"
+    echo -e "${BLUE}Update:${NC}"
+    echo "  bash <(curl -sL ${GITHUB_RAW}/docker/install.sh) --update"
+    echo ""
+    echo -e "${BLUE}Uninstall:${NC}"
+    echo "  bash <(curl -sL ${GITHUB_RAW}/docker/install.sh) --uninstall"
+    echo ""
+    echo -e "${BLUE}Configuration:${NC}"
+    echo "  $INSTALL_DIR/.env               # Environment variables"
+    echo "  $INSTALL_DIR/docker-compose.yml  # Docker configuration"
+    echo "  $INSTALL_DIR/data/               # Persistent data"
     echo ""
     echo -e "${YELLOW}Next steps:${NC}"
-    echo "  1. Set up SSH tunnel to access the panel"
+    echo "  1. Connect via SSH tunnel (command above)"
     echo "  2. Login with admin credentials (shown above)"
-    echo "  3. Change the default password immediately"
-    echo "  4. Configure proxy ports in docker-compose.yml if needed"
+    echo "  3. Change the default password"
+    echo "  4. Start proxy cores (Cores → Start)"
+    echo "  5. Create users and inbounds"
+    echo ""
+    echo -e "${YELLOW}⚠️  Firewall: open ports for your inbounds:${NC}"
+    echo "  ufw allow 2000:2100/tcp"
+    echo "  ufw allow 2000:2100/udp"
+    echo "  ufw allow 443/tcp"
+    echo "  ufw allow 443/udp"
     echo ""
     echo -e "${GREEN}========================================${NC}"
 }
 
 # =============================================================================
-# Main Installation Flow
+# Main
 # =============================================================================
 
 main() {
+    # Handle flags
+    case "${1:-}" in
+        --update|-u)
+            check_root
+            update_panel
+            exit 0
+            ;;
+        --uninstall|--remove)
+            check_root
+            uninstall_panel
+            exit 0
+            ;;
+        --help|-h)
+            echo "Isolate Panel Installer"
+            echo ""
+            echo "Usage:"
+            echo "  bash install.sh              Install Isolate Panel"
+            echo "  bash install.sh --update     Update to latest version"
+            echo "  bash install.sh --uninstall  Remove Isolate Panel"
+            echo "  bash install.sh --help       Show this help"
+            exit 0
+            ;;
+    esac
+
     print_header
     
     # Pre-installation checks
     check_root
     check_docker
     check_docker_compose
+    
+    # Check if already installed
+    if [ -f "$INSTALL_DIR/docker-compose.yml" ]; then
+        log_warning "Isolate Panel is already installed at $INSTALL_DIR"
+        read -p "Reinstall? This will NOT delete your data. [y/N] " confirm
+        if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+            echo "Use --update to update to the latest version."
+            exit 0
+        fi
+    fi
     
     # Installation
     create_directories
@@ -354,5 +470,5 @@ main() {
     print_summary
 }
 
-# Run installation
+# Run
 main "$@"

@@ -10,10 +10,12 @@ services:
     restart: unless-stopped
 
     ports:
-      - "127.0.0.1:8080:8080"
-      - "443:443/tcp"
-      - "443:443/udp"
-      - "8443:8443/tcp"
+      - "127.0.0.1:8080:8080"     # Admin panel (SSH tunnel only)
+      - "443:443/tcp"              # Subscriptions + TLS inbounds
+      - "443:443/udp"              # QUIC (Hysteria2, TUIC)
+      # Inbound port range — adjust as needed:
+      - "2000-2100:2000-2100/tcp"
+      - "2000-2100:2000-2100/udp"
 
     volumes:
       - ./data:/app/data

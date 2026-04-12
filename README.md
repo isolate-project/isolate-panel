@@ -53,29 +53,23 @@ Designed for VPS with limited resources (1 CPU / 1 GB RAM). Accessible **only vi
 - Docker 20.10+
 - Docker Compose 2.0+
 
-### 1. Clone and configure
+### One-liner install (recommended for VPS)
 
 ```bash
-git clone https://github.com/isolate-project/isolate-panel.git
-cd isolate-panel/docker
-cp .env.example .env       # edit JWT_SECRET and ADMIN_PASSWORD
+bash <(curl -sL https://raw.githubusercontent.com/isolate-project/isolate-panel/main/docker/install.sh)
 ```
 
-Minimal `.env`:
-
-```env
-JWT_SECRET=replace-with-at-least-32-random-characters
-ADMIN_PASSWORD=your-secure-password
-DATABASE_PATH=/data/isolate.db
-```
-
-### 2. Start
+### Manual setup
 
 ```bash
-docker-compose up -d
+mkdir -p /opt/isolate-panel && cd /opt/isolate-panel
+curl -sL https://raw.githubusercontent.com/isolate-project/isolate-panel/main/docker/docker-compose.production.yml -o docker-compose.yml
+curl -sL https://raw.githubusercontent.com/isolate-project/isolate-panel/main/docker/.env.example -o .env
+nano .env   # set JWT_SECRET and ADMIN_PASSWORD
+docker compose up -d
 ```
 
-### 3. Access via SSH tunnel
+### Access via SSH tunnel
 
 The panel only listens on `localhost:8080`. Open a tunnel from your local machine:
 
@@ -85,13 +79,16 @@ ssh -L 8080:localhost:8080 user@your-server-ip
 
 Then open <http://localhost:8080> in your browser.
 
-**Default login:** `admin` / value of `ADMIN_PASSWORD`
+**Default login:** `admin` / value of `ADMIN_PASSWORD` from `.env`
 
-### 4. Update
+### Update
 
 ```bash
-docker-compose pull && docker-compose up -d
+cd /opt/isolate-panel
+docker compose pull && docker compose up -d
 ```
+
+See [QUICKSTART.md](QUICKSTART.md) for detailed step-by-step guide.
 
 ---
 
@@ -142,7 +139,7 @@ See [docs/CORES-MANUAL-INSTALL.md](docs/CORES-MANUAL-INSTALL.md) for detailed in
 ```bash
 # Full stack with hot reload (recommended)
 cd docker
-docker-compose -f docker-compose.dev.yml up --build
+docker compose -f docker-compose.dev.yml up --build
 
 # Or run separately:
 cd backend && make run            # Go server on :8080 (no hot reload)
@@ -197,7 +194,7 @@ isolate-panel/
 │   └── Makefile
 ├── frontend/
 │   ├── src/
-│   │   ├── pages/            # 17 page components (lazy-loaded)
+│   │   ├── pages/            # 19 page components (lazy-loaded)
 │   │   ├── components/       # UI components + features
 │   │   ├── hooks/            # Custom hooks (useUsers, useCores, useWebSocket, …)
 │   │   ├── stores/           # Zustand stores (auth, theme, toast)
@@ -212,7 +209,7 @@ isolate-panel/
 
 ## API Documentation
 
-Interactive API docs are available at `/api/docs` when the server is running (Swagger UI).
+Interactive API docs are available at `/api/docs` in development mode (disabled in production via `APP_ENV=production`).
 
 Additional references:
 
@@ -226,13 +223,17 @@ Additional references:
 ## Security
 
 - Panel is only accessible via SSH tunnel — never exposed to the internet
+- Subscriptions served on a dedicated public port (443) with auto-TLS
 - Argon2id password hashing (industry standard for password storage)
 - JWT access tokens (15 min) + refresh tokens (7 days)
 - TOTP two-factor authentication
 - Rate limiting: 60 req/min (standard), 10 req/min (heavy operations)
 - Content Security Policy + security headers (X-Frame-Options, X-XSS-Protection, …)
+- Auto-generated API keys for proxy cores (Sing-box, Mihomo)
+- Swagger UI disabled in production
+- Token format validation on subscription endpoints
 - Audit log for all admin actions
-- Request validation via `go-playground/validator`
+- Automated data retention (expired tokens, old logs)
 
 ---
 
