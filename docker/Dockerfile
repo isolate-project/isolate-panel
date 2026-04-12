@@ -96,7 +96,7 @@ COPY docker/docker-healthcheck.sh /docker-healthcheck.sh
 RUN mkdir -p /app/data /var/log/isolate-panel /var/log/supervisor && \
     chmod +x /docker-entrypoint.sh && \
     chmod +x /docker-healthcheck.sh && \
-    chown -R isolate:isolate /app /var/log/isolate-panel
+    chown -R root:root /app /var/log/isolate-panel
 
 # Expose ports
 EXPOSE 8080 443 8443

@@ -32,32 +32,32 @@ GITHUB_RAW="https://raw.githubusercontent.com/${GITHUB_REPO}/master"
 # =============================================================================
 
 log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
+    printf "%b\n" "${BLUE}[INFO]${NC} $1"
 }
 
 log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
+    printf "%b\n" "${GREEN}[SUCCESS]${NC} $1"
 }
 
 log_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
+    printf "%b\n" "${YELLOW}[WARNING]${NC} $1"
 }
 
 log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
+    printf "%b\n" "${RED}[ERROR]${NC} $1"
 }
 
 print_header() {
     echo ""
-    echo -e "${BLUE}========================================${NC}"
-    echo -e "${BLUE}  Isolate Panel Installation${NC}"
-    echo -e "${BLUE}========================================${NC}"
+    printf "%b\n" "${BLUE}========================================${NC}"
+    printf "%b\n" "${BLUE}  Isolate Panel Installation${NC}"
+    printf "%b\n" "${BLUE}========================================${NC}"
     echo ""
 }
 
 print_step() {
     echo ""
-    echo -e "${GREEN}>>> $1${NC}"
+    printf "%b\n" "${GREEN}>>> $1${NC}"
     echo ""
 }
 
@@ -239,9 +239,9 @@ EOL
     echo ""
     log_warning "IMPORTANT: Save these credentials securely!"
     echo ""
-    echo -e "${GREEN}Admin Credentials:${NC}"
-    echo -e "  Username: ${BLUE}admin${NC}"
-    echo -e "  Password: ${BLUE}${ADMIN_PASSWORD}${NC}"
+    printf "%b\n" "${GREEN}Admin Credentials:${NC}"
+    printf "%b\n" "  Username: ${BLUE}admin${NC}"
+    printf "%b\n" "  Password: ${BLUE}${ADMIN_PASSWORD}${NC}"
     echo ""
     log_warning "Change the password after first login!"
 }
@@ -320,9 +320,9 @@ update_panel() {
 
 uninstall_panel() {
     echo ""
-    echo -e "${RED}========================================${NC}"
-    echo -e "${RED}  Isolate Panel Uninstaller${NC}"
-    echo -e "${RED}========================================${NC}"
+    printf "%b\n" "${RED}========================================${NC}"
+    printf "%b\n" "${RED}  Isolate Panel Uninstaller${NC}"
+    printf "%b\n" "${RED}========================================${NC}"
     echo ""
     
     if [ ! -d "$INSTALL_DIR" ]; then
@@ -353,7 +353,7 @@ uninstall_panel() {
         rm -f "$INSTALL_DIR/docker-compose.yml"
         rm -f "$INSTALL_DIR/.env"
         rm -f "$INSTALL_DIR/.env.example"
-        echo -e "${GREEN}Data preserved at: $INSTALL_DIR/data/${NC}"
+        printf "%b\n" "${GREEN}Data preserved at: $INSTALL_DIR/data/${NC}"
         echo "To fully remove: rm -rf $INSTALL_DIR"
     fi
     
@@ -373,45 +373,45 @@ print_summary() {
     SERVER_IP=$(curl -s4 ifconfig.me 2>/dev/null || echo "your-server-ip")
     
     echo ""
-    echo -e "${GREEN}========================================${NC}"
-    echo -e "${GREEN}  Installation Complete! 🎉${NC}"
-    echo -e "${GREEN}========================================${NC}"
+    printf "%b\n" "${GREEN}========================================${NC}"
+    printf "%b\n" "${GREEN}  Installation Complete! 🎉${NC}"
+    printf "%b\n" "${GREEN}========================================${NC}"
     echo ""
-    echo -e "${BLUE}Access via SSH tunnel:${NC}"
+    printf "%b\n" "${BLUE}Access via SSH tunnel:${NC}"
     echo "  ssh -L 8080:localhost:8080 root@${SERVER_IP}"
     echo "  Then open: http://localhost:8080"
     echo ""
-    echo -e "${BLUE}Management commands:${NC}"
+    printf "%b\n" "${BLUE}Management commands:${NC}"
     echo "  cd $INSTALL_DIR"
     echo "  docker compose ps            # Check status"
     echo "  docker compose logs -f       # View logs"
     echo "  docker compose restart       # Restart panel"
     echo ""
-    echo -e "${BLUE}Update:${NC}"
+    printf "%b\n" "${BLUE}Update:${NC}"
     echo "  bash <(curl -sL ${GITHUB_RAW}/docker/install.sh) --update"
     echo ""
-    echo -e "${BLUE}Uninstall:${NC}"
+    printf "%b\n" "${BLUE}Uninstall:${NC}"
     echo "  bash <(curl -sL ${GITHUB_RAW}/docker/install.sh) --uninstall"
     echo ""
-    echo -e "${BLUE}Configuration:${NC}"
+    printf "%b\n" "${BLUE}Configuration:${NC}"
     echo "  $INSTALL_DIR/.env               # Environment variables"
     echo "  $INSTALL_DIR/docker-compose.yml  # Docker configuration"
     echo "  $INSTALL_DIR/data/               # Persistent data"
     echo ""
-    echo -e "${YELLOW}Next steps:${NC}"
+    printf "%b\n" "${YELLOW}Next steps:${NC}"
     echo "  1. Connect via SSH tunnel (command above)"
     echo "  2. Login with admin credentials (shown above)"
     echo "  3. Change the default password"
     echo "  4. Start proxy cores (Cores → Start)"
     echo "  5. Create users and inbounds"
     echo ""
-    echo -e "${YELLOW}⚠️  Firewall: open ports for your inbounds:${NC}"
+    printf "%b\n" "${YELLOW}⚠️  Firewall: open ports for your inbounds:${NC}"
     echo "  ufw allow 2000:2100/tcp"
     echo "  ufw allow 2000:2100/udp"
     echo "  ufw allow 443/tcp"
     echo "  ufw allow 443/udp"
     echo ""
-    echo -e "${GREEN}========================================${NC}"
+    printf "%b\n" "${GREEN}========================================${NC}"
 }
 
 # =============================================================================

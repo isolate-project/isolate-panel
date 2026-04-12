@@ -198,7 +198,7 @@ isolate-migrate -db "$DB_PATH" -cmd setup
 echo "  ✅ Database initialization complete"
 
 # Set proper permissions
-chown -R isolate:isolate /app/data
+chown -R root:root /app/data
 chmod 755 /app/data
 
 echo ""
