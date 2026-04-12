@@ -42,6 +42,51 @@ func NewSupervisorClient(url string) *SupervisorClient {
 	}
 }
 
+// XMLRPCResponse represents a generic XML-RPC response
+type XMLRPCResponse struct {
+	XMLName xml.Name `xml:"methodResponse"`
+	Params  []struct {
+		Value struct {
+			Boolean *int          `xml:"boolean"`
+			Struct  *XMLRPCStruct `xml:"struct"`
+		} `xml:"value"`
+	} `xml:"params>param"`
+	Fault *struct {
+		Value struct {
+			Struct *XMLRPCStruct `xml:"struct"`
+		} `xml:"value"`
+	} `xml:"fault"`
+}
+
+// XMLRPCStruct represents an XML-RPC struct
+type XMLRPCStruct struct {
+	Members []struct {
+		Name  string `xml:"name"`
+		Value struct {
+			String *string `xml:"string"`
+			Int    *int    `xml:"int"`
+		} `xml:"value"`
+	} `xml:"member"`
+}
+
+// parseFault checks if an XMLRPCResponse is a fault and returns an error if so
+func (resp *XMLRPCResponse) parseFault() error {
+	if resp.Fault != nil && resp.Fault.Value.Struct != nil {
+		var code int
+		var str string
+		for _, m := range resp.Fault.Value.Struct.Members {
+			if m.Name == "faultCode" && m.Value.Int != nil {
+				code = *m.Value.Int
+			}
+			if m.Name == "faultString" && m.Value.String != nil {
+				str = *m.Value.String
+			}
+		}
+		return fmt.Errorf("XML-RPC Fault %d: %s", code, str)
+	}
+	return nil
+}
+
 // StartProcess starts a supervisord process
 func (sc *SupervisorClient) StartProcess(name string) error {
 	response, err := sc.call("supervisor.startProcess", name, true)
@@ -49,13 +94,15 @@ func (sc *SupervisorClient) StartProcess(name string) error {
 		return fmt.Errorf("failed to start process %s: %w", name, err)
 	}
 
-	var result bool
-	if err := xml.Unmarshal(response, &result); err != nil {
+	var resp XMLRPCResponse
+	if err := xml.Unmarshal(response, &resp); err != nil {
 		return fmt.Errorf("failed to parse response: %w", err)
 	}
-
-	if !result {
-		return fmt.Errorf("failed to start process %s", name)
+	if err := resp.parseFault(); err != nil {
+		return fmt.Errorf("failed to start process %s: %w", name, err)
+	}
+	if len(resp.Params) == 0 || resp.Params[0].Value.Boolean == nil || *resp.Params[0].Value.Boolean != 1 {
+		return fmt.Errorf("failed to start process %s: unexpected response", name)
 	}
 
 	return nil
@@ -68,13 +115,15 @@ func (sc *SupervisorClient) StopProcess(name string) error {
 		return fmt.Errorf("failed to stop process %s: %w", name, err)
 	}
 
-	var result bool
-	if err := xml.Unmarshal(response, &result); err != nil {
+	var resp XMLRPCResponse
+	if err := xml.Unmarshal(response, &resp); err != nil {
 		return fmt.Errorf("failed to parse response: %w", err)
 	}
-
-	if !result {
-		return fmt.Errorf("failed to stop process %s", name)
+	if err := resp.parseFault(); err != nil {
+		return fmt.Errorf("failed to stop process %s: %w", name, err)
+	}
+	if len(resp.Params) == 0 || resp.Params[0].Value.Boolean == nil || *resp.Params[0].Value.Boolean != 1 {
+		return fmt.Errorf("failed to stop process %s: unexpected response", name)
 	}
 
 	return nil
@@ -101,9 +150,48 @@ func (sc *SupervisorClient) GetProcessInfo(name string) (*ProcessInfo, error) {
 		return nil, fmt.Errorf("failed to get process info for %s: %w", name, err)
 	}
 
-	var info ProcessInfo
-	if err := xml.Unmarshal(response, &info); err != nil {
+	var resp XMLRPCResponse
+	if err := xml.Unmarshal(response, &resp); err != nil {
 		return nil, fmt.Errorf("failed to parse process info: %w", err)
+	}
+	if err := resp.parseFault(); err != nil {
+		return nil, fmt.Errorf("failed to get process info for %s: %w", name, err)
+	}
+
+	if len(resp.Params) == 0 || resp.Params[0].Value.Struct == nil {
+		return nil, fmt.Errorf("invalid response structure")
+	}
+
+	var info ProcessInfo
+	for _, m := range resp.Params[0].Value.Struct.Members {
+		switch m.Name {
+		case "name":
+			if m.Value.String != nil { info.Name = *m.Value.String }
+		case "group":
+			if m.Value.String != nil { info.Group = *m.Value.String }
+		case "description":
+			if m.Value.String != nil { info.Description = *m.Value.String }
+		case "start":
+			if m.Value.Int != nil { info.Start = int64(*m.Value.Int) }
+		case "stop":
+			if m.Value.Int != nil { info.Stop = int64(*m.Value.Int) }
+		case "now":
+			if m.Value.Int != nil { info.Now = int64(*m.Value.Int) }
+		case "state":
+			if m.Value.Int != nil { info.State = *m.Value.Int }
+		case "statename":
+			if m.Value.String != nil { info.StateName = *m.Value.String }
+		case "spawnerr":
+			if m.Value.String != nil { info.SpawnErr = *m.Value.String }
+		case "exitstatus":
+			if m.Value.Int != nil { info.ExitStatus = *m.Value.Int }
+		case "stdout_logfile":
+			if m.Value.String != nil { info.Stdout_logfile = *m.Value.String }
+		case "stderr_logfile":
+			if m.Value.String != nil { info.Stderr_logfile = *m.Value.String }
+		case "pid":
+			if m.Value.Int != nil { info.PID = *m.Value.Int }
+		}
 	}
 
 	return &info, nil

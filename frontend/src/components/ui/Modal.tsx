@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback } from 'preact/hooks'
+import { createPortal } from 'preact/compat'
 import { cn } from '../../lib/utils'
 import { X } from 'lucide-preact'
 import { Button } from './Button'
@@ -101,7 +102,9 @@ export function Modal({
     xl: 'max-w-xl',
   }
 
-  return (
+  if (typeof document === 'undefined') return null
+
+  return createPortal(
     <div
       className="fixed inset-0 z-modal flex items-center justify-center p-4"
       role="dialog"
@@ -140,6 +143,7 @@ export function Modal({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
