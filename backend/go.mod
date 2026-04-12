@@ -1,6 +1,6 @@
 module github.com/isolate-project/isolate-panel
 
-go 1.25.5
+go 1.26.2
 
 require (
 	github.com/dgraph-io/ristretto v0.2.0
