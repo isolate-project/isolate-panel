@@ -56,7 +56,7 @@ Designed for VPS with limited resources (1 CPU / 1 GB RAM). Accessible **only vi
 ### One-liner install (recommended for VPS)
 
 ```bash
-bash <(curl -sL https://raw.githubusercontent.com/isolate-project/isolate-panel/main/docker/install.sh)
+bash <(curl -sL https://raw.githubusercontent.com/isolate-project/isolate-panel/master/docker/install.sh)
 ```
 
 ### Manual setup
