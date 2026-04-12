@@ -53,8 +53,6 @@ services:
       - TZ=${TZ:-UTC}
       - MONITORING_MODE=${MONITORING_MODE:-lite}
 
-    security_opt:
-      - no-new-privileges:true
 
     cap_drop:
       - ALL
