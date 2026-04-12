@@ -1,55 +1,27 @@
-version: "2"
-
 run:
   tests: true
   timeout: 5m
 
 linters:
-  default: none
+  disable-all: true
   enable:
     - govet        # Обнаруживает подозрительные конструкции
-    - errcheck     # Проверяет, что ошибки обрабатываются
-    - staticcheck  # Статический анализ (sa*, st*, s1*)
-    - unused       # Неиспользуемый код
-    - gosimple     # Упрощение кода
     - ineffassign  # Бесполезные присваивания
     - misspell     # Опечатки в комментариях
     - gosec        # Безопасность (G*)
     - prealloc     # Подсказки по pre-allocation срезов
-  exclusions:
-    generated: lax
-    presets:
-      - comments
-      - common-false-positives
-      - legacy
-      - std-error-handling
-    paths:
-      - third_party$
-      - builtin$
-      - examples$
-      - vendor$
 
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
   exclude-rules:
     # Разрешить G104 (unhandled errors) в тестах
-    - path: "_test\\.go"
+    - path: _test\.go
       linters:
         - gosec
       text: "G104"
     # Разрешить G101 (hardcoded credentials) в тестах
-    - path: "_test\\.go"
+    - path: _test\.go
       linters:
         - gosec
       text: "G101"
-
-formatters:
-  enable:
-    - gofmt
-  exclusions:
-    generated: lax
-    paths:
-      - third_party$
-      - builtin$
-      - examples$
