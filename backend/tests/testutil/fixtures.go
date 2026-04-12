@@ -106,7 +106,7 @@ func SampleUsers() []models.User {
 			UUID:              "sample-uuid-1",
 			Username:          "alice",
 			Email:             "alice@example.com",
-			SubscriptionToken: "alice-token",
+			SubscriptionToken: "alice-token-000000000000000000000",
 			IsActive:          true,
 			TrafficLimitBytes: &trafficLimit1,
 			TrafficUsedBytes:  0,
@@ -115,7 +115,7 @@ func SampleUsers() []models.User {
 			UUID:              "sample-uuid-2",
 			Username:          "bob",
 			Email:             "bob@example.com",
-			SubscriptionToken: "bob-token",
+			SubscriptionToken: "bob-token-00000000000000000000000",
 			IsActive:          true,
 			TrafficLimitBytes: &trafficLimit2,
 			TrafficUsedBytes:  1073741824, // 1GB
@@ -124,7 +124,7 @@ func SampleUsers() []models.User {
 			UUID:              "sample-uuid-3",
 			Username:          "charlie",
 			Email:             "charlie@example.com",
-			SubscriptionToken: "charlie-token",
+			SubscriptionToken: "charlie-token-0000000000000000000",
 			IsActive:          false,
 			TrafficLimitBytes: nil, // Unlimited
 			TrafficUsedBytes:  0,

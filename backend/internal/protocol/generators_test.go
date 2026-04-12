@@ -68,7 +68,7 @@ func TestGeneratePassword_Uniqueness(t *testing.T) {
 func TestGenerateBase64Token_ValidChars(t *testing.T) {
 	token := GenerateBase64Token(16)
 
-	validChars := "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/="
+	validChars := "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_="
 	for i, c := range token {
 		if !containsRune(validChars, c) {
 			t.Errorf("Invalid character at position %d: %c", i, c)
