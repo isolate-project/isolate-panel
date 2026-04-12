@@ -39,6 +39,9 @@ func (p *Profile) IsTokenExpired() bool {
 
 // ConfigPath returns the path to the config file
 func ConfigPath() string {
+	if envPath := os.Getenv("ISOLATE_PANEL_CONFIG"); envPath != "" {
+		return envPath
+	}
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		// Fallback to current directory

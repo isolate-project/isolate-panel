@@ -4,7 +4,7 @@ import tsparser from '@typescript-eslint/parser';
 
 export default [
   {
-    ignores: ['dist/**', 'coverage/**', 'node_modules/**', '.vite/**', '*.cjs', 'eslint.config.js']
+    ignores: ['dist/**', 'coverage/**', 'node_modules/**', '.vite/**', '*.cjs', 'eslint.config.js', 'playwright-report/**', 'test-results/**', 'playwright-report-live/**']
   },
   pluginJs.configs.recommended,
   {
