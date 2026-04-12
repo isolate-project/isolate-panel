@@ -117,7 +117,7 @@ func runUserList(cmd *cobra.Command, args []string) error {
 	}
 
 	var result struct {
-		Data []map[string]interface{} `json:"data"`
+		Data []map[string]interface{} `json:"users"`
 	}
 
 	if err := client.Get("/api/users", &result); err != nil {

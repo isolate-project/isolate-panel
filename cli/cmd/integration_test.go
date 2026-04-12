@@ -54,7 +54,7 @@ func TestE2E_UserList(t *testing.T) {
 
 		response := map[string]interface{}{
 			"success": true,
-			"data": []map[string]interface{}{
+			"users": []map[string]interface{}{
 				{"id": 1, "username": "admin", "email": "admin@local.host", "is_active": true},
 			},
 		}
