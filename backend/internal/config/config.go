@@ -2,6 +2,8 @@ package config
 
 import (
 	"fmt"
+	"os"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/viper"
@@ -133,24 +135,43 @@ func Load(configPath string) (*Config, error) {
 		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
 	}
 
-	// Override with specific environment variables
+	// Override with specific environment variables (supporting both prefixed and non-prefixed)
 	if jwtSecret := v.GetString("JWT_SECRET"); jwtSecret != "" {
 		config.JWT.Secret = jwtSecret
+	} else if val := os.Getenv("JWT_SECRET"); val != "" {
+		config.JWT.Secret = val
 	}
+
 	if dbPath := v.GetString("DATABASE_PATH"); dbPath != "" {
 		config.Database.Path = dbPath
+	} else if val := os.Getenv("DATABASE_PATH"); val != "" {
+		config.Database.Path = val
 	}
+
 	if port := v.GetInt("PORT"); port != 0 {
 		config.App.Port = port
+	} else if val := os.Getenv("PORT"); val != "" {
+		if p, err := strconv.Atoi(val); err == nil {
+			config.App.Port = p
+		}
 	}
+
 	if appEnv := v.GetString("APP_ENV"); appEnv != "" {
 		config.App.Env = appEnv
+	} else if val := os.Getenv("APP_ENV"); val != "" {
+		config.App.Env = val
 	}
+
 	if logLevel := v.GetString("LOG_LEVEL"); logLevel != "" {
 		config.Logging.Level = logLevel
+	} else if val := os.Getenv("LOG_LEVEL"); val != "" {
+		config.Logging.Level = val
 	}
+
 	if panelURL := v.GetString("APP_PANEL_URL"); panelURL != "" {
 		config.App.PanelURL = panelURL
+	} else if val := os.Getenv("APP_PANEL_URL"); val != "" {
+		config.App.PanelURL = val
 	}
 
 	// Core API keys from environment (without ISOLATE_ prefix for backwards compat)
