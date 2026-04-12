@@ -94,7 +94,8 @@ func TestBackupHandler_CreateBackup(t *testing.T) {
 func TestBackupHandler_GetBackup(t *testing.T) {
 	app, svc := setupBackupApp(t)
 
-	mockBackup, _ := svc.CreateBackup(services.BackupRequest{})
+	mockBackup, err := svc.CreateBackup(services.BackupRequest{})
+	require.NoError(t, err)
 	time.Sleep(10 * time.Millisecond) // Give the goroutine time to finish creating backup
 	
 	req, _ := http.NewRequest(http.MethodGet, "/backups/"+uint2str(mockBackup.ID), nil)
@@ -106,7 +107,8 @@ func TestBackupHandler_GetBackup(t *testing.T) {
 func TestBackupHandler_DeleteBackup(t *testing.T) {
 	app, svc := setupBackupApp(t)
 
-	mockBackup, _ := svc.CreateBackup(services.BackupRequest{})
+	mockBackup, err := svc.CreateBackup(services.BackupRequest{})
+	require.NoError(t, err)
 	time.Sleep(10 * time.Millisecond) // Give the goroutine time to finish creating backup
 	
 	req, _ := http.NewRequest(http.MethodDelete, "/backups/"+uint2str(mockBackup.ID), nil)
