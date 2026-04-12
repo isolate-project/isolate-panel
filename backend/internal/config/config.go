@@ -18,6 +18,7 @@ type Config struct {
 	Data          DataConfig          `mapstructure:"data"`
 	Notifications NotificationsConfig `mapstructure:"notifications"`
 	Traffic       TrafficConfig       `mapstructure:"traffic"`
+	Subscription  SubscriptionConfig  `mapstructure:"subscription"`
 }
 
 type AppConfig struct {
@@ -84,6 +85,12 @@ type TrafficConfig struct {
 	ConnInterval    int `mapstructure:"conn_interval"`    // seconds
 }
 
+type SubscriptionConfig struct {
+	Enabled bool `mapstructure:"enabled"`
+	Port    int  `mapstructure:"port"`
+	AutoTLS bool `mapstructure:"auto_tls"`
+}
+
 type CoresConfig struct {
 	ConfigDir     string `mapstructure:"config_dir"`
 	SupervisorURL string `mapstructure:"supervisor_url"`
@@ -141,6 +148,17 @@ func Load(configPath string) (*Config, error) {
 	}
 	if logLevel := v.GetString("LOG_LEVEL"); logLevel != "" {
 		config.Logging.Level = logLevel
+	}
+	if panelURL := v.GetString("APP_PANEL_URL"); panelURL != "" {
+		config.App.PanelURL = panelURL
+	}
+
+	// Core API keys from environment (without ISOLATE_ prefix for backwards compat)
+	if key := v.GetString("CORES_SINGBOX_API_KEY"); key != "" {
+		config.Cores.SingboxAPIKey = key
+	}
+	if key := v.GetString("CORES_MIHOMO_API_KEY"); key != "" {
+		config.Cores.MihomoAPIKey = key
 	}
 
 	return &config, nil

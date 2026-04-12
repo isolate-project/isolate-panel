@@ -54,4 +54,21 @@ func StopWorkers(a *App) {
 	if a.Cache != nil {
 		a.Cache.Close()
 	}
+
+	// Stop rate limiter cleanup goroutines
+	if a.LoginRL != nil {
+		a.LoginRL.Stop()
+	}
+	if a.ProtectedRL != nil {
+		a.ProtectedRL.Stop()
+	}
+	if a.HeavyRL != nil {
+		a.HeavyRL.Stop()
+	}
+	if a.SubTokenRL != nil {
+		a.SubTokenRL.Stop()
+	}
+	if a.SubIPRL != nil {
+		a.SubIPRL.Stop()
+	}
 }

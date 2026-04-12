@@ -22,6 +22,7 @@ func isValidEmail(email string) bool {
 type UserService struct {
 	db                  *gorm.DB
 	notificationService *NotificationService
+	subscriptions       *SubscriptionService
 }
 
 func NewUserService(db *gorm.DB, notificationService *NotificationService) *UserService {
@@ -29,6 +30,11 @@ func NewUserService(db *gorm.DB, notificationService *NotificationService) *User
 		db:                  db,
 		notificationService: notificationService,
 	}
+}
+
+// SetSubscriptionService injects SubscriptionService for cache invalidation (breaks circular dep)
+func (us *UserService) SetSubscriptionService(subs *SubscriptionService) {
+	us.subscriptions = subs
 }
 
 type CreateUserRequest struct {
@@ -286,6 +292,11 @@ func (us *UserService) UpdateUser(id uint, req *UpdateUserRequest) (*models.User
 		return nil, err
 	}
 
+	// Invalidate subscription cache on any user change
+	if us.subscriptions != nil {
+		us.subscriptions.InvalidateUserCache(user.ID)
+	}
+
 	return &user, nil
 }
 
@@ -294,6 +305,11 @@ func (us *UserService) DeleteUser(id uint) error {
 	var user models.User
 	if err := us.db.First(&user, id).Error; err != nil {
 		return fmt.Errorf("user not found: %w", err)
+	}
+
+	// Invalidate subscription cache before deletion
+	if us.subscriptions != nil {
+		us.subscriptions.InvalidateUserCache(user.ID)
 	}
 
 	// Delete user (cascades to mappings)

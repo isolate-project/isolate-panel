@@ -5,6 +5,7 @@ app:
   port: 8080
   host: "0.0.0.0"
   admin_email: "admin@example.com"
+  panel_url: "" # Optional: override with APP_PANEL_URL env var for subscription links
 
 database:
   path: /app/data/isolate-panel.db
@@ -13,8 +14,8 @@ database:
 
 jwt:
   secret: "change-this-in-production-use-env-var"
-  access_token_ttl: 2592000
-  refresh_token_ttl: 7776000
+  access_token_ttl: 900       # 15 minutes
+  refresh_token_ttl: 604800    # 7 days
 
 logging:
   level: "info"
@@ -40,5 +41,10 @@ cores:
   xray_api_addr: "127.0.0.1:10085"
   singbox_api_addr: "127.0.0.1:9090"
   mihomo_api_addr: "127.0.0.1:9091"
-  singbox_api_key: "isolate-singbox-key"
-  mihomo_api_key: "isolate-mihomo-key"
+  singbox_api_key: ""  # Auto-generated: override via CORES_SINGBOX_API_KEY env var
+  mihomo_api_key: ""   # Auto-generated: override via CORES_MIHOMO_API_KEY env var
+
+subscription:
+  enabled: true
+  port: 443
+  auto_tls: true

@@ -116,6 +116,7 @@ func main() {
 	// Register routes and start background workers
 	isolateapp.SetupRoutes(fiberApp, application)
 	isolateapp.StartWorkers(application)
+	isolateapp.StartSubscriptionListener(application, cfg)
 
 	// Start HTTP server
 	addr := fmt.Sprintf("%s:%d", cfg.App.Host, cfg.App.Port)

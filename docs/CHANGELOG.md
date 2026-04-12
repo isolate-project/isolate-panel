@@ -112,7 +112,7 @@ First stable release. Covers all phases 0–14.
 ### Changed
 
 - Main entry point refactored: 460-line `main.go` → modular `internal/app/` (providers, routes, background workers)
-- Module path updated: `github.com/vovk4morkovk4/isolate-panel` → `github.com/isolate-project/isolate-panel`
+- Module path updated: `github.com/isolate-project/isolate-panel`
 - `docker-entrypoint.sh` reads `ADMIN_PASSWORD` from environment (no more hardcoded `admin`)
 - Database schema initialized via `cmd/migrate` (no duplication in entrypoint scripts)
 - Go version in CI and Dockerfile updated to 1.25

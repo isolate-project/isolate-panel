@@ -31,6 +31,8 @@ type App struct {
 	LoginRL     *middleware.RateLimiter
 	ProtectedRL *middleware.RateLimiter // 60 req/min per admin (standard)
 	HeavyRL     *middleware.RateLimiter // 10 req/min per admin (expensive ops)
+	SubTokenRL  *middleware.RateLimiter // subscription token rate limiter
+	SubIPRL     *middleware.RateLimiter // subscription IP rate limiter
 
 	// Core management
 	Cores     *cores.CoreManager
@@ -143,6 +145,7 @@ func NewApp(cfg *appconfig.Config, db *database.Database) (*App, error) {
 	a.Inbounds = services.NewInboundService(db.DB, a.Lifecycle, a.Ports)
 	a.Outbounds = services.NewOutboundService(db.DB, a.Config)
 	a.Subscriptions = services.NewSubscriptionService(db.DB, cfg.App.PanelURL, a.Cache)
+	a.Users.SetSubscriptionService(a.Subscriptions) // cache invalidation on user changes
 
 	// Monitoring services
 	a.Traffic = services.NewTrafficCollector(

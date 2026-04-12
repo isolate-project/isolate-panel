@@ -12,6 +12,12 @@ import (
 	"github.com/isolate-project/isolate-panel/internal/services"
 )
 
+// isValidSubscriptionToken validates subscription token format before DB lookup.
+// Tokens are base64url-encoded 32 bytes = 43-44 chars.
+func isValidSubscriptionToken(token string) bool {
+	return len(token) >= 32 && len(token) <= 128
+}
+
 type SubscriptionsHandler struct {
 	subscriptionService *services.SubscriptionService
 }
@@ -42,7 +48,7 @@ func (h *SubscriptionsHandler) GetAutoDetectSubscription(c fiber.Ctx) error {
 func (h *SubscriptionsHandler) GetV2RaySubscription(c fiber.Ctx) error {
 	start := time.Now()
 	token := c.Params("token")
-	if token == "" {
+	if token == "" || !isValidSubscriptionToken(token) {
 		return c.Status(fiber.StatusNotFound).SendString("Not Found")
 	}
 
@@ -62,7 +68,7 @@ func (h *SubscriptionsHandler) GetV2RaySubscription(c fiber.Ctx) error {
 	h.subscriptionService.LogAccess(data.User.ID, c.IP(), c.Get("User-Agent"), "v2ray", elapsed, false)
 
 	c.Set("Content-Type", "text/plain; charset=utf-8")
-	c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s.txt", data.User.Username))
+	c.Set("Content-Disposition", "attachment; filename=subscription.txt")
 	c.Set("Subscription-Userinfo", h.buildUserinfo(data))
 	c.Set("Profile-Update-Interval", "24") // 24 hours
 	return c.SendString(result)
@@ -72,7 +78,7 @@ func (h *SubscriptionsHandler) GetV2RaySubscription(c fiber.Ctx) error {
 func (h *SubscriptionsHandler) GetClashSubscription(c fiber.Ctx) error {
 	start := time.Now()
 	token := c.Params("token")
-	if token == "" {
+	if token == "" || !isValidSubscriptionToken(token) {
 		return c.Status(fiber.StatusNotFound).SendString("Not Found")
 	}
 
@@ -90,7 +96,7 @@ func (h *SubscriptionsHandler) GetClashSubscription(c fiber.Ctx) error {
 	h.subscriptionService.LogAccess(data.User.ID, c.IP(), c.Get("User-Agent"), "clash", elapsed, false)
 
 	c.Set("Content-Type", "text/yaml; charset=utf-8")
-	c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s.yaml", data.User.Username))
+	c.Set("Content-Disposition", "attachment; filename=subscription.yaml")
 	c.Set("Subscription-Userinfo", h.buildUserinfo(data))
 	c.Set("Profile-Update-Interval", "24") // 24 hours
 	return c.SendString(result)
@@ -100,7 +106,7 @@ func (h *SubscriptionsHandler) GetClashSubscription(c fiber.Ctx) error {
 func (h *SubscriptionsHandler) GetSingboxSubscription(c fiber.Ctx) error {
 	start := time.Now()
 	token := c.Params("token")
-	if token == "" {
+	if token == "" || !isValidSubscriptionToken(token) {
 		return c.Status(fiber.StatusNotFound).SendString("Not Found")
 	}
 
@@ -118,7 +124,7 @@ func (h *SubscriptionsHandler) GetSingboxSubscription(c fiber.Ctx) error {
 	h.subscriptionService.LogAccess(data.User.ID, c.IP(), c.Get("User-Agent"), "singbox", elapsed, false)
 
 	c.Set("Content-Type", "application/json; charset=utf-8")
-	c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s.json", data.User.Username))
+	c.Set("Content-Disposition", "attachment; filename=subscription.json")
 	c.Set("Subscription-Userinfo", h.buildUserinfo(data))
 	c.Set("Profile-Update-Interval", "24") // 24 hours
 	return c.SendString(result)
@@ -133,6 +139,11 @@ func (h *SubscriptionsHandler) RedirectShortURL(c fiber.Ctx) error {
 
 	shortURL, err := h.subscriptionService.ResolveShortURL(shortCode)
 	if err != nil {
+		return c.Status(fiber.StatusNotFound).SendString("Not Found")
+	}
+
+	// Guard against open redirect — only allow internal /sub/ paths
+	if !strings.HasPrefix(shortURL.FullURL, "/sub/") {
 		return c.Status(fiber.StatusNotFound).SendString("Not Found")
 	}
 
@@ -181,7 +192,7 @@ func (h *SubscriptionsHandler) GetUserShortURL(c fiber.Ctx) error {
 // GetQRCode generates a QR code for the subscription URL
 func (h *SubscriptionsHandler) GetQRCode(c fiber.Ctx) error {
 	token := c.Params("token")
-	if token == "" {
+	if token == "" || !isValidSubscriptionToken(token) {
 		return c.Status(fiber.StatusNotFound).SendString("Not Found")
 	}
 

@@ -199,8 +199,8 @@ download_files() {
         cp "$SCRIPT_DIR/.env.example" "$INSTALL_DIR/.env.example"
     else
         log_info "Downloading from GitHub..."
-        curl -sL "https://raw.githubusercontent.com/your-org/isolate-panel/main/docker/docker-compose.yml" -o "$INSTALL_DIR/docker-compose.yml"
-        curl -sL "https://raw.githubusercontent.com/your-org/isolate-panel/main/docker/.env.example" -o "$INSTALL_DIR/.env.example"
+        curl -sL "https://raw.githubusercontent.com/isolate-project/isolate-panel/main/docker/docker-compose.yml" -o "$INSTALL_DIR/docker-compose.yml"
+        curl -sL "https://raw.githubusercontent.com/isolate-project/isolate-panel/main/docker/.env.example" -o "$INSTALL_DIR/.env.example"
     fi
     
     log_success "Configuration files downloaded"

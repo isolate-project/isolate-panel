@@ -143,6 +143,25 @@ func (dr *DataRetentionService) cleanupOldData() {
 		totalDeleted += result.RowsAffected
 	}
 
+	// Expired refresh tokens: cleanup tokens past their expiry
+	result = dr.db.Where("expires_at < ?", now).Delete(&models.RefreshToken{})
+	if result.Error != nil {
+		dr.log.Debug().Err(result.Error).Msg("Failed to cleanup expired refresh tokens (table may not exist)")
+	} else if result.RowsAffected > 0 {
+		dr.log.Info().Int64("deleted", result.RowsAffected).Msg("Cleaned up expired refresh tokens")
+		totalDeleted += result.RowsAffected
+	}
+
+	// Subscription access logs: keep 90 days
+	subAccessCutoff := now.AddDate(0, 0, -90)
+	result = dr.db.Where("created_at < ?", subAccessCutoff).Delete(&models.SubscriptionAccess{})
+	if result.Error != nil {
+		dr.log.Debug().Err(result.Error).Msg("Failed to cleanup subscription access logs (table may not exist)")
+	} else if result.RowsAffected > 0 {
+		dr.log.Info().Int64("deleted", result.RowsAffected).Msg("Cleaned up old subscription access logs")
+		totalDeleted += result.RowsAffected
+	}
+
 	if totalDeleted > 0 {
 		dr.log.Info().Int64("total_deleted", totalDeleted).Msg("Data retention cleanup completed")
 	} else {

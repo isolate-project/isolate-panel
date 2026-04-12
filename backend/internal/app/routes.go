@@ -15,10 +15,11 @@ import (
 
 // SetupRoutes registers all application routes on the Fiber app.
 func SetupRoutes(fiberApp *fiber.App, a *App) {
-	// Swagger UI (before SPA middleware so /api/docs isn't caught by it)
-	fiberApp.Get("/api/docs", func(c fiber.Ctx) error {
-		c.Set("Content-Type", "text/html; charset=utf-8")
-		return c.SendString(`<!DOCTYPE html>
+	// Swagger UI — disabled in production
+	if os.Getenv("APP_ENV") != "production" {
+		fiberApp.Get("/api/docs", func(c fiber.Ctx) error {
+			c.Set("Content-Type", "text/html; charset=utf-8")
+			return c.SendString(`<!DOCTYPE html>
 <html>
 <head>
   <title>Isolate Panel API</title>
@@ -40,10 +41,11 @@ SwaggerUIBundle({
 </script>
 </body>
 </html>`)
-	})
-	fiberApp.Get("/api/docs/swagger.json", func(c fiber.Ctx) error {
-		return c.SendFile("docs/swagger/swagger.json")
-	})
+		})
+		fiberApp.Get("/api/docs/swagger.json", func(c fiber.Ctx) error {
+			return c.SendFile("docs/swagger/swagger.json")
+		})
+	}
 
 	// Health check (must be before SPA static middleware)
 	fiberApp.Get("/health", func(c fiber.Ctx) error {

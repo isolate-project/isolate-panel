@@ -11,7 +11,7 @@ type User struct {
 
 	// Universal Credentials
 	UUID              string  `gorm:"uniqueIndex;not null" json:"uuid"`
-	Password          string  `gorm:"not null" json:"password"` // plaintext in MVP
+	Password          string  `gorm:"not null" json:"-"`
 	Token             *string `gorm:"uniqueIndex" json:"token"`
 	SubscriptionToken string  `gorm:"uniqueIndex;not null" json:"subscription_token"`
 

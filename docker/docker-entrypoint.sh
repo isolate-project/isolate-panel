@@ -3,6 +3,22 @@ set -e
 
 echo "🚀 Isolate Panel Starting..."
 
+# ── Auto-generate core API keys ──────────────────────────────────
+SECRETS_FILE="/app/data/.core-secrets"
+if [ ! -f "$SECRETS_FILE" ]; then
+    echo "🔑 Generating core API keys..."
+    SINGBOX_API_KEY=$(head -c 32 /dev/urandom | xxd -p -c 64 | head -c 64)
+    MIHOMO_API_KEY=$(head -c 32 /dev/urandom | xxd -p -c 64 | head -c 64)
+    echo "SINGBOX_API_KEY=$SINGBOX_API_KEY" > "$SECRETS_FILE"
+    echo "MIHOMO_API_KEY=$MIHOMO_API_KEY" >> "$SECRETS_FILE"
+    chmod 600 "$SECRETS_FILE"
+    echo "  ✅ API keys generated and saved to $SECRETS_FILE"
+fi
+# shellcheck disable=SC1090
+. "$SECRETS_FILE"
+export CORES_SINGBOX_API_KEY="${SINGBOX_API_KEY}"
+export CORES_MIHOMO_API_KEY="${MIHOMO_API_KEY}"
+
 # Create necessary directories
 mkdir -p /app/data/cores/xray
 mkdir -p /app/data/cores/mihomo
@@ -110,7 +126,7 @@ fi
 # Sing-box initial config
 if [ ! -f "/app/data/cores/singbox/config.json" ]; then
     echo "  📝 Creating initial Sing-box config..."
-    cat > /app/data/cores/singbox/config.json << 'SINGBOX_EOF'
+    cat > /app/data/cores/singbox/config.json << SINGBOX_EOF
 {
   "log": {
     "level": "warn"
@@ -118,7 +134,7 @@ if [ ! -f "/app/data/cores/singbox/config.json" ]; then
   "experimental": {
     "clash_api": {
       "external_controller": "127.0.0.1:9090",
-      "secret": "isolate-singbox-key"
+      "secret": "${SINGBOX_API_KEY}"
     }
   },
   "inbounds": [],
@@ -142,13 +158,13 @@ fi
 # Mihomo initial config
 if [ ! -f "/app/data/cores/mihomo/config.yaml" ]; then
     echo "  📝 Creating initial Mihomo config..."
-    cat > /app/data/cores/mihomo/config.yaml << 'MIHOMO_EOF'
+    cat > /app/data/cores/mihomo/config.yaml << MIHOMO_EOF
 mixed-port: 0
 allow-lan: false
 mode: rule
 log-level: warning
 external-controller: 127.0.0.1:9091
-secret: "isolate-mihomo-key"
+secret: "${MIHOMO_API_KEY}"
 
 proxies: []
 

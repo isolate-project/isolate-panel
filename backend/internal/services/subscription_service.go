@@ -375,6 +375,66 @@ func (s *SubscriptionService) RegenerateToken(userID uint) (string, error) {
 	return newToken, nil
 }
 
+// inboundTLSInfo holds resolved TLS/SNI information for subscription link generation
+type inboundTLSInfo struct {
+	SNI   string // domain for SNI (from certificate or Reality)
+	IsTLS bool   // whether TLS is enabled
+}
+
+// getInboundTLSInfo resolves SNI for a given inbound:
+//   - Reality: SNI from user-defined serverNames (masquerade domains)
+//   - TLS: SNI from bound certificate's domain
+func (s *SubscriptionService) getInboundTLSInfo(inbound models.Inbound) inboundTLSInfo {
+	info := inboundTLSInfo{IsTLS: inbound.TLSEnabled}
+
+	// Reality — SNI from serverNames (user-configured masquerade domain)
+	if inbound.RealityEnabled && inbound.RealityConfigJSON != "" {
+		var realityCfg map[string]interface{}
+		if json.Unmarshal([]byte(inbound.RealityConfigJSON), &realityCfg) == nil {
+			if sns, ok := realityCfg["serverNames"].([]interface{}); ok && len(sns) > 0 {
+				if sn, ok := sns[0].(string); ok {
+					info.SNI = sn
+				}
+			}
+		}
+		info.IsTLS = true // Reality always implies TLS
+		return info
+	}
+
+	// Standard TLS — SNI from bound certificate's domain
+	if inbound.TLSEnabled && inbound.TLSCertID != nil {
+		var cert models.Certificate
+		if s.db.First(&cert, *inbound.TLSCertID).Error == nil && cert.Domain != "" {
+			info.SNI = cert.Domain
+		}
+	}
+
+	return info
+}
+
+// resolveServerAddr determines the public server address for subscription links.
+// Priority: 1) cert.Domain  2) panelURL hostname  3) "SERVER_IP" fallback
+func (s *SubscriptionService) resolveServerAddr(inbound models.Inbound) string {
+	addr := inbound.ListenAddress
+	if addr == "0.0.0.0" || addr == "" || addr == "::" {
+		// 1. Domain from bound TLS certificate
+		if inbound.TLSCertID != nil {
+			var cert models.Certificate
+			if s.db.First(&cert, *inbound.TLSCertID).Error == nil && cert.Domain != "" {
+				return cert.Domain
+			}
+		}
+		// 2. Hostname from panelURL
+		if u, err := url.Parse(s.panelURL); err == nil && u.Hostname() != "" &&
+			u.Hostname() != "localhost" && u.Hostname() != "127.0.0.1" {
+			return u.Hostname()
+		}
+		// 3. Last resort fallback
+		return "SERVER_IP"
+	}
+	return addr
+}
+
 // generateProxyLink generates a proxy link for V2Ray format
 func (s *SubscriptionService) generateProxyLink(user models.User, inbound models.Inbound) string {
 	var config map[string]interface{}
@@ -387,10 +447,7 @@ func (s *SubscriptionService) generateProxyLink(user models.User, inbound models
 		config = make(map[string]interface{})
 	}
 
-	serverAddr := inbound.ListenAddress
-	if serverAddr == "0.0.0.0" || serverAddr == "" {
-		serverAddr = "SERVER_IP"
-	}
+	serverAddr := s.resolveServerAddr(inbound)
 
 	switch inbound.Protocol {
 	case "vless":
@@ -437,6 +494,10 @@ func (s *SubscriptionService) generateVLESSLink(user models.User, inbound models
 	}
 	params.Set("type", getStringOrDefault(config, "transport", "tcp"))
 
+	if tlsInfo := s.getInboundTLSInfo(inbound); tlsInfo.SNI != "" {
+		params.Set("sni", tlsInfo.SNI)
+	}
+
 	return fmt.Sprintf("vless://%s@%s:%d?%s#%s",
 		user.UUID, server, inbound.Port,
 		params.Encode(), url.PathEscape(inbound.Name))
@@ -456,6 +517,9 @@ func (s *SubscriptionService) generateVMessLink(user models.User, inbound models
 	}
 	if inbound.TLSEnabled {
 		vmessConfig["tls"] = "tls"
+		if tlsInfo := s.getInboundTLSInfo(inbound); tlsInfo.SNI != "" {
+			vmessConfig["sni"] = tlsInfo.SNI
+		}
 	}
 
 	jsonData, _ := json.Marshal(vmessConfig)
@@ -468,6 +532,10 @@ func (s *SubscriptionService) generateTrojanLink(user models.User, inbound model
 		params.Set("security", "tls")
 	}
 	params.Set("type", getStringOrDefault(config, "transport", "tcp"))
+
+	if tlsInfo := s.getInboundTLSInfo(inbound); tlsInfo.SNI != "" {
+		params.Set("sni", tlsInfo.SNI)
+	}
 
 	return fmt.Sprintf("trojan://%s@%s:%d?%s#%s",
 		user.UUID, server, inbound.Port,
@@ -482,8 +550,14 @@ func (s *SubscriptionService) generateSSLink(user models.User, inbound models.In
 }
 
 func (s *SubscriptionService) generateHysteria2Link(user models.User, inbound models.Inbound, _ map[string]interface{}, server string) string {
-	return fmt.Sprintf("hysteria2://%s@%s:%d?insecure=1#%s",
-		user.UUID, server, inbound.Port, url.PathEscape(inbound.Name))
+	params := url.Values{}
+	params.Set("insecure", "1")
+	if tlsInfo := s.getInboundTLSInfo(inbound); tlsInfo.SNI != "" {
+		params.Set("sni", tlsInfo.SNI)
+	}
+	return fmt.Sprintf("hysteria2://%s@%s:%d?%s#%s",
+		user.UUID, server, inbound.Port,
+		params.Encode(), url.PathEscape(inbound.Name))
 }
 
 func (s *SubscriptionService) generateTUICv4Link(user models.User, inbound models.Inbound, config map[string]interface{}, server string) string {
@@ -492,6 +566,9 @@ func (s *SubscriptionService) generateTUICv4Link(user models.User, inbound model
 	params.Set("alpn", getStringOrDefault(config, "alpn", "h3"))
 	if inbound.TLSEnabled {
 		params.Set("allow_insecure", "1")
+	}
+	if tlsInfo := s.getInboundTLSInfo(inbound); tlsInfo.SNI != "" {
+		params.Set("sni", tlsInfo.SNI)
 	}
 	token := user.UUID
 	if user.Token != nil && *user.Token != "" {
@@ -508,6 +585,9 @@ func (s *SubscriptionService) generateTUICv5Link(user models.User, inbound model
 	params.Set("alpn", getStringOrDefault(config, "alpn", "h3"))
 	if inbound.TLSEnabled {
 		params.Set("allow_insecure", "1")
+	}
+	if tlsInfo := s.getInboundTLSInfo(inbound); tlsInfo.SNI != "" {
+		params.Set("sni", tlsInfo.SNI)
 	}
 	password := user.UUID
 	if user.Token != nil && *user.Token != "" {
@@ -592,33 +672,48 @@ func (s *SubscriptionService) generateClashProxy(user models.User, inbound model
 		config = make(map[string]interface{})
 	}
 
-	server := inbound.ListenAddress
-	if server == "0.0.0.0" || server == "" {
-		server = "SERVER_IP"
+	server := s.resolveServerAddr(inbound)
+
+	tlsInfo := s.getInboundTLSInfo(inbound)
+	sni := server
+	if tlsInfo.SNI != "" {
+		sni = tlsInfo.SNI
 	}
 
 	name := inbound.Name
 
 	switch inbound.Protocol {
 	case "vless":
-		return fmt.Sprintf("  - name: %s\n    type: vless\n    server: %s\n    port: %d\n    uuid: %s\n    tls: %t\n    skip-cert-verify: true\n    network: %s\n",
+		entry := fmt.Sprintf("  - name: %s\n    type: vless\n    server: %s\n    port: %d\n    uuid: %s\n    tls: %t\n    skip-cert-verify: true\n    network: %s\n",
 			name, server, inbound.Port, user.UUID, inbound.TLSEnabled,
-			getStringOrDefault(config, "transport", "tcp")), name
+			getStringOrDefault(config, "transport", "tcp"))
+		if inbound.TLSEnabled && sni != server {
+			entry += fmt.Sprintf("    servername: %s\n", sni)
+		}
+		return entry, name
 	case "vmess":
-		return fmt.Sprintf("  - name: %s\n    type: vmess\n    server: %s\n    port: %d\n    uuid: %s\n    alterId: 0\n    cipher: auto\n    tls: %t\n    skip-cert-verify: true\n    network: %s\n",
+		entry := fmt.Sprintf("  - name: %s\n    type: vmess\n    server: %s\n    port: %d\n    uuid: %s\n    alterId: 0\n    cipher: auto\n    tls: %t\n    skip-cert-verify: true\n    network: %s\n",
 			name, server, inbound.Port, user.UUID, inbound.TLSEnabled,
-			getStringOrDefault(config, "transport", "tcp")), name
+			getStringOrDefault(config, "transport", "tcp"))
+		if inbound.TLSEnabled && sni != server {
+			entry += fmt.Sprintf("    servername: %s\n", sni)
+		}
+		return entry, name
 	case "trojan":
 		return fmt.Sprintf("  - name: %s\n    type: trojan\n    server: %s\n    port: %d\n    password: %s\n    sni: %s\n    skip-cert-verify: true\n",
-			name, server, inbound.Port, user.UUID, server), name
+			name, server, inbound.Port, user.UUID, sni), name
 	case "shadowsocks":
 		return fmt.Sprintf("  - name: %s\n    type: ss\n    server: %s\n    port: %d\n    cipher: %s\n    password: %s\n",
 			name, server, inbound.Port,
 			getStringOrDefault(config, "method", "aes-256-gcm"),
 			user.UUID), name
 	case "hysteria2":
-		return fmt.Sprintf("  - name: %s\n    type: hysteria2\n    server: %s\n    port: %d\n    password: %s\n    skip-cert-verify: true\n",
-			name, server, inbound.Port, user.UUID), name
+		entry := fmt.Sprintf("  - name: %s\n    type: hysteria2\n    server: %s\n    port: %d\n    password: %s\n    skip-cert-verify: true\n",
+			name, server, inbound.Port, user.UUID)
+		if sni != server {
+			entry += fmt.Sprintf("    sni: %s\n", sni)
+		}
+		return entry, name
 	case "tuic_v4":
 		token := user.UUID
 		if user.Token != nil && *user.Token != "" {
@@ -711,14 +806,15 @@ func (s *SubscriptionService) generateSingboxOutbound(user models.User, inbound 
 		config = make(map[string]interface{})
 	}
 
-	server := inbound.ListenAddress
-	if server == "0.0.0.0" || server == "" {
-		server = "SERVER_IP"
-	}
+	server := s.resolveServerAddr(inbound)
 
+	tlsInfo := s.getInboundTLSInfo(inbound)
 	tlsConfig := map[string]interface{}{
 		"enabled":  true,
 		"insecure": true,
+	}
+	if tlsInfo.SNI != "" {
+		tlsConfig["server_name"] = tlsInfo.SNI
 	}
 
 	switch inbound.Protocol {
@@ -757,11 +853,16 @@ func (s *SubscriptionService) generateSingboxOutbound(user models.User, inbound 
 			"password":    user.UUID,
 		}
 		if inbound.TLSEnabled {
-			ob["tls"] = map[string]interface{}{
-				"enabled":     true,
-				"insecure":    true,
-				"server_name": server,
+			trojanTLS := map[string]interface{}{
+				"enabled":  true,
+				"insecure": true,
 			}
+			if tlsInfo.SNI != "" {
+				trojanTLS["server_name"] = tlsInfo.SNI
+			} else {
+				trojanTLS["server_name"] = server
+			}
+			ob["tls"] = trojanTLS
 		}
 		return ob
 	case "shadowsocks":
