@@ -34,4 +34,4 @@ security:
 
 cores:
   config_dir: "./data/cores"
-  supervisor_url: "http://localhost:9001/RPC2"
+  supervisor_url: "http://127.0.0.1:9001/RPC2"
