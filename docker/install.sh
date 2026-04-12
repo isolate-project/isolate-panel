@@ -25,7 +25,7 @@ INSTALL_DIR="/opt/isolate-panel"
 
 # GitHub repository
 GITHUB_REPO="isolate-project/isolate-panel"
-GITHUB_RAW="https://raw.githubusercontent.com/${GITHUB_REPO}/main"
+GITHUB_RAW="https://raw.githubusercontent.com/${GITHUB_REPO}/master"
 
 # =============================================================================
 # Helper Functions
