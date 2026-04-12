@@ -28,12 +28,12 @@ services:
       # - "2053:2053/tcp"          # Alternative port
       #
       # Or use a port range for flexibility:
-      - "2000-2100:2000-2100/tcp"  # Inbound port range (TCP)
-      - "2000-2100:2000-2100/udp"  # Inbound port range (UDP)
+      - "2000-2050:2000-2050/tcp"  # Inbound port range (TCP)
+      - "2000-2050:2000-2050/udp"  # Inbound port range (UDP)
       #
       # ⚠️ Don't forget to open these ports in your firewall:
-      #    ufw allow 2000:2100/tcp
-      #    ufw allow 2000:2100/udp
+      #    ufw allow 2000:2050/tcp
+      #    ufw allow 2000:2050/udp
 
     volumes:
       - ./data:/app/data
