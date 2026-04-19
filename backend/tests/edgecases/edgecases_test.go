@@ -110,7 +110,7 @@ func TestInboundService_InvalidPort(t *testing.T) {
 	// Create test core
 	core := &models.Core{
 		Name:      "singbox",
-		Version:   "1.13.3",
+		Version:   "1.13.8",
 		IsEnabled: true,
 		IsRunning: false,
 	}
@@ -274,7 +274,7 @@ func TestInboundService_EmptyName(t *testing.T) {
 	// Create test core
 	db.Create(&models.Core{
 		Name:      "singbox",
-		Version:   "1.13.3",
+		Version:   "1.13.8",
 		IsEnabled: true,
 		IsRunning: false,
 	})
@@ -304,7 +304,7 @@ func TestInboundService_EmptyProtocol(t *testing.T) {
 	// Create test core
 	db.Create(&models.Core{
 		Name:      "singbox",
-		Version:   "1.13.3",
+		Version:   "1.13.8",
 		IsEnabled: true,
 		IsRunning: false,
 	})

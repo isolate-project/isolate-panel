@@ -175,13 +175,19 @@ func (tc *TrafficCollector) collectStats() {
 		}
 
 		if len(statsToInsert) > 0 {
-			tc.db.CreateInBatches(statsToInsert, 100)
+			if err := tc.db.CreateInBatches(statsToInsert, 100).Error; err != nil {
+				logger.Log.Error().Err(err).Str("core", core.Name).Int("count", len(statsToInsert)).
+					Msg("traffic_collector: failed to insert traffic stats")
+			}
 		}
 
 		// Atomic UPDATE without SELECT for each user
 		for userID, bytes := range userTraffic {
-			tc.db.Model(&models.User{}).Where("id = ?", userID).
-				Update("traffic_used_bytes", gorm.Expr("traffic_used_bytes + ?", int64(bytes)))
+			if err := tc.db.Model(&models.User{}).Where("id = ?", userID).
+				Update("traffic_used_bytes", gorm.Expr("traffic_used_bytes + ?", int64(bytes))).Error; err != nil {
+				logger.Log.Error().Err(err).Uint("user_id", userID).Uint64("bytes", bytes).
+					Msg("traffic_collector: failed to update user traffic")
+			}
 		}
 	}
 }

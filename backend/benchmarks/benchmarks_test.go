@@ -66,7 +66,7 @@ func BenchmarkInboundService_ListInbounds(b *testing.B) {
 	// Create test core
 	db.Create(&models.Core{
 		Name:      "singbox",
-		Version:   "1.13.3",
+		Version:   "1.13.8",
 		IsEnabled: true,
 		IsRunning: false,
 	})
@@ -104,7 +104,7 @@ func BenchmarkSubscriptionService_GenerateV2Ray(b *testing.B) {
 
 	db.Create(&models.Core{
 		Name:      "singbox",
-		Version:   "1.13.3",
+		Version:   "1.13.8",
 		IsEnabled: true,
 	})
 

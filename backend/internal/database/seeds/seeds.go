@@ -149,7 +149,7 @@ func (s *Seeder) SeedCores() error {
 	cores := []Core{
 		{
 			Name:       "singbox",
-			Version:    "1.13.3",
+			Version:    "1.13.8",
 			IsEnabled:  true,
 			IsRunning:  false,
 			ConfigPath: "/app/data/cores/singbox/config.json",
@@ -157,7 +157,7 @@ func (s *Seeder) SeedCores() error {
 		},
 		{
 			Name:       "xray",
-			Version:    "26.2.6",
+			Version:    "26.3.27",
 			IsEnabled:  true,
 			IsRunning:  false,
 			ConfigPath: "/app/data/cores/xray/config.json",
@@ -165,7 +165,7 @@ func (s *Seeder) SeedCores() error {
 		},
 		{
 			Name:       "mihomo",
-			Version:    "1.19.21",
+			Version:    "1.19.23",
 			IsEnabled:  true,
 			IsRunning:  false,
 			ConfigPath: "/app/data/cores/mihomo/config.yaml",

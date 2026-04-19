@@ -21,6 +21,7 @@ type Config struct {
 	Notifications NotificationsConfig `mapstructure:"notifications"`
 	Traffic       TrafficConfig       `mapstructure:"traffic"`
 	Subscription  SubscriptionConfig  `mapstructure:"subscription"`
+	HAProxy       HAProxyConfig       `mapstructure:"haproxy"`
 }
 
 type AppConfig struct {
@@ -93,6 +94,10 @@ type SubscriptionConfig struct {
 	AutoTLS bool `mapstructure:"auto_tls"`
 }
 
+type HAProxyConfig struct {
+	StatsPassword string `mapstructure:"stats_password"`
+}
+
 type CoresConfig struct {
 	ConfigDir     string `mapstructure:"config_dir"`
 	SupervisorURL string `mapstructure:"supervisor_url"`
@@ -103,6 +108,12 @@ type CoresConfig struct {
 	// API keys for Sing-box and Mihomo (Clash-compatible API)
 	SingboxAPIKey string `mapstructure:"singbox_api_key"`
 	MihomoAPIKey  string `mapstructure:"mihomo_api_key"`
+	// Configurable ports and paths (override hardcoded defaults)
+	APIPort       int    `mapstructure:"api_port"`        // Xray gRPC API port (default: 10085)
+	LogDirectory  string `mapstructure:"log_directory"`   // Core log directory (default: /var/log/supervisor)
+	ClashAPIPort  int    `mapstructure:"clash_api_port"`  // Sing-box Clash API port (default: 9090)
+	MihomoAPIPort int    `mapstructure:"mihomo_api_port"` // Mihomo API port (default: 9091)
+	V2RayAPIPort  int    `mapstructure:"v2ray_api_port"` // Sing-box V2Ray API port (default: 10086)
 }
 
 // Load loads configuration from file and environment variables
@@ -180,6 +191,38 @@ func Load(configPath string) (*Config, error) {
 	}
 	if key := v.GetString("CORES_MIHOMO_API_KEY"); key != "" {
 		config.Cores.MihomoAPIKey = key
+	}
+
+	// Core ports/paths from environment (ISOLATE_CORE_* prefix)
+	if val := os.Getenv("ISOLATE_CORE_API_PORT"); val != "" {
+		if n, err := strconv.Atoi(val); err == nil {
+			config.Cores.APIPort = n
+		}
+	}
+	if val := os.Getenv("ISOLATE_CORE_LOG_DIRECTORY"); val != "" {
+		config.Cores.LogDirectory = val
+	}
+	if val := os.Getenv("ISOLATE_CORE_CLASH_API_PORT"); val != "" {
+		if n, err := strconv.Atoi(val); err == nil {
+			config.Cores.ClashAPIPort = n
+		}
+	}
+	if val := os.Getenv("ISOLATE_CORE_MIHOMO_API_PORT"); val != "" {
+		if n, err := strconv.Atoi(val); err == nil {
+			config.Cores.MihomoAPIPort = n
+		}
+	}
+	if val := os.Getenv("ISOLATE_CORE_V2RAY_API_PORT"); val != "" {
+		if n, err := strconv.Atoi(val); err == nil {
+			config.Cores.V2RayAPIPort = n
+		}
+	}
+
+	// HAProxy stats password from environment
+	if password := v.GetString("HAPROXY_STATS_PASSWORD"); password != "" {
+		config.HAProxy.StatsPassword = password
+	} else if val := os.Getenv("HAPROXY_STATS_PASSWORD"); val != "" {
+		config.HAProxy.StatsPassword = val
 	}
 
 	return &config, nil

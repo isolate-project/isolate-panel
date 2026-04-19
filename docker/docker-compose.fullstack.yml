@@ -1,0 +1,211 @@
+name: isolate-panel-fullstack
+
+services:
+  # ============================================================================
+  # Main Application
+  # ============================================================================
+  isolate-panel:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: production
+    container_name: isolate-panel-fullstack
+    ports:
+      - "8080:8080"
+    environment:
+      - APP_ENV=development
+      - PORT=8080
+      - DATABASE_PATH=/app/data/isolate-panel.db
+      - LOG_LEVEL=debug
+      - JWT_SECRET=test-jwt-secret-for-fullstack-tests-only
+      - JWT_EXPIRY_HOURS=720
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=admin
+      - MONITORING_MODE=full
+      - TZ=UTC
+      - XRAY_CONFIG_PATH=/shared-configs/xray.json
+      - SINGBOX_CONFIG_PATH=/shared-configs/singbox.json
+      - MIHOMO_CONFIG_PATH=/shared-configs/mihomo.yaml
+      - SUPERVISORD_SOCKET=/var/run/supervisor.sock
+    volumes:
+      # Shared volume for core configs (panel writes, cores read)
+      - fullstack-configs:/shared-configs
+      # Override supervisord config to autostart all cores in test mode
+      - ./supervisord.fullstack.conf:/etc/supervisord.conf:ro
+      # Persistent database for tests
+      - fullstack-data:/app/data
+    tmpfs:
+      # Core binaries and logs
+      - /app/data/cores:size=100m
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 5s
+      start_period: 60s
+      retries: 20
+    restart: "no"
+    networks:
+      - fullstack-network
+    depends_on:
+      - echo-server
+
+  # ============================================================================
+  # Xray Core - Running Continuously (not just validation)
+  # ============================================================================
+  xray-fullstack:
+    image: ghcr.io/xtls/xray-core:latest
+    container_name: xray-fullstack
+    command: ["run", "-config=/shared-configs/xray.json"]
+    volumes:
+      - fullstack-configs:/shared-configs:ro
+    ports:
+      - "10001:10001"   # VMess test port
+      - "10002:10002"   # VLESS test port
+      - "10003:10003"   # Trojan test port
+      - "10085:10085"   # Xray API (gRPC)
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- --timeout=2 http://127.0.0.1:10085 || exit 0"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+    restart: "no"
+    networks:
+      - fullstack-network
+    profiles:
+      - cores
+    cap_add:
+      - NET_ADMIN  # For TUN/TAP support if needed
+
+  # ============================================================================
+  # Sing-box Core - Running Continuously (not just validation)
+  # ============================================================================
+  singbox-fullstack:
+    image: ghcr.io/sagernet/sing-box:latest
+    container_name: singbox-fullstack
+    command: ["run", "-c", "/shared-configs/singbox.json", "--disable-color"]
+    volumes:
+      - fullstack-configs:/shared-configs:ro
+    ports:
+      - "11001:11001"   # VMess test port
+      - "11002:11002"   # VLESS test port
+      - "11003:11003"   # Trojan test port
+      - "9090:9090"     # Clash API
+      - "10086:10086"   # V2Ray API
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- --timeout=2 http://127.0.0.1:9090 || exit 0"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+    restart: "no"
+    networks:
+      - fullstack-network
+    profiles:
+      - cores
+    cap_add:
+      - NET_ADMIN
+
+  # ============================================================================
+  # Mihomo Core - Running Continuously (not just validation)
+  # ============================================================================
+  mihomo-fullstack:
+    image: docker.io/metacubex/mihomo:Alpha
+    container_name: mihomo-fullstack
+    command: ["-d", "/shared-configs", "-f", "/shared-configs/mihomo.yaml"]
+    volumes:
+      - fullstack-configs:/shared-configs:ro
+    ports:
+      - "12001:12001"   # Shadowsocks test port
+      - "12002:12002"   # VMess test port
+      - "12003:12003"   # Trojan test port
+      - "9091:9091"     # External controller API
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- --timeout=2 http://127.0.0.1:9091 || exit 0"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+    restart: "no"
+    networks:
+      - fullstack-network
+    profiles:
+      - cores
+    cap_add:
+      - NET_ADMIN
+
+  # ============================================================================
+  # Echo/HTTP Server for Traffic Testing
+  # ============================================================================
+  echo-server:
+    image: hashicorp/http-echo:latest
+    container_name: echo-server-fullstack
+    command: ["-text", "Hello from echo server", "-listen", ":8081"]
+    ports:
+      - "8081:8081"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- --timeout=2 http://127.0.0.1:8081 | grep -q 'Hello from echo server'"]
+      interval: 5s
+      timeout: 3s
+      start_period: 5s
+      retries: 3
+    restart: "no"
+    networks:
+      - fullstack-network
+
+  # ============================================================================
+  # HAProxy Load Balancer for Multi-Port/Cross-Core Testing
+  # ============================================================================
+  haproxy-fullstack:
+    image: haproxy:2.8-alpine
+    container_name: haproxy-fullstack
+    volumes:
+      - fullstack-configs:/shared-configs:ro
+      - ./haproxy.test.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    ports:
+      - "443:443"       # Main proxy port
+      - "8443:8443"     # Alternative TLS port
+      - "8404:8404"     # HAProxy stats dashboard
+    sysctls:
+      - net.ipv4.ip_unprivileged_port_start=0
+    healthcheck:
+      test: ["CMD", "haproxy", "-c", "-f", "/usr/local/etc/haproxy/haproxy.cfg"]
+      interval: 30s
+      timeout: 5s
+      start_period: 5s
+      retries: 3
+    restart: "no"
+    networks:
+      - fullstack-network
+    profiles:
+      - haproxy
+    depends_on:
+      - isolate-panel
+
+  # ============================================================================
+  # Traffic Test Client
+  # Container with tools for testing proxy connectivity
+  # ============================================================================
+  traffic-tester:
+    image: alpine/curl:latest
+    container_name: traffic-tester-fullstack
+    command: ["sh", "-c", "while true; do sleep 3600; done"]
+    volumes:
+      - fullstack-configs:/shared-configs:ro
+    networks:
+      - fullstack-network
+    profiles:
+      - testing
+
+volumes:
+  fullstack-configs:
+    driver: local
+  fullstack-data:
+    driver: local
+
+networks:
+  fullstack-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16

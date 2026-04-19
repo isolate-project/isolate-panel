@@ -6,7 +6,7 @@ interface UseMutationOptions<TData, TVariables> {
 }
 
 interface UseMutationResult<TData, TVariables> {
-  mutate: (variables: TVariables) => Promise<TData>
+  mutate: (variables: TVariables) => Promise<TData | undefined>
   isLoading: boolean
   error: Error | null
   data: TData | null
@@ -35,17 +35,38 @@ export function useMutation<TData, TVariables>(
       setError(null)
 
       try {
+<<<<<<< Updated upstream
         const result = await mutationFnRef.current(variables)
+=======
+        const result = await mutationFnRef.current(variables, controller.signal)
+        if (controller.signal.aborted) {
+          setIsLoading(false)
+          return result
+        }
+>>>>>>> Stashed changes
         setData(result)
         onSuccessRef.current?.(result, variables)
         return result
       } catch (err) {
+<<<<<<< Updated upstream
+=======
+        if (controller.signal.aborted) {
+          setIsLoading(false)
+          return
+        }
+>>>>>>> Stashed changes
         const error = err instanceof Error ? err : new Error('Unknown error')
         setError(error)
         onErrorRef.current?.(error, variables)
         throw error
       } finally {
+<<<<<<< Updated upstream
         setIsLoading(false)
+=======
+        if (abortControllerRef.current === controller && !controller.signal.aborted) {
+          setIsLoading(false)
+        }
+>>>>>>> Stashed changes
       }
     },
     []

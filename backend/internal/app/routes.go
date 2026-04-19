@@ -99,11 +99,26 @@ SwaggerUIBundle({
 		return c.Next()
 	})
 
-	// API group
-	apiGrp := fiberApp.Group("/api")
+	// Register API routes under both /api (backward compatible) and /api/v1 (versioned)
+	registerV1Routes(fiberApp.Group("/api"), a)
+	registerV1Routes(fiberApp.Group("/api/v1"), a)
 
+	// Subscription public routes (rate limited, token-based auth; H-29: uses WithStop for cleanup)
+	subsBundle := middleware.SubscriptionRateLimiterWithStop()
+	a.SubTokenRL = subsBundle.TokenLimiter
+	a.SubIPRL = subsBundle.IPLimiter
+	subsGrp := fiberApp.Group("", subsBundle.Handler)
+	subsGrp.Get("/sub/:token", a.SubscriptionsH.GetAutoDetectSubscription)
+	subsGrp.Get("/sub/:token/clash", a.SubscriptionsH.GetClashSubscription)
+	subsGrp.Get("/sub/:token/singbox", a.SubscriptionsH.GetSingboxSubscription)
+	subsGrp.Get("/sub/:token/qr", a.SubscriptionsH.GetQRCode)
+	subsGrp.Get("/s/:code", a.SubscriptionsH.RedirectShortURL)
+}
+
+// registerV1Routes registers all v1 API routes on the given router
+func registerV1Routes(router fiber.Router, a *App) {
 	// Public API info
-	apiGrp.Get("/", func(c fiber.Ctx) error {
+	router.Get("/", func(c fiber.Ctx) error {
 		return c.JSON(fiber.Map{
 			"message": "Isolate Panel API",
 			"version": version.Version,
@@ -112,20 +127,31 @@ SwaggerUIBundle({
 	})
 
 	// Auth routes (public)
-	authGrp := apiGrp.Group("/auth")
+	authGrp := router.Group("/auth")
 	authGrp.Post("/login", middleware.LoginRateLimiter(a.LoginRL), a.AuthH.Login)
 	authGrp.Post("/refresh", a.AuthH.Refresh)
 	authGrp.Post("/logout", a.AuthH.Logout)
 
+<<<<<<< Updated upstream
+=======
+	authProtectedGrp := router.Group("/auth", middleware.AuthMiddleware(a.TokenSvc))
+	authProtectedGrp.Post("/change-password", a.AuthH.ChangePassword)
+
+>>>>>>> Stashed changes
 	// TOTP routes (protected)
-	totpGrp := apiGrp.Group("/auth/totp", middleware.AuthMiddleware(a.TokenSvc))
+	totpGrp := router.Group("/auth/totp", middleware.AuthMiddleware(a.TokenSvc))
 	totpGrp.Get("/status", a.AuthH.TOTPStatus)
 	totpGrp.Post("/setup", a.AuthH.TOTPSetup)
 	totpGrp.Post("/verify", a.AuthH.TOTPVerify)
 	totpGrp.Post("/disable", a.AuthH.TOTPDisable)
 
+<<<<<<< Updated upstream
 	// Protected routes (JWT required + standard rate limit)
 	protected := apiGrp.Group("/",
+=======
+	// Protected routes (JWT required + rate limit + password change check)
+	protected := router.Group("/",
+>>>>>>> Stashed changes
 		middleware.AuthMiddleware(a.TokenSvc),
 		middleware.AuthRateLimiter(a.ProtectedRL),
 	)
@@ -170,8 +196,14 @@ SwaggerUIBundle({
 	// Static routes MUST be registered before parameterized /:id
 	inboundsGrp.Get("/core/:core_id", a.InboundsH.GetInboundsByCore)
 	inboundsGrp.Get("/check-port", a.InboundsH.CheckPort)
+<<<<<<< Updated upstream
 	inboundsGrp.Post("/assign", a.InboundsH.AssignInboundToUser)
 	inboundsGrp.Post("/unassign", a.InboundsH.UnassignInboundFromUser)
+=======
+	inboundsGrp.Post("/check-port", a.InboundsH.CheckPortAvailability)
+	inboundsGrp.Post("/assign", middleware.RequireSuperAdmin(), a.InboundsH.AssignInboundToUser)
+	inboundsGrp.Post("/unassign", middleware.RequireSuperAdmin(), a.InboundsH.UnassignInboundFromUser)
+>>>>>>> Stashed changes
 	inboundsGrp.Get("/:id", a.InboundsH.GetInbound)
 	inboundsGrp.Put("/:id", a.InboundsH.UpdateInbound)
 	inboundsGrp.Delete("/:id", a.InboundsH.DeleteInbound)
@@ -232,6 +264,7 @@ SwaggerUIBundle({
 	// WebSocket ticket endpoint (protected — issues one-time ticket for WS auth)
 	protected.Post("/ws/ticket", a.DashboardHub.IssueWSTicket)
 
+<<<<<<< Updated upstream
 	// WebSocket routes (auth via ?ticket= one-time token, fallback to ?token= for compat)
 	apiGrp.Get("/ws/dashboard", a.DashboardHub.DashboardWS)
 
@@ -243,3 +276,8 @@ SwaggerUIBundle({
 	subsGrp.Get("/sub/:token/qr", a.SubscriptionsH.GetQRCode)
 	subsGrp.Get("/s/:code", a.SubscriptionsH.RedirectShortURL)
 }
+=======
+	// WebSocket routes (auth via ?ticket= one-time token only)
+	router.Get("/ws/dashboard", a.DashboardHub.DashboardWS)
+}
+>>>>>>> Stashed changes

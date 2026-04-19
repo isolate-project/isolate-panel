@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/isolate-project/isolate-panel/internal/haproxy"
 	"github.com/isolate-project/isolate-panel/internal/models"
 	"github.com/isolate-project/isolate-panel/internal/services"
 	"github.com/stretchr/testify/assert"
@@ -36,7 +37,8 @@ func setupInboundsApp(t *testing.T) (*fiber.App, *gorm.DB) {
 	db := setupInboundsTestDB(t)
 	svc := services.NewInboundService(db, nil, nil) // nil lifecycle + nil portManager
 	pm := services.NewPortManager(db)
-	handler := NewInboundsHandler(svc, pm)
+	validator := haproxy.NewPortValidator(db)
+	handler := NewInboundsHandler(svc, pm, validator, db)
 
 	app := fiber.New()
 	app.Get("/inbounds", handler.ListInbounds)

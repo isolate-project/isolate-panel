@@ -35,6 +35,46 @@ services:
     networks:
       - test-network
 
+  # ── Proxy core validation services ──────────────────────────────
+  # Used by integration tests (real_cores_test.go) to validate
+  # generated configs against real core binaries.
+  # Each service mounts a config file and runs the core's built-in
+  # config validation command, then exits.
+
+  xray-test:
+    image: ghcr.io/xtls/xray-core:latest
+    container_name: xray-config-test
+    volumes:
+      - /tmp/isolate-core-tests:/tmp/configs:ro
+      - /tmp/isolate-core-tests/logs:/var/log/supervisor
+    entrypoint: ["xray"]
+    command: ["run", "-config=/tmp/configs/xray.json"]
+    restart: "no"
+    networks:
+      - test-network
+
+  singbox-test:
+    image: ghcr.io/sagernet/sing-box:latest
+    container_name: singbox-config-test
+    volumes:
+      - /tmp/isolate-core-tests:/tmp/configs:ro
+    entrypoint: ["sing-box"]
+    command: ["check", "-c", "/tmp/configs/singbox.json"]
+    restart: "no"
+    networks:
+      - test-network
+
+  mihomo-test:
+    image: docker.io/metacubex/mihomo:Alpha
+    container_name: mihomo-config-test
+    volumes:
+      - /tmp/isolate-core-tests:/tmp/configs:ro
+    entrypoint: ["/mihomo"]
+    command: ["-d", "/tmp/configs", "-f", "/tmp/configs/mihomo.yaml", "-t"]
+    restart: "no"
+    networks:
+      - test-network
+
 networks:
   test-network:
     driver: bridge

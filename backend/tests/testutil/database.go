@@ -125,19 +125,19 @@ func SeedTestData(t *testing.T, db *gorm.DB) {
 	cores := []models.Core{
 		{
 			Name:      "singbox",
-			Version:   "1.13.3",
+			Version:   "1.13.8",
 			IsEnabled: true,
 			IsRunning: false,
 		},
 		{
 			Name:      "xray",
-			Version:   "26.2.6",
+			Version:   "26.3.27",
 			IsEnabled: true,
 			IsRunning: false,
 		},
 		{
 			Name:      "mihomo",
-			Version:   "1.19.21",
+			Version:   "1.19.23",
 			IsEnabled: true,
 			IsRunning: false,
 		},

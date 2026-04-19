@@ -21,7 +21,7 @@ func TestMonitoringFlow(t *testing.T) {
 	// --- Step 1: Create core, inbound, user, and assign user to inbound ---
 	core := &models.Core{
 		Name:      "xray",
-		Version:   "26.2.6",
+		Version:   "26.3.27",
 		IsEnabled: true,
 		IsRunning: true,
 	}

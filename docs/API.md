@@ -582,7 +582,7 @@ Authorization: Bearer <access_token>
     {
       "id": 1,
       "name": "singbox",
-      "version": "1.13.3",
+      "version": "1.13.8",
       "is_enabled": true,
       "is_running": false,
       "uptime_seconds": 0,
@@ -591,7 +591,7 @@ Authorization: Bearer <access_token>
     {
       "id": 2,
       "name": "xray",
-      "version": "26.2.6",
+      "version": "26.3.27",
       "is_enabled": true,
       "is_running": true,
       "uptime_seconds": 3600,
@@ -600,7 +600,7 @@ Authorization: Bearer <access_token>
     {
       "id": 3,
       "name": "mihomo",
-      "version": "1.19.21",
+      "version": "1.19.23",
       "is_enabled": true,
       "is_running": false,
       "uptime_seconds": 0,
@@ -629,7 +629,7 @@ Authorization: Bearer <access_token>
   "success": true,
   "core": {
     "name": "singbox",
-    "version": "1.13.3",
+    "version": "1.13.8",
     "is_running": false,
     "pid": null,
     "uptime_seconds": 0,

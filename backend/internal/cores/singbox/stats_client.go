@@ -79,9 +79,31 @@ func (c *StatsClient) Close() error {
 // Sing-box Clash API doesn't provide per-user stats directly
 // We need to aggregate from connection data
 func (c *StatsClient) GetTrafficStats(ctx context.Context, coreID uint) ([]stats.TrafficSample, error) {
+<<<<<<< Updated upstream
 	// Get traffic overview (total uplink/downlink)
 	trafficURL := fmt.Sprintf("%s/traffic", c.baseURL)
 	req, err := http.NewRequestWithContext(ctx, "GET", trafficURL, nil)
+=======
+	if c.grpcAddr == "" {
+		// Fallback to Clash API when gRPC is not available
+		logger.Log.Warn().Msg("sing-box: v2ray_api gRPC not configured, falling back to Clash API for traffic stats (per-user stats unavailable)")
+		return c.getTrafficStatsFromClashAPI(ctx, coreID)
+	}
+
+	if err := c.ensureConnected(); err != nil {
+		return nil, err
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	req := &statscommand.QueryStatsRequest{
+		Pattern: "user>>>",
+		Reset_:  false,
+	}
+
+	resp, err := c.statsClient.QueryStats(ctx, req)
+>>>>>>> Stashed changes
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -100,6 +122,7 @@ func (c *StatsClient) GetTrafficStats(ctx context.Context, coreID uint) ([]stats
 		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
 	}
 
+<<<<<<< Updated upstream
 	var traffic ClashTrafficResponse
 	if err := json.NewDecoder(resp.Body).Decode(&traffic); err != nil {
 		return nil, fmt.Errorf("failed to decode traffic response: %w", err)
@@ -108,6 +131,76 @@ func (c *StatsClient) GetTrafficStats(ctx context.Context, coreID uint) ([]stats
 	// Sing-box doesn't provide per-user stats via Clash API
 	// Return empty slice as we can't map to users without additional data
 	return []stats.TrafficSample{}, nil
+=======
+	return samples, nil
+}
+
+// getTrafficStatsFromClashAPI retrieves traffic stats from Clash API /connections endpoint
+// This is a fallback when gRPC is not available. Returns aggregate traffic as a single sample.
+func (c *StatsClient) getTrafficStatsFromClashAPI(ctx context.Context, coreID uint) ([]stats.TrafficSample, error) {
+	connectionsURL := fmt.Sprintf("%s/connections", c.clashBaseURL)
+	req, err := http.NewRequestWithContext(ctx, "GET", connectionsURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	if c.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+c.apiKey)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get connections: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
+	}
+
+	var connectionsResp ClashConnectionsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&connectionsResp); err != nil {
+		return nil, fmt.Errorf("failed to decode connections response: %w", err)
+	}
+
+	// Aggregate total traffic from all connections
+	var totalUpload, totalDownload uint64
+	for _, conn := range connectionsResp.Connections {
+		totalUpload += uint64(conn.Upload)
+		totalDownload += uint64(conn.Download)
+	}
+
+	// Return a single aggregate sample with userID=0 (will be skipped by TrafficCollector)
+	// This at least provides traffic data even if per-user resolution is unavailable
+	return []stats.TrafficSample{
+		{
+			UserID:    0,
+			InboundID: 0,
+			CoreID:    coreID,
+			Upload:    totalUpload,
+			Download:  totalDownload,
+			Timestamp: time.Now(),
+		},
+	}, nil
+}
+
+func parseEmailToIDs(email string) (userID uint, inboundID uint) {
+	if !strings.HasPrefix(email, "user_") {
+		return 0, 0
+	}
+	parts := strings.SplitN(strings.TrimPrefix(email, "user_"), "::", 2)
+	id, err := strconv.ParseUint(parts[0], 10, 32)
+	if err != nil {
+		return 0, 0
+	}
+	userID = uint(id)
+	if len(parts) >= 2 {
+		if ibID, err := strconv.ParseUint(parts[1], 10, 32); err == nil {
+			inboundID = uint(ibID)
+		}
+	}
+	return userID, inboundID
+>>>>>>> Stashed changes
 }
 
 // GetActiveConnections retrieves active connections from Sing-box
@@ -147,10 +240,22 @@ func (c *StatsClient) GetActiveConnections(ctx context.Context, coreID uint) ([]
 		// Try to extract user info from connection chains or metadata
 		// Sing-box doesn't directly expose user ID in connections
 		userID := uint(0)
+		inboundID := uint(0)
+
+		// Try to extract userID from rule field or metadata
+		// Rule format may contain user information like "user_<id>::<inboundID>"
+		if conn.Rule != "" {
+			if strings.HasPrefix(conn.Rule, "user_") {
+				userID, inboundID = parseEmailToIDs(conn.Rule)
+			}
+		}
+
+		// TODO: Enhance userID resolution by checking metadata.host against user patterns
+		// or by maintaining a mapping of sourceIP+sourcePort to userID from recent traffic samples
 
 		result = append(result, stats.ConnectionInfo{
 			UserID:          userID,
-			InboundID:       0,
+			InboundID:       inboundID,
 			CoreID:          coreID,
 			CoreName:        "singbox",
 			SourceIP:        conn.Metadata.SourceIP,

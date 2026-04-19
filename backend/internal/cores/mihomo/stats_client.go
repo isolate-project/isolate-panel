@@ -144,10 +144,22 @@ func (c *StatsClient) GetActiveConnections(ctx context.Context, coreID uint) ([]
 		destPort, _ := strconv.Atoi(conn.Metadata.DestinationPort)
 
 		userID := uint(0)
+		inboundID := uint(0)
+
+		// Try to extract userID from rule field or metadata
+		// Rule format may contain user information like "user_<id>_<inboundID>"
+		if conn.Rule != "" {
+			if strings.HasPrefix(conn.Rule, "user_") {
+				userID, inboundID = parseProxyNameToIDs(conn.Rule)
+			}
+		}
+
+		// TODO: Enhance userID resolution by checking metadata.host against user patterns
+		// or by maintaining a mapping of sourceIP+sourcePort to userID from recent traffic samples
 
 		result = append(result, stats.ConnectionInfo{
 			UserID:          userID,
-			InboundID:       0,
+			InboundID:       inboundID,
 			CoreID:          coreID,
 			CoreName:        "mihomo",
 			SourceIP:        conn.Metadata.SourceIP,

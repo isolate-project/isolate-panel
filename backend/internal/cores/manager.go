@@ -15,13 +15,19 @@ import (
 type CoreManager struct {
 	db         *gorm.DB
 	supervisor *SupervisorClient
+	coreCfg    *CoreConfig
 }
 
 // NewCoreManager creates a new core manager
-func NewCoreManager(db *gorm.DB, supervisorURL string) *CoreManager {
+func NewCoreManager(db *gorm.DB, supervisorURL string, coreCfg *CoreConfig) *CoreManager {
+	if coreCfg == nil {
+		coreCfg = &CoreConfig{}
+		coreCfg.ApplyDefaults()
+	}
 	return &CoreManager{
 		db:         db,
 		supervisor: NewSupervisorClient(supervisorURL),
+		coreCfg:    coreCfg,
 	}
 }
 
@@ -265,3 +271,53 @@ func (cm *CoreManager) ListCores() ([]models.Core, error) {
 
 	return cores, nil
 }
+<<<<<<< Updated upstream
+=======
+
+func (cm *CoreManager) checkCoreHealth(name string) error {
+	switch name {
+	case "xray":
+		conn, err := net.DialTimeout("tcp", cm.coreCfg.XrayAPIAddr(), 3*time.Second)
+		if err != nil {
+			return fmt.Errorf("xray gRPC API not reachable: %w", err)
+		}
+		conn.Close()
+	case "singbox":
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		req, _ := http.NewRequestWithContext(ctx, "GET", "http://"+cm.coreCfg.ClashAPIAddr()+"/version", nil)
+		resp, err := healthCheckClient.Do(req)
+		if err != nil {
+			return fmt.Errorf("singbox API not reachable: %w", err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != 200 {
+			return fmt.Errorf("singbox API returned %d", resp.StatusCode)
+		}
+	case "mihomo":
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		req, _ := http.NewRequestWithContext(ctx, "GET", "http://"+cm.coreCfg.MihomoAPIAddr()+"/version", nil)
+		resp, err := healthCheckClient.Do(req)
+		if err != nil {
+			return fmt.Errorf("mihomo API not reachable: %w", err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != 200 {
+			return fmt.Errorf("mihomo API returned %d", resp.StatusCode)
+		}
+	default:
+		var core models.Core
+		if err := cm.db.Where("name = ?", name).First(&core).Error; err != nil {
+			return fmt.Errorf("core not found: %w", err)
+		}
+		var firstInbound models.Inbound
+		if err := cm.db.Where("core_id = ? AND is_enabled = ?", core.ID, true).Order("id ASC").First(&firstInbound).Error; err == nil {
+			if err := cm.waitForPort(firstInbound.Port, 5*time.Second); err != nil {
+				return fmt.Errorf("port %d not listening: %w", firstInbound.Port, err)
+			}
+		}
+	}
+	return nil
+}
+>>>>>>> Stashed changes

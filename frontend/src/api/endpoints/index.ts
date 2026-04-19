@@ -83,6 +83,14 @@ export const inboundApi = {
 
   checkPort: (port: number, excludeId?: number) =>
     apiClient.get('/inbounds/check-port', { params: { port, exclude_id: excludeId } }),
+  
+  checkPortAvailability: (data: {
+    port: number
+    listen?: string
+    protocol: string
+    transport?: string
+    core_type: string
+  }) => apiClient.post('/api/inbounds/check-port', data),
 }
 
 // Outbound endpoints
@@ -137,6 +145,7 @@ export const certificateApi = {
 // Stats and monitoring endpoints
 export const statsApi = {
   dashboard: () => apiClient.get('/stats/dashboard'),
+  summary: () => apiClient.get('/stats/summary'),
   userTraffic: (userId: number, params?: { granularity?: string; days?: number }) =>
     apiClient.get(`/stats/user/${userId}/traffic`, { params }),
   connections: (userId?: number) =>

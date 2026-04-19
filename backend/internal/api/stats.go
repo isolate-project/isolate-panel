@@ -331,6 +331,62 @@ func (h *StatsHandler) GetDashboardStats(c fiber.Ctx) error {
 	})
 }
 
+// GetSummary returns lightweight aggregate statistics for dashboard polling
+//
+// @Summary      Summary stats
+// @Description  Returns aggregate stats without fetching all users: total users, active users, total traffic, running cores, total cores, active connections
+// @Tags         stats
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}
+// @Router       /stats/summary [get]
+// @Security     BearerAuth
+func (h *StatsHandler) GetSummary(c fiber.Ctx) error {
+	// Get active connections count
+	connCount, err := h.connectionTracker.GetActiveConnectionsCount()
+	if err != nil {
+		connCount = 0
+	}
+
+	// Get total users count
+	var totalUsers int64
+	if err := h.db.Model(&models.User{}).Count(&totalUsers).Error; err != nil {
+		totalUsers = 0
+	}
+
+	// Get active users count
+	var activeUsers int64
+	if err := h.db.Model(&models.User{}).Where("is_active = ?", true).Count(&activeUsers).Error; err != nil {
+		activeUsers = 0
+	}
+
+	// Get total traffic (sum from users)
+	var totalTraffic int64
+	if err := h.db.Model(&models.User{}).Select("COALESCE(SUM(traffic_used_bytes), 0)").Scan(&totalTraffic).Error; err != nil {
+		totalTraffic = 0
+	}
+
+	// Get cores running count
+	var coresRunning int64
+	if err := h.db.Model(&models.Core{}).Where("is_running = ?", true).Count(&coresRunning).Error; err != nil {
+		coresRunning = 0
+	}
+
+	// Get total cores count
+	var totalCores int64
+	if err := h.db.Model(&models.Core{}).Count(&totalCores).Error; err != nil {
+		totalCores = 0
+	}
+
+	return c.JSON(fiber.Map{
+		"total_users":        totalUsers,
+		"active_users":       activeUsers,
+		"total_traffic_bytes": totalTraffic,
+		"running_cores":      coresRunning,
+		"total_cores":        totalCores,
+		"active_connections":  connCount,
+	})
+}
+
 // GetTrafficOverview returns aggregated traffic overview for all users.
 // Used by Dashboard charts.
 //

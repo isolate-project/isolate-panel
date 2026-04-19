@@ -31,8 +31,12 @@ export function GeoRules() {
   const [countries, setCountries] = useState<Country[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [cores, setCores] = useState<{ name: string; id: number }[]>([])
+<<<<<<< Updated upstream
   const [selectedCore, setSelectedCore] = useState<number>(1)
   const [loading, setLoading] = useState(true)
+=======
+  const [selectedCore, setSelectedCore] = useState<number | null>(null)
+>>>>>>> Stashed changes
   const [showForm, setShowForm] = useState(false)
   const [ruleType, setRuleType] = useState<'geoip' | 'geosite'>('geoip')
   const [formData, setFormData] = useState({
@@ -46,24 +50,50 @@ export function GeoRules() {
   const abortRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
-    loadData()
+    loadCores()
+  }, [])
+
+  useEffect(() => {
+    if (selectedCore !== null) {
+      loadGeoData()
+    }
     return () => {
       abortRef.current?.abort()
     }
   }, [selectedCore])
 
+<<<<<<< Updated upstream
   const loadData = async () => {
+=======
+  const loadCores = async () => {
+    try {
+      const coresRes = await coreApi.list()
+      const coresList = (coresRes.data.data || []).map((c: { name: string; id: number }) => ({
+        name: c.name,
+        id: c.id,
+      }))
+      setCores(coresList)
+      if (coresList.length > 0) {
+        setSelectedCore(coresList[0].id)
+      }
+    } catch (error) {
+      console.error('Failed to load cores:', error)
+      addToast({ type: 'error', message: t('geo.loadFail') || 'Failed to load cores' })
+    }
+  }
+
+  const loadGeoData = async () => {
+    if (selectedCore === null) return
+>>>>>>> Stashed changes
     abortRef.current?.abort()
     const controller = new AbortController()
     abortRef.current = controller
 
-    setLoading(true)
     try {
-      const [rulesRes, countriesRes, categoriesRes, coresRes] = await Promise.all([
+      const [rulesRes, countriesRes, categoriesRes] = await Promise.all([
         warpApi.getGeoRules(selectedCore),
         warpApi.getCountries(),
         warpApi.getCategories(),
-        coreApi.list(),
       ])
 
       if (controller.signal.aborted) return
@@ -71,6 +101,7 @@ export function GeoRules() {
       setRules(rulesRes.data.data || [])
       setCountries(countriesRes.data.data || [])
       setCategories(categoriesRes.data.data || [])
+<<<<<<< Updated upstream
       setCores((coresRes.data.data || []).map((c: { name: string; id: number }) => ({ name: c.name, id: c.id })))
     } catch (error) {
       if (controller.signal.aborted) return
@@ -79,6 +110,12 @@ export function GeoRules() {
       if (!controller.signal.aborted) {
         setLoading(false)
       }
+=======
+    } catch (error) {
+      if (controller.signal.aborted) return
+      console.error('Failed to load Geo data:', error)
+      addToast({ type: 'error', message: t('geo.loadFail') || 'Failed to load Geo data' })
+>>>>>>> Stashed changes
     }
   }
 
@@ -97,7 +134,7 @@ export function GeoRules() {
       addToast({ type: 'success', message: 'Geo rule created successfully!' })
       setShowForm(false)
       setFormData({ type: 'geoip', code: '', action: 'proxy', priority: 50, description: '' })
-      loadData()
+      loadGeoData()
     } catch (err: unknown) {
       const error = err as { response?: { data?: { error?: string } }; message?: string }
       addToast({ type: 'error', message: 'Failed to create rule: ' + (error.response?.data?.error || error.message) })
@@ -109,8 +146,13 @@ export function GeoRules() {
 
     try {
       await warpApi.deleteGeoRule(id, selectedCore)
+<<<<<<< Updated upstream
       addToast({ type: 'success', message: 'Rule deleted successfully!' })
       loadData()
+=======
+      addToast({ type: 'success', message: t('geo.ruleDeleted') })
+      loadGeoData()
+>>>>>>> Stashed changes
     } catch (err: unknown) {
       const error = err as { response?: { data?: { error?: string } }; message?: string }
       addToast({ type: 'error', message: 'Failed to delete rule: ' + (error.response?.data?.error || error.message) })
@@ -120,7 +162,7 @@ export function GeoRules() {
   const handleToggleRule = async (id: number) => {
     try {
       await warpApi.toggleGeoRule(id, selectedCore)
-      loadData()
+      loadGeoData()
     } catch (err: unknown) {
       const error = err as { response?: { data?: { error?: string } }; message?: string }
       addToast({ type: 'error', message: 'Failed to toggle rule: ' + (error.response?.data?.error || error.message) })
@@ -139,8 +181,22 @@ export function GeoRules() {
     }
   }
 
+<<<<<<< Updated upstream
   if (loading) {
     return <div className="p-4">Loading...</div>
+=======
+  if (cores.length === 0) {
+    return (
+      <PageLayout>
+        <div className="p-4">
+          <h1 className="text-2xl font-bold text-primary mb-4">{t('geo.title')}</h1>
+          <div className="bg-surface border border-primary rounded-lg p-4">
+            <p className="text-secondary">{t('geo.noCores') || 'No proxy cores available. Please add a core first.'}</p>
+          </div>
+        </div>
+      </PageLayout>
+    )
+>>>>>>> Stashed changes
   }
 
   return (

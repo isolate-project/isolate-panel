@@ -66,19 +66,11 @@ func (h *UsersHandler) CreateUser(c fiber.Ctx) error {
 // @Router       /users [get]
 // @Security     BearerAuth
 func (h *UsersHandler) ListUsers(c fiber.Ctx) error {
-	page, _ := strconv.Atoi(c.Query("page", "1"))
-	pageSize, _ := strconv.Atoi(c.Query("page_size", "20"))
+	params := GetPagination(c)
 	search := c.Query("search")
-	status := c.Query("status") // "active", "inactive", or "" for all
+	status := c.Query("status")
 
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 || pageSize > 100 {
-		pageSize = 20
-	}
-
-	users, total, err := h.userService.ListUsers(page, pageSize, search, status)
+	users, total, err := h.userService.ListUsers(params.Page, params.PageSize, search, status)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to list users",
@@ -90,13 +82,15 @@ func (h *UsersHandler) ListUsers(c fiber.Ctx) error {
 		userResponses[i] = h.formatUserResponse(&user)
 	}
 
+	totalPages := (total + int64(params.PageSize) - 1) / int64(params.PageSize)
+
 	return c.JSON(fiber.Map{
 		"success":   true,
 		"users":     userResponses,
 		"total":     total,
-		"page":      page,
-		"page_size": pageSize,
-		"pages":     (total + int64(pageSize) - 1) / int64(pageSize),
+		"page":      params.Page,
+		"page_size": params.PageSize,
+		"pages":     totalPages,
 	})
 }
 

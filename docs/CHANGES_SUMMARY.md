@@ -127,9 +127,9 @@
 ### ✅ Включено в MVP:
 
 **Ядра:**
-- Sing-box v1.13.3
-- Xray v26.2.6
-- Mihomo v1.19.21
+- Sing-box v1.13.8
+- Xray v26.3.27
+- Mihomo v1.19.23
 
 **Протоколы (Inbound):**
 - HTTP, SOCKS5, Mixed

@@ -33,8 +33,12 @@ export function WarpRoutes() {
   const [status, setStatus] = useState<WarpStatus | null>(null)
   const [presets, setPresets] = useState<Preset>({})
   const [cores, setCores] = useState<{ name: string; id: number }[]>([])
+<<<<<<< Updated upstream
   const [selectedCore, setSelectedCore] = useState<number>(1)
   const [loading, setLoading] = useState(true)
+=======
+  const [selectedCore, setSelectedCore] = useState<number | null>(null)
+>>>>>>> Stashed changes
   const [showForm, setShowForm] = useState(false)
   const [formData, setFormData] = useState({
     resource_type: 'domain',
@@ -45,25 +49,53 @@ export function WarpRoutes() {
 
   const abortRef = useRef<AbortController | null>(null)
 
+  // Load cores list on mount (once)
   useEffect(() => {
-    loadData()
+    loadCores()
+  }, [])
+
+  // Load WARP data when selectedCore changes
+  useEffect(() => {
+    if (selectedCore !== null) {
+      loadWarpData()
+    }
     return () => {
       abortRef.current?.abort()
     }
   }, [selectedCore])
 
+<<<<<<< Updated upstream
   const loadData = async () => {
+=======
+  const loadCores = async () => {
+    try {
+      const coresRes = await coreApi.list()
+      const coresList = (coresRes.data.data || []).map((c: { name: string; id: number }) => ({
+        name: c.name,
+        id: c.id,
+      }))
+      setCores(coresList)
+      if (coresList.length > 0) {
+        setSelectedCore(coresList[0].id)
+      }
+    } catch (error) {
+      console.error('Failed to load cores:', error)
+      addToast({ type: 'error', message: t('warp.loadFail') || 'Failed to load cores' })
+    }
+  }
+
+  const loadWarpData = async () => {
+    if (selectedCore === null) return
+>>>>>>> Stashed changes
     abortRef.current?.abort()
     const controller = new AbortController()
     abortRef.current = controller
 
-    setLoading(true)
     try {
-      const [routesRes, statusRes, presetsRes, coresRes] = await Promise.all([
+      const [routesRes, statusRes, presetsRes] = await Promise.all([
         warpApi.getRoutes(selectedCore),
         warpApi.getStatus(),
         warpApi.getPresets(),
-        coreApi.list(),
       ])
 
       if (controller.signal.aborted) return
@@ -71,6 +103,7 @@ export function WarpRoutes() {
       setRoutes(routesRes.data.data || [])
       setStatus(statusRes.data.data || null)
       setPresets(presetsRes.data.data || {})
+<<<<<<< Updated upstream
       setCores(
         (coresRes.data.data || []).map((c: { name: string; id: number }) => ({
           name: c.name,
@@ -84,6 +117,12 @@ export function WarpRoutes() {
       if (!controller.signal.aborted) {
         setLoading(false)
       }
+=======
+    } catch (error) {
+      if (controller.signal.aborted) return
+      console.error('Failed to load WARP data:', error)
+      addToast({ type: 'error', message: t('warp.loadFail') || 'Failed to load WARP data' })
+>>>>>>> Stashed changes
     }
   }
 
@@ -92,11 +131,55 @@ export function WarpRoutes() {
 
     try {
       await warpApi.register()
+<<<<<<< Updated upstream
       addToast({ type: 'success', message: 'WARP registered successfully!' })
       loadData()
     } catch (err: unknown) {
       const error = err as { response?: { data?: { error?: string } }; message?: string }
       addToast({ type: 'error', message: 'Failed to register WARP: ' + (error.response?.data?.error || error.message) })
+=======
+      addToast({ type: 'success', message: t('warp.registerSuccess') })
+      loadWarpData()
+    } catch (err: unknown) {
+      addToast({ type: 'error', message: t('warp.registerFail') + ': ' + getApiErrorMessage(err) })
+    } finally {
+      setImportLoading(false)
+    }
+  }
+
+  const handleImportLicense = async () => {
+    if (!licenseKey.trim()) return
+    setImportLoading(true)
+    try {
+      await warpApi.importLicense(licenseKey.trim())
+      addToast({ type: 'success', message: t('warp.licenseSuccess') })
+      setLicenseKey('')
+      loadWarpData()
+    } catch (err: unknown) {
+      addToast({ type: 'error', message: t('warp.licenseFail') + ': ' + getApiErrorMessage(err) })
+    } finally {
+      setImportLoading(false)
+    }
+  }
+
+  const handleImportConfig = async () => {
+    if (!manualConfig.private_key.trim()) return
+    setImportLoading(true)
+    try {
+      await warpApi.importConfig({
+        private_key: manualConfig.private_key.trim(),
+        endpoint: manualConfig.endpoint || undefined,
+        ipv4: manualConfig.ipv4 || undefined,
+        ipv6: manualConfig.ipv6 || undefined,
+      })
+      addToast({ type: 'success', message: t('warp.importSuccess') })
+      setManualConfig({ private_key: '', endpoint: 'engage.cloudflareclient.com:2408', ipv4: '', ipv6: '' })
+      loadWarpData()
+    } catch (err: unknown) {
+      addToast({ type: 'error', message: t('warp.importFail') + ': ' + getApiErrorMessage(err) })
+    } finally {
+      setImportLoading(false)
+>>>>>>> Stashed changes
     }
   }
 
@@ -105,8 +188,13 @@ export function WarpRoutes() {
 
     try {
       await warpApi.applyPreset(presetName, selectedCore)
+<<<<<<< Updated upstream
       addToast({ type: 'success', message: 'Preset applied successfully!' })
       loadData()
+=======
+      addToast({ type: 'success', message: t('warp.presetSuccess') })
+      loadWarpData()
+>>>>>>> Stashed changes
     } catch (err: unknown) {
       const error = err as { response?: { data?: { error?: string } }; message?: string }
       addToast({ type: 'error', message: 'Failed to apply preset: ' + (error.response?.data?.error || error.message) })
@@ -127,7 +215,7 @@ export function WarpRoutes() {
       addToast({ type: 'success', message: 'Route created successfully!' })
       setShowForm(false)
       setFormData({ resource_type: 'domain', resource_value: '', description: '', priority: 50 })
-      loadData()
+      loadWarpData()
     } catch (err: unknown) {
       const error = err as { response?: { data?: { error?: string } }; message?: string }
       addToast({ type: 'error', message: 'Failed to create route: ' + (error.response?.data?.error || error.message) })
@@ -139,8 +227,13 @@ export function WarpRoutes() {
 
     try {
       await warpApi.deleteRoute(id)
+<<<<<<< Updated upstream
       addToast({ type: 'success', message: 'Route deleted successfully!' })
       loadData()
+=======
+      addToast({ type: 'success', message: t('warp.routeDeleted') })
+      loadWarpData()
+>>>>>>> Stashed changes
     } catch (err: unknown) {
       const error = err as { response?: { data?: { error?: string } }; message?: string }
       addToast({ type: 'error', message: 'Failed to delete route: ' + (error.response?.data?.error || error.message) })
@@ -150,7 +243,7 @@ export function WarpRoutes() {
   const handleToggleRoute = async (id: number) => {
     try {
       await warpApi.toggleRoute(id)
-      loadData()
+      loadWarpData()
     } catch (err: unknown) {
       const error = err as { response?: { data?: { error?: string } }; message?: string }
       addToast({ type: 'error', message: 'Failed to toggle route: ' + (error.response?.data?.error || error.message) })
@@ -167,8 +260,22 @@ export function WarpRoutes() {
     }
   }
 
+<<<<<<< Updated upstream
   if (loading) {
     return <div className="p-4">Loading...</div>
+=======
+  if (cores.length === 0) {
+    return (
+      <PageLayout>
+        <div className="p-4">
+          <h1 className="text-2xl font-bold text-primary mb-4">{t('warp.title')}</h1>
+          <div className="bg-surface border border-primary rounded-lg p-4">
+            <p className="text-secondary">{t('warp.noCores') || 'No proxy cores available. Please add a core first.'}</p>
+          </div>
+        </div>
+      </PageLayout>
+    )
+>>>>>>> Stashed changes
   }
 
   return (

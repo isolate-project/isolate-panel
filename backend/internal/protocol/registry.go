@@ -1,5 +1,7 @@
 package protocol
 
+import "sync"
+
 // ParameterType defines the type of a protocol parameter
 type ParameterType string
 
@@ -70,21 +72,53 @@ type ProtocolSummary struct {
 }
 
 // registry holds all registered protocol schemas
-var registry = make(map[string]*ProtocolSchema)
+var (
+	registry   = make(map[string]*ProtocolSchema)
+	registryMu sync.RWMutex
+)
 
 // Register adds a protocol schema to the registry
 func Register(schema *ProtocolSchema) {
+	registryMu.Lock()
+	defer registryMu.Unlock()
 	registry[schema.Protocol] = schema
 }
 
-// GetProtocolSchema returns the schema for a specific protocol
-func GetProtocolSchema(name string) (*ProtocolSchema, bool) {
-	schema, ok := registry[name]
+// Get returns the schema for a specific protocol
+func Get(protocol string) (*ProtocolSchema, bool) {
+	registryMu.RLock()
+	defer registryMu.RUnlock()
+	schema, ok := registry[protocol]
 	return schema, ok
+}
+
+// Unregister removes a protocol schema from the registry
+func Unregister(protocol string) {
+	registryMu.Lock()
+	defer registryMu.Unlock()
+	delete(registry, protocol)
+}
+
+// ListAll returns all registered protocol schemas
+func ListAll() []*ProtocolSchema {
+	registryMu.RLock()
+	defer registryMu.RUnlock()
+	schemas := make([]*ProtocolSchema, 0, len(registry))
+	for _, schema := range registry {
+		schemas = append(schemas, schema)
+	}
+	return schemas
+}
+
+// GetProtocolSchema returns the schema for a specific protocol (deprecated, use Get)
+func GetProtocolSchema(name string) (*ProtocolSchema, bool) {
+	return Get(name)
 }
 
 // GetAllProtocols returns summaries of all registered protocols
 func GetAllProtocols() []ProtocolSummary {
+	registryMu.RLock()
+	defer registryMu.RUnlock()
 	summaries := make([]ProtocolSummary, 0, len(registry))
 	for _, schema := range registry {
 		summaries = append(summaries, ProtocolSummary{
@@ -102,6 +136,8 @@ func GetAllProtocols() []ProtocolSummary {
 
 // GetProtocolsByCore returns all protocols that support a given core
 func GetProtocolsByCore(coreName string) []ProtocolSummary {
+	registryMu.RLock()
+	defer registryMu.RUnlock()
 	var result []ProtocolSummary
 	for _, schema := range registry {
 		for _, c := range schema.Core {
@@ -124,6 +160,8 @@ func GetProtocolsByCore(coreName string) []ProtocolSummary {
 
 // GetProtocolsByCoreAndDirection returns protocols filtered by core and direction
 func GetProtocolsByCoreAndDirection(coreName, direction string) []ProtocolSummary {
+	registryMu.RLock()
+	defer registryMu.RUnlock()
 	var result []ProtocolSummary
 	for _, schema := range registry {
 		if direction != "" && schema.Direction != direction && schema.Direction != "both" {
@@ -149,6 +187,8 @@ func GetProtocolsByCoreAndDirection(coreName, direction string) []ProtocolSummar
 
 // ValidateProtocolForCore checks if a protocol is valid for a given core
 func ValidateProtocolForCore(protocolName, coreName string) bool {
+	registryMu.RLock()
+	defer registryMu.RUnlock()
 	schema, ok := registry[protocolName]
 	if !ok {
 		return false

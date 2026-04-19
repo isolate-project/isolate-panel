@@ -4,7 +4,9 @@ import (
 	"strconv"
 
 	"github.com/gofiber/fiber/v3"
+	"gorm.io/gorm"
 
+	"github.com/isolate-project/isolate-panel/internal/haproxy"
 	"github.com/isolate-project/isolate-panel/internal/models"
 	"github.com/isolate-project/isolate-panel/internal/services"
 )
@@ -12,12 +14,16 @@ import (
 type InboundsHandler struct {
 	inboundService *services.InboundService
 	portManager    *services.PortManager
+	portValidator  *haproxy.PortValidator
+	db             *gorm.DB
 }
 
-func NewInboundsHandler(inboundService *services.InboundService, portManager *services.PortManager) *InboundsHandler {
+func NewInboundsHandler(inboundService *services.InboundService, portManager *services.PortManager, portValidator *haproxy.PortValidator, db *gorm.DB) *InboundsHandler {
 	return &InboundsHandler{
 		inboundService: inboundService,
 		portManager:    portManager,
+		portValidator:  portValidator,
+		db:             db,
 	}
 }
 
@@ -33,7 +39,8 @@ func NewInboundsHandler(inboundService *services.InboundService, portManager *se
 // @Router       /inbounds [get]
 // @Security     BearerAuth
 func (h *InboundsHandler) ListInbounds(c fiber.Ctx) error {
-	// Parse query parameters
+	params := GetPagination(c)
+
 	var coreID *uint
 	if coreIDStr := c.Query("core_id"); coreIDStr != "" {
 		id, err := strconv.ParseUint(coreIDStr, 10, 32)
@@ -52,14 +59,23 @@ func (h *InboundsHandler) ListInbounds(c fiber.Ctx) error {
 		isEnabled = &enabled
 	}
 
-	inbounds, err := h.inboundService.ListInbounds(coreID, isEnabled)
+	inbounds, total, err := h.inboundService.ListInboundsPaginated(coreID, isEnabled, params.Page, params.PageSize)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to list inbounds",
 		})
 	}
 
-	return c.JSON(inbounds)
+	totalPages := (total + int64(params.PageSize) - 1) / int64(params.PageSize)
+
+	return c.JSON(fiber.Map{
+		"success":   true,
+		"inbounds":  inbounds,
+		"total":     total,
+		"page":      params.Page,
+		"page_size": params.PageSize,
+		"pages":     totalPages,
+	})
 }
 
 // GetInbound returns a specific inbound
@@ -409,4 +425,35 @@ func (h *InboundsHandler) CheckPort(c fiber.Ctx) error {
 		"available": available,
 		"reason":    reason,
 	})
+}
+
+func (h *InboundsHandler) CheckPortAvailability(c fiber.Ctx) error {
+	var req CheckPortRequestDTO
+	if err := c.Bind().JSON(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request body",
+		})
+	}
+
+	if req.Listen == "" {
+		req.Listen = "0.0.0.0"
+	}
+
+	var inbounds []models.Inbound
+	if err := h.db.Where("is_enabled = ?", true).Find(&inbounds).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch inbounds",
+		})
+	}
+
+	result := h.portValidator.ValidatePortConflict(
+		req.Port,
+		req.Listen,
+		req.Protocol,
+		req.Transport,
+		req.CoreType,
+		inbounds,
+	)
+
+	return c.JSON(result)
 }

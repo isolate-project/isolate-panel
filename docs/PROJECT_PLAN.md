@@ -66,9 +66,9 @@
 
 | Ядро | Версия | Роль |
 |------|--------|------|
-| **Sing-box** | v1.13.3 | Основное ядро - все общие протоколы |
-| **Xray-core** | v26.2.6 | XHTTP + Xray-специфичные протоколы |
-| **Mihomo** | v1.19.21 | Mihomo-специфичные протоколы |
+| **Sing-box** | v1.13.8 | Основное ядро - все общие протоколы |
+| **Xray-core** | v26.3.27 | XHTTP + Xray-специфичные протоколы |
+| **Mihomo** | v1.19.23 | Mihomo-специфичные протоколы |
 
 ### Инфраструктура
 
@@ -116,7 +116,7 @@
      ▼               ▼               ▼
 ┌─────────┐    ┌─────────┐    ┌─────────┐
 │Sing-box │    │  Xray   │    │ Mihomo  │
-│ v1.13.3 │    │v26.2.6  │    │v1.19.21 │
+│ v1.13.8 │    │v26.3.27 │    │v1.19.23 │
 │         │    │         │    │         │
 │ :443    │    │ :8443   │    │ :9443   │
 │(direct) │    │(direct) │    │(direct) │
@@ -7630,9 +7630,9 @@ COPY --from=backend-builder /app/server /usr/local/bin/isolate-panel
 COPY --from=frontend-builder /app/dist /var/www/html
 
 # Install cores
-ADD https://github.com/SagerNet/sing-box/releases/download/v1.13.3/sing-box-linux-amd64.tar.gz /tmp/
-ADD https://github.com/XTLS/Xray-core/releases/download/v26.2.6/Xray-linux-64.zip /tmp/
-ADD https://github.com/MetaCubeX/mihomo/releases/download/v1.19.21/mihomo-linux-amd64.gz /tmp/
+ADD https://github.com/SagerNet/sing-box/releases/download/v1.13.8/sing-box-linux-amd64.tar.gz /tmp/
+ADD https://github.com/XTLS/Xray-core/releases/download/v26.3.27/Xray-linux-64.zip /tmp/
+ADD https://github.com/MetaCubeX/mihomo/releases/download/v1.19.23/mihomo-linux-amd64.gz /tmp/
 # ... extract and install
 
 # Supervisord config

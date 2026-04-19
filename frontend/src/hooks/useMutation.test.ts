@@ -26,7 +26,7 @@ describe('useMutation Hook', () => {
       expect(result.current.data).toEqual({ success: true, test: 'data' })
     })
 
-    expect(mockMutationFn).toHaveBeenCalledWith({ test: 'data' })
+    expect(mockMutationFn).toHaveBeenCalledWith({ test: 'data' }, expect.any(AbortSignal))
   })
 
   it('should update state on error', async () => {

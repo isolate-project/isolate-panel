@@ -43,6 +43,14 @@ yarn-error.log*
 /frontend/build/
 .vite/
 playwright-report/
+playwright-report-live/
+test-results/
+frontend/e2e-full/
+frontend/e2e-live/
+frontend/playwright.fullstack.config.ts
+
+# CLI binary
+cli/cli
 
 # Environment variables
 .env
@@ -59,6 +67,7 @@ playwright-report/
 
 # Docker
 .dockerignore
+docker/.env
 docker/data/
 
 # Temporary files

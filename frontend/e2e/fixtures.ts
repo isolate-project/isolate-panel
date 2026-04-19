@@ -51,6 +51,103 @@ export const mockNotifications = [
   { id: 2, type: 'info', title: 'Backup complete', message: 'Daily backup finished', read: true, created_at: '2026-04-04T03:00:00Z' },
 ]
 
+// ── Port Validation Mock Data ──
+
+export const mockPortValidationInfo = {
+  port: 443,
+  listen_address: '0.0.0.0',
+  protocol: 'vless',
+  transport: '',
+  core_type: 'xray',
+  is_available: true,
+  haproxy_compatible: true,
+  can_share_port: true,
+  sharing_mechanism: 'haproxy',
+  severity: 'info',
+  action: 'allow',
+  message: 'Порт доступен для использования с HAProxy',
+  conflicts: [],
+}
+
+export const mockPortValidationWarning = {
+  port: 443,
+  listen_address: '0.0.0.0',
+  protocol: 'vmess',
+  transport: '',
+  core_type: 'xray',
+  is_available: false,
+  haproxy_compatible: true,
+  can_share_port: true,
+  sharing_mechanism: 'haproxy',
+  severity: 'warning',
+  action: 'confirm',
+  message: 'Обнаружен конфликт порта. Требуется подтверждение.',
+  conflicts: [{
+    inbound_id: 1,
+    inbound_name: 'Existing VLESS',
+    protocol: 'vless',
+    transport: '',
+    core_type: 'xray',
+    port: 443,
+    haproxy_compatible: true,
+    can_share: true,
+    sharing_mechanism: 'haproxy',
+    requires_confirm: true,
+  }],
+}
+
+export const mockPortValidationError = {
+  port: 8443,
+  listen_address: '0.0.0.0',
+  protocol: 'hysteria2',
+  transport: 'udp',
+  core_type: 'sing-box',
+  is_available: false,
+  haproxy_compatible: false,
+  can_share_port: false,
+  severity: 'error',
+  action: 'block',
+  message: 'UDP протоколы требуют отдельного порта',
+  conflicts: [{
+    inbound_id: 2,
+    inbound_name: 'Existing Hysteria2',
+    protocol: 'hysteria2',
+    transport: 'udp',
+    core_type: 'sing-box',
+    port: 8443,
+    haproxy_compatible: false,
+    can_share: false,
+    requires_confirm: false,
+  }],
+}
+
+export const mockPortConflicts = [
+  {
+    inbound_id: 1,
+    inbound_name: 'VLESS-443',
+    protocol: 'vless',
+    transport: '',
+    core_type: 'xray',
+    port: 443,
+    haproxy_compatible: true,
+    can_share: true,
+    sharing_mechanism: 'haproxy',
+    requires_confirm: true,
+  },
+  {
+    inbound_id: 2,
+    inbound_name: 'VMess-8443',
+    protocol: 'vmess',
+    transport: '',
+    core_type: 'xray',
+    port: 8443,
+    haproxy_compatible: true,
+    can_share: true,
+    sharing_mechanism: 'haproxy',
+    requires_confirm: true,
+  },
+]
+
 // ── Auth helpers ──
 
 /** Set up authenticated state in localStorage so ProtectedRoute lets us through.
@@ -169,4 +266,11 @@ export async function mockProtectedApis(page: Page) {
 
   // TOTP status
   await page.route(/\/api\/auth\/totp\/status/, route => route.fulfill(json({ totp_enabled: false })))
+}
+
+/** Combined helper: sets up both auth state and mocked APIs in one call.
+ *  Use this for tests that need to mock backend APIs. */
+export async function setupMockServer(page: Page) {
+  await mockProtectedApis(page)
+  await setupAuth(page)
 }

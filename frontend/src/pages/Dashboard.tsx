@@ -10,13 +10,13 @@ import { Progress } from '../components/ui/Progress'
 import { Skeleton } from '../components/ui/Skeleton'
 import { RAMPanicButton } from '../components/features/RAMPanicButton'
 import { TrafficChart, TopUsersChart } from '../components/features/DashboardCharts'
-import { useUsers } from '../hooks/useUsers'
 import { useCores } from '../hooks/useCores'
 import { useSystemResources } from '../hooks/useSystem'
 import { useConnections } from '../hooks/useConnections'
 import { useWebSocket } from '../hooks/useWebSocket'
+import { useStatsSummary } from '../hooks/useStatsSummary'
 import { useAuthStore } from '../stores/authStore'
-import type { User, Core } from '../types'
+import type { Core } from '../types'
 import { Users, Activity, HardDrive, Box, ArrowUpRight, ShieldAlert, Cpu, LucideIcon } from 'lucide-preact'
 import { useTranslation } from 'react-i18next'
 import { cn } from '../lib/utils'
@@ -99,20 +99,17 @@ export function Dashboard() {
 
   const { lastMessage: wsData, isConnected: wsConnected } = useWebSocket<DashboardWSPayload>(wsUrl)
 
-  const { data: usersResponse, isLoading: usersLoading } = useUsers()
   const { data: cores, isLoading: coresLoading } = useCores()
   const { data: resources } = useSystemResources()
   const { count: activeConnectionsPoll, isLoading: connectionsLoading } = useConnections()
+  const { data: statsSummary, isLoading: statsSummaryLoading } = useStatsSummary()
 
-  const users = usersResponse?.users || usersResponse || []
-  const totalUsersPoll = Array.isArray(users) ? users.length : 0
-  const activeUsersPoll = Array.isArray(users) ? users.filter((u: User) => u.is_active)?.length : 0
   const runningCoresPoll = Array.isArray(cores) ? cores.filter((c: Core) => c.is_running)?.length : 0
   const totalCores = Array.isArray(cores) ? cores.length : 0
 
-  const totalTrafficPoll = Array.isArray(users)
-    ? users.reduce((sum: number, u: User) => sum + (u.traffic_used_bytes || 0), 0)
-    : 0
+  const totalUsersPoll = statsSummary?.total_users ?? 0
+  const activeUsersPoll = statsSummary?.active_users ?? 0
+  const totalTrafficPoll = statsSummary?.total_traffic_bytes ?? 0
 
   // Prefer real-time WS data; fall back to polling when disconnected
   const totalUsers = wsConnected && wsData ? wsData.total_users : totalUsersPoll
@@ -152,7 +149,7 @@ export function Dashboard() {
               <><span className="text-color-success">{activeUsers}</span> active users</>
             }
             icon={Users}
-            loading={usersLoading}
+            loading={statsSummaryLoading}
             colorClass="bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"
           />
           <StatCard
@@ -168,7 +165,7 @@ export function Dashboard() {
             value={formatBytes(totalTrafficBytes)}
             subtext="Up and down combined"
             icon={ArrowUpRight}
-            loading={usersLoading}
+            loading={statsSummaryLoading}
             colorClass="bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400"
           />
           <StatCard

@@ -1,19 +1,19 @@
 [
   {
     "name": "singbox",
-    "version": "1.13.3",
+    "version": "1.13.8",
     "is_enabled": true,
     "is_running": false
   },
   {
     "name": "xray",
-    "version": "26.2.6",
+    "version": "26.3.27",
     "is_enabled": true,
     "is_running": false
   },
   {
     "name": "mihomo",
-    "version": "1.19.21",
+    "version": "1.19.23",
     "is_enabled": true,
     "is_running": false
   }

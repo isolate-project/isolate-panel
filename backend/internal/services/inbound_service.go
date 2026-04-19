@@ -124,6 +124,36 @@ func (s *InboundService) ListInbounds(coreID *uint, isEnabled *bool) ([]models.I
 	return inbounds, nil
 }
 
+// ListInboundsPaginated returns paginated inbounds with optional filtering
+func (s *InboundService) ListInboundsPaginated(coreID *uint, isEnabled *bool, page, pageSize int) ([]models.Inbound, int64, error) {
+	var inbounds []models.Inbound
+	var total int64
+	query := s.db.Model(&models.Inbound{})
+
+	if coreID != nil {
+		query = query.Where("core_id = ?", *coreID)
+	}
+
+	if isEnabled != nil {
+		query = query.Where("is_enabled = ?", *isEnabled)
+	}
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to count inbounds: %w", err)
+	}
+
+	offset := (page - 1) * pageSize
+	if err := query.Preload("Core").
+		Offset(offset).
+		Limit(pageSize).
+		Order("id ASC").
+		Find(&inbounds).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to list inbounds: %w", err)
+	}
+
+	return inbounds, total, nil
+}
+
 // UpdateInbound updates an existing inbound
 func (s *InboundService) UpdateInbound(id uint, updates map[string]interface{}) (*models.Inbound, error) {
 	var inbound models.Inbound

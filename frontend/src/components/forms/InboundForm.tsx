@@ -4,6 +4,7 @@ import { inboundSchema, InboundFormData } from '../../utils/validators'
 import { FormField } from './FormField'
 import { Button } from '../ui/Button'
 import { useCreateInbound, useUpdateInbound } from '../../hooks/useInbounds'
+import { PortValidationField } from '../inbound/PortValidationField'
 import { useCores } from '../../hooks/useCores'
 import { useQuery } from '../../hooks/useQuery'
 import type { Inbound, Core } from '../../types'
@@ -244,21 +245,20 @@ export function InboundForm({ inbound, onSuccess, onCancel }: InboundFormProps) 
                 onBlur={onBlur}
               />
 
-              <FormField
-                name="port"
-                label={t('inbounds.port')}
-                type="number"
-                value={values.port}
-                error={errors.port}
-                touched={touched.port}
-                required
-                disabled={isLoading}
-                placeholder="443"
-                className={portError ? 'border-red-500' : ''}
-                onChange={onChange}
-                onBlur={onBlur}
-              />
-              {portError && <p className="text-xs text-red-500 mt-1">{portError}</p>}
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  {t('inbounds.port')}
+                </label>
+                <PortValidationField
+                  value={values.port || 443}
+                  onChange={(port) => onChange('port', port)}
+                  protocol={values.protocol || 'vless'}
+                  transport={(values as Record<string, unknown>).transport as string || ''}
+                  coreType={selectedCoreType}
+                  listenAddress={values.listen_address || '0.0.0.0'}
+                  disabled={isLoading}
+                />
+              </div>
             </div>
           </CardContent>
         </Card>

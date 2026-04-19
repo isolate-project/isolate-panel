@@ -26,7 +26,7 @@ func setupCoresApp(t *testing.T) (*fiber.App, *cores.CoreManager) {
 	t.Helper()
 	db := setupCoresTestDB(t)
 
-	coreManager := cores.NewCoreManager(db, "http://127.0.0.1:9001")
+	coreManager := cores.NewCoreManager(db, "http://127.0.0.1:9001", nil)
 	handler := NewCoresHandler(coreManager)
 
 	app := fiber.New()

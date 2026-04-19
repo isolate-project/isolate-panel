@@ -12,7 +12,7 @@ cd /mnt/Games/syncthing-shared-folder/isolate-panel/data/cores
 # Xray
 mkdir -p xray
 cd xray
-wget https://github.com/XTLS/Xray-core/releases/download/v26.2.6/Xray-linux-64.zip
+wget https://github.com/XTLS/Xray-core/releases/download/v26.3.27/Xray-linux-64.zip
 unzip Xray-linux-64.zip
 rm Xray-linux-64.zip
 chmod +x xray
@@ -21,19 +21,19 @@ cd ..
 # Mihomo
 mkdir -p mihomo
 cd mihomo
-wget https://github.com/MetaCubeX/mihomo/releases/download/v1.19.21/mihomo-linux-amd64-v1.19.21.gz
-gunzip mihomo-linux-amd64-v1.19.21.gz
-mv mihomo-linux-amd64-v1.19.21 mihomo
+wget https://github.com/MetaCubeX/mihomo/releases/download/v1.19.23/mihomo-linux-amd64-v1.19.23.gz
+gunzip mihomo-linux-amd64-v1.19.23.gz
+mv mihomo-linux-amd64-v1.19.23 mihomo
 chmod +x mihomo
 cd ..
 
 # Sing-box
 mkdir -p singbox
 cd singbox
-wget https://github.com/SagerNet/sing-box/releases/download/v1.13.3/sing-box-1.13.3-linux-amd64.tar.gz
-tar -xzf sing-box-1.13.3-linux-amd64.tar.gz
-mv sing-box-1.13.3-linux-amd64/sing-box .
-rm -rf sing-box-1.13.3-linux-amd64 sing-box-1.13.3-linux-amd64.tar.gz
+wget https://github.com/SagerNet/sing-box/releases/download/v1.13.8/sing-box-1.13.8-linux-amd64.tar.gz
+tar -xzf sing-box-1.13.8-linux-amd64.tar.gz
+mv sing-box-1.13.8-linux-amd64/sing-box .
+rm -rf sing-box-1.13.8-linux-amd64 sing-box-1.13.8-linux-amd64.tar.gz
 chmod +x sing-box
 cd ..
 ```
@@ -74,24 +74,24 @@ docker exec -it isolate-panel /bin/sh
 ```sh
 # Xray
 cd /app/data/cores/xray
-wget https://github.com/XTLS/Xray-core/releases/download/v26.2.6/Xray-linux-64.zip
+wget https://github.com/XTLS/Xray-core/releases/download/v26.3.27/Xray-linux-64.zip
 unzip Xray-linux-64.zip
 rm Xray-linux-64.zip
 chmod +x xray
 
 # Mihomo
 cd /app/data/cores/mihomo
-wget https://github.com/MetaCubeX/mihomo/releases/download/v1.19.21/mihomo-linux-amd64-v1.19.21.gz
-gunzip mihomo-linux-amd64-v1.19.21.gz
-mv mihomo-linux-amd64-v1.19.21 mihomo
+wget https://github.com/MetaCubeX/mihomo/releases/download/v1.19.23/mihomo-linux-amd64-v1.19.23.gz
+gunzip mihomo-linux-amd64-v1.19.23.gz
+mv mihomo-linux-amd64-v1.19.23 mihomo
 chmod +x mihomo
 
 # Sing-box
 cd /app/data/cores/singbox
-wget https://github.com/SagerNet/sing-box/releases/download/v1.13.3/sing-box-1.13.3-linux-amd64.tar.gz
-tar -xzf sing-box-1.13.3-linux-amd64.tar.gz -C /tmp
-mv /tmp/sing-box-1.13.3-linux-amd64/sing-box .
-rm -rf /tmp/sing-box-1.13.3-linux-amd64
+wget https://github.com/SagerNet/sing-box/releases/download/v1.13.8/sing-box-1.13.8-linux-amd64.tar.gz
+tar -xzf sing-box-1.13.8-linux-amd64.tar.gz -C /tmp
+mv /tmp/sing-box-1.13.8-linux-amd64/sing-box .
+rm -rf /tmp/sing-box-1.13.8-linux-amd64
 chmod +x sing-box
 ```
 
@@ -115,17 +115,17 @@ docker compose restart isolate-panel
 
 ### Для Xray:
 ```bash
-wget https://mirror.ghproxy.com/https://github.com/XTLS/Xray-core/releases/download/v26.2.6/Xray-linux-64.zip
+wget https://mirror.ghproxy.com/https://github.com/XTLS/Xray-core/releases/download/v26.3.27/Xray-linux-64.zip
 ```
 
 ### Для Mihomo:
 ```bash
-wget https://mirror.ghproxy.com/https://github.com/MetaCubeX/mihomo/releases/download/v1.19.21/mihomo-linux-amd64-v1.19.21.gz
+wget https://mirror.ghproxy.com/https://github.com/MetaCubeX/mihomo/releases/download/v1.19.23/mihomo-linux-amd64-v1.19.23.gz
 ```
 
 ### Для Sing-box:
 ```bash
-wget https://mirror.ghproxy.com/https://github.com/SagerNet/sing-box/releases/download/v1.13.3/sing-box-1.13.3-linux-amd64.tar.gz
+wget https://mirror.ghproxy.com/https://github.com/SagerNet/sing-box/releases/download/v1.13.8/sing-box-1.13.8-linux-amd64.tar.gz
 ```
 
 ---

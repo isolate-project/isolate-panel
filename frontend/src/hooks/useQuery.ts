@@ -94,6 +94,7 @@ export function useQuery<T>(
       // Don't update state if aborted or unmounted
       if (signal.aborted || !mountedRef.current) {
         return
+<<<<<<< Updated upstream
       }
       
       cache.set(key, result, cacheTime)
@@ -118,6 +119,32 @@ export function useQuery<T>(
       if (!signal.aborted && mountedRef.current) {
         setIsLoading(false)
         setIsRefetching(false)
+=======
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') {
+          return
+        }
+        if (!mountedRef.current) {
+          return
+        }
+
+        attempt++
+        if (attempt < maxAttempts && !signal.aborted) {
+          await new Promise(resolve => setTimeout(resolve, Math.min(1000 * Math.pow(2, attempt - 1), 5000)))
+          if (signal.aborted || !mountedRef.current) return
+          continue
+        }
+
+        const error = err instanceof Error ? err : new Error('Unknown error')
+        setError(error)
+        onErrorRef.current?.(error)
+        return
+      } finally {
+        if (mountedRef.current) {
+          setIsLoading(false)
+          setIsRefetching(false)
+        }
+>>>>>>> Stashed changes
       }
     }
   }, [enabled, key, cacheTime])

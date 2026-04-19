@@ -12,7 +12,11 @@ import (
 	"github.com/isolate-project/isolate-panel/internal/cache"
 	appconfig "github.com/isolate-project/isolate-panel/internal/config"
 	"github.com/isolate-project/isolate-panel/internal/cores"
+	_ "github.com/isolate-project/isolate-panel/internal/cores/mihomo"
+	_ "github.com/isolate-project/isolate-panel/internal/cores/singbox"
+	_ "github.com/isolate-project/isolate-panel/internal/cores/xray"
 	"github.com/isolate-project/isolate-panel/internal/database"
+	"github.com/isolate-project/isolate-panel/internal/haproxy"
 	applogger "github.com/isolate-project/isolate-panel/internal/logger"
 	"github.com/isolate-project/isolate-panel/internal/middleware"
 	"github.com/isolate-project/isolate-panel/internal/scheduler"
@@ -103,13 +107,26 @@ func NewApp(cfg *appconfig.Config, db *database.Database) (*App, error) {
 	}
 
 	// Core management
-	a.Cores = cores.NewCoreManager(db.DB, cfg.Cores.SupervisorURL)
+	coreCfg := &cores.CoreConfig{
+		APIPort:       cfg.Cores.APIPort,
+		LogDirectory:  cfg.Cores.LogDirectory,
+		ClashAPIPort:  cfg.Cores.ClashAPIPort,
+		MihomoAPIPort: cfg.Cores.MihomoAPIPort,
+		V2RayAPIPort:  cfg.Cores.V2RayAPIPort,
+	}
+	coreCfg.ApplyDefaults()
+	a.Cores = cores.NewCoreManager(db.DB, cfg.Cores.SupervisorURL, coreCfg)
 	a.Lifecycle = services.NewCoreLifecycleManager(db.DB, a.Cores)
 	coreAPISecret := cfg.Cores.SingboxAPIKey
 	if coreAPISecret == "" {
 		coreAPISecret = cfg.Cores.MihomoAPIKey
 	}
 	a.Config = services.NewConfigService(db.DB, a.Cores, cfg.Cores.ConfigDir, coreAPISecret)
+<<<<<<< Updated upstream
+=======
+	a.Config.SetV2RayAPIListenAddr(cfg.Cores.SingboxV2RayAPIAddr)
+	a.Config.SetCoreConfig(coreCfg)
+>>>>>>> Stashed changes
 	a.Lifecycle.SetConfigService(a.Config)
 	if err := a.Lifecycle.InitializeCores(); err != nil {
 		log.Warn().Err(err).Msg("Failed to initialize cores - cores can be started manually")
@@ -236,7 +253,7 @@ func NewApp(cfg *appconfig.Config, db *database.Database) (*App, error) {
 	a.AuthH = api.NewAuthHandler(db.DB, a.TokenSvc, a.Notifications)
 	a.CoresH = api.NewCoresHandler(a.Cores)
 	a.UsersH = api.NewUsersHandler(a.Users)
-	a.InboundsH = api.NewInboundsHandler(a.Inbounds, a.Ports)
+	a.InboundsH = api.NewInboundsHandler(a.Inbounds, a.Ports, haproxy.NewPortValidator(db.DB), db.DB)
 	a.OutboundsH = api.NewOutboundsHandler(a.Outbounds)
 	a.ProtocolsH = api.NewProtocolsHandler()
 	a.SubscriptionsH = api.NewSubscriptionsHandler(a.Subscriptions)
