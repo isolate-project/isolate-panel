@@ -3,23 +3,6 @@ import { Share2, Home, Users, ArrowDownToLine, ArrowUpFromLine, Box, Shield, Act
 import { useTranslation } from 'react-i18next'
 import { cn } from '../../lib/utils'
 
-<<<<<<< Updated upstream
-=======
-function useCurrentPath() {
-  const [pathname, setPathname] = useState(window.location.pathname)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const currentPath = window.location.pathname
-      if (currentPath !== pathname) {
-        setPathname(currentPath)
-      }
-    }, 200)
-    return () => clearInterval(interval)
-  }, [pathname])
-  return pathname
-}
-
->>>>>>> Stashed changes
 interface SidebarProps {
   isOpen?: boolean
   onClose?: () => void

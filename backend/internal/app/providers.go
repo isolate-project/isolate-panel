@@ -122,11 +122,7 @@ func NewApp(cfg *appconfig.Config, db *database.Database) (*App, error) {
 		coreAPISecret = cfg.Cores.MihomoAPIKey
 	}
 	a.Config = services.NewConfigService(db.DB, a.Cores, cfg.Cores.ConfigDir, coreAPISecret)
-<<<<<<< Updated upstream
-=======
-	a.Config.SetV2RayAPIListenAddr(cfg.Cores.SingboxV2RayAPIAddr)
 	a.Config.SetCoreConfig(coreCfg)
->>>>>>> Stashed changes
 	a.Lifecycle.SetConfigService(a.Config)
 	if err := a.Lifecycle.InitializeCores(); err != nil {
 		log.Warn().Err(err).Msg("Failed to initialize cores - cores can be started manually")

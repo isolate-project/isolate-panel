@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'preact/hooks'
 import { warpApi, coreApi } from '../api/endpoints'
 import { useToastStore } from '../stores/toastStore'
+import { useTranslation } from 'react-i18next'
+import { PageLayout } from '../components/layout/PageLayout'
 
 interface WarpRoute {
   id: number
@@ -29,16 +31,12 @@ interface Preset {
 
 export function WarpRoutes() {
   const { addToast } = useToastStore()
+  const { t } = useTranslation()
   const [routes, setRoutes] = useState<WarpRoute[]>([])
   const [status, setStatus] = useState<WarpStatus | null>(null)
   const [presets, setPresets] = useState<Preset>({})
   const [cores, setCores] = useState<{ name: string; id: number }[]>([])
-<<<<<<< Updated upstream
-  const [selectedCore, setSelectedCore] = useState<number>(1)
-  const [loading, setLoading] = useState(true)
-=======
   const [selectedCore, setSelectedCore] = useState<number | null>(null)
->>>>>>> Stashed changes
   const [showForm, setShowForm] = useState(false)
   const [formData, setFormData] = useState({
     resource_type: 'domain',
@@ -64,9 +62,6 @@ export function WarpRoutes() {
     }
   }, [selectedCore])
 
-<<<<<<< Updated upstream
-  const loadData = async () => {
-=======
   const loadCores = async () => {
     try {
       const coresRes = await coreApi.list()
@@ -86,14 +81,13 @@ export function WarpRoutes() {
 
   const loadWarpData = async () => {
     if (selectedCore === null) return
->>>>>>> Stashed changes
     abortRef.current?.abort()
     const controller = new AbortController()
     abortRef.current = controller
 
     try {
       const [routesRes, statusRes, presetsRes] = await Promise.all([
-        warpApi.getRoutes(selectedCore),
+        warpApi.getRoutes(selectedCore!),
         warpApi.getStatus(),
         warpApi.getPresets(),
       ])
@@ -103,26 +97,10 @@ export function WarpRoutes() {
       setRoutes(routesRes.data.data || [])
       setStatus(statusRes.data.data || null)
       setPresets(presetsRes.data.data || {})
-<<<<<<< Updated upstream
-      setCores(
-        (coresRes.data.data || []).map((c: { name: string; id: number }) => ({
-          name: c.name,
-          id: c.id,
-        }))
-      )
-    } catch (error) {
-      if (controller.signal.aborted) return
-      console.error('Failed to load WARP data:', error)
-    } finally {
-      if (!controller.signal.aborted) {
-        setLoading(false)
-      }
-=======
     } catch (error) {
       if (controller.signal.aborted) return
       console.error('Failed to load WARP data:', error)
       addToast({ type: 'error', message: t('warp.loadFail') || 'Failed to load WARP data' })
->>>>>>> Stashed changes
     }
   }
 
@@ -131,55 +109,11 @@ export function WarpRoutes() {
 
     try {
       await warpApi.register()
-<<<<<<< Updated upstream
       addToast({ type: 'success', message: 'WARP registered successfully!' })
-      loadData()
+      loadWarpData()
     } catch (err: unknown) {
       const error = err as { response?: { data?: { error?: string } }; message?: string }
       addToast({ type: 'error', message: 'Failed to register WARP: ' + (error.response?.data?.error || error.message) })
-=======
-      addToast({ type: 'success', message: t('warp.registerSuccess') })
-      loadWarpData()
-    } catch (err: unknown) {
-      addToast({ type: 'error', message: t('warp.registerFail') + ': ' + getApiErrorMessage(err) })
-    } finally {
-      setImportLoading(false)
-    }
-  }
-
-  const handleImportLicense = async () => {
-    if (!licenseKey.trim()) return
-    setImportLoading(true)
-    try {
-      await warpApi.importLicense(licenseKey.trim())
-      addToast({ type: 'success', message: t('warp.licenseSuccess') })
-      setLicenseKey('')
-      loadWarpData()
-    } catch (err: unknown) {
-      addToast({ type: 'error', message: t('warp.licenseFail') + ': ' + getApiErrorMessage(err) })
-    } finally {
-      setImportLoading(false)
-    }
-  }
-
-  const handleImportConfig = async () => {
-    if (!manualConfig.private_key.trim()) return
-    setImportLoading(true)
-    try {
-      await warpApi.importConfig({
-        private_key: manualConfig.private_key.trim(),
-        endpoint: manualConfig.endpoint || undefined,
-        ipv4: manualConfig.ipv4 || undefined,
-        ipv6: manualConfig.ipv6 || undefined,
-      })
-      addToast({ type: 'success', message: t('warp.importSuccess') })
-      setManualConfig({ private_key: '', endpoint: 'engage.cloudflareclient.com:2408', ipv4: '', ipv6: '' })
-      loadWarpData()
-    } catch (err: unknown) {
-      addToast({ type: 'error', message: t('warp.importFail') + ': ' + getApiErrorMessage(err) })
-    } finally {
-      setImportLoading(false)
->>>>>>> Stashed changes
     }
   }
 
@@ -187,14 +121,9 @@ export function WarpRoutes() {
     if (!confirm(`Apply preset "${presetName}"?`)) return
 
     try {
-      await warpApi.applyPreset(presetName, selectedCore)
-<<<<<<< Updated upstream
+      await warpApi.applyPreset(presetName, selectedCore!)
       addToast({ type: 'success', message: 'Preset applied successfully!' })
-      loadData()
-=======
-      addToast({ type: 'success', message: t('warp.presetSuccess') })
       loadWarpData()
->>>>>>> Stashed changes
     } catch (err: unknown) {
       const error = err as { response?: { data?: { error?: string } }; message?: string }
       addToast({ type: 'error', message: 'Failed to apply preset: ' + (error.response?.data?.error || error.message) })
@@ -206,7 +135,7 @@ export function WarpRoutes() {
 
     try {
       await warpApi.createRoute({
-        core_id: selectedCore,
+        core_id: selectedCore!,
         resource_type: formData.resource_type,
         resource_value: formData.resource_value,
         description: formData.description,
@@ -227,13 +156,8 @@ export function WarpRoutes() {
 
     try {
       await warpApi.deleteRoute(id)
-<<<<<<< Updated upstream
       addToast({ type: 'success', message: 'Route deleted successfully!' })
-      loadData()
-=======
-      addToast({ type: 'success', message: t('warp.routeDeleted') })
       loadWarpData()
->>>>>>> Stashed changes
     } catch (err: unknown) {
       const error = err as { response?: { data?: { error?: string } }; message?: string }
       addToast({ type: 'error', message: 'Failed to delete route: ' + (error.response?.data?.error || error.message) })
@@ -260,10 +184,6 @@ export function WarpRoutes() {
     }
   }
 
-<<<<<<< Updated upstream
-  if (loading) {
-    return <div className="p-4">Loading...</div>
-=======
   if (cores.length === 0) {
     return (
       <PageLayout>
@@ -275,7 +195,6 @@ export function WarpRoutes() {
         </div>
       </PageLayout>
     )
->>>>>>> Stashed changes
   }
 
   return (
@@ -344,7 +263,7 @@ export function WarpRoutes() {
         <div className="bg-white rounded-lg shadow p-4 mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">Select Core</label>
           <select
-            value={selectedCore}
+            value={selectedCore ?? ''}
             onChange={(e) => setSelectedCore(Number(e.currentTarget.value))}
             className="w-full p-2 border rounded"
           >

@@ -50,7 +50,7 @@ func (a *Adapter) GetDefaultLogPaths() (string, string) {
 }
 
 func (a *Adapter) CreateStatsClient(endpoint string) (cores.StatsClient, error) {
-	client := NewStatsClient(a.V2RayAPIAddr, endpoint, a.APIKey)
+	client := NewStatsClient(endpoint, a.APIKey)
 	return &singboxStatsClientWrapper{client: client}, nil
 }
 
@@ -95,6 +95,6 @@ func (a *Adapter) WriteConfigToDir(config any, configDir string, coreName string
 }
 
 func (a *Adapter) NewStatsClient(config cores.StatsClientConfig) cores.StatsClient {
-	client := NewStatsClient(config.GRPCAddress, config.ClashBaseURL, config.APIKey)
+	client := NewStatsClient(config.ClashBaseURL, config.APIKey)
 	return &singboxStatsClientWrapper{client: client}
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/isolate-project/isolate-panel/internal/cores/mihomo"
 	"github.com/isolate-project/isolate-panel/internal/cores/singbox"
 	"github.com/isolate-project/isolate-panel/internal/cores/xray"
+	"github.com/isolate-project/isolate-panel/internal/logger"
 	"github.com/isolate-project/isolate-panel/internal/models"
 	"github.com/isolate-project/isolate-panel/internal/stats"
 	"gorm.io/gorm"

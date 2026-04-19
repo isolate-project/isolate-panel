@@ -1,8 +1,10 @@
 package cores
 
 import (
+	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"time"
 
 	"gorm.io/gorm"
@@ -10,6 +12,8 @@ import (
 	"github.com/isolate-project/isolate-panel/internal/logger"
 	"github.com/isolate-project/isolate-panel/internal/models"
 )
+
+var healthCheckClient = &http.Client{Timeout: 5 * time.Second}
 
 // CoreManager manages proxy cores (Xray, Sing-box, Mihomo)
 type CoreManager struct {
@@ -271,8 +275,6 @@ func (cm *CoreManager) ListCores() ([]models.Core, error) {
 
 	return cores, nil
 }
-<<<<<<< Updated upstream
-=======
 
 func (cm *CoreManager) checkCoreHealth(name string) error {
 	switch name {
@@ -320,4 +322,3 @@ func (cm *CoreManager) checkCoreHealth(name string) error {
 	}
 	return nil
 }
->>>>>>> Stashed changes

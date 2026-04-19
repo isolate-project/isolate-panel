@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/isolate-project/isolate-panel/internal/stats"
@@ -210,4 +211,22 @@ func (c *StatsClient) RemoveUser(ctx context.Context, inboundTag string, userUUI
 // AddUser adds a user to Mihomo
 func (c *StatsClient) AddUser(ctx context.Context, inboundTag string, userUUID string, protocolType string) error {
 	return fmt.Errorf("mihomo requires graceful reload for user addition")
+}
+
+func parseProxyNameToIDs(proxyName string) (userID uint, inboundID uint) {
+	if !strings.HasPrefix(proxyName, "user_") {
+		return 0, 0
+	}
+	parts := strings.SplitN(strings.TrimPrefix(proxyName, "user_"), "::", 2)
+	id, err := strconv.ParseUint(parts[0], 10, 32)
+	if err != nil {
+		return 0, 0
+	}
+	userID = uint(id)
+	if len(parts) >= 2 {
+		if ibID, err := strconv.ParseUint(parts[1], 10, 32); err == nil {
+			inboundID = uint(ibID)
+		}
+	}
+	return userID, inboundID
 }

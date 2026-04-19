@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'preact/hooks'
 import { warpApi, coreApi } from '../api/endpoints'
 import { useToastStore } from '../stores/toastStore'
+import { useTranslation } from 'react-i18next'
+import { PageLayout } from '../components/layout/PageLayout'
 
 interface GeoRule {
   id: number
@@ -27,16 +29,12 @@ interface Category {
 
 export function GeoRules() {
   const { addToast } = useToastStore()
+  const { t } = useTranslation()
   const [rules, setRules] = useState<GeoRule[]>([])
   const [countries, setCountries] = useState<Country[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [cores, setCores] = useState<{ name: string; id: number }[]>([])
-<<<<<<< Updated upstream
-  const [selectedCore, setSelectedCore] = useState<number>(1)
-  const [loading, setLoading] = useState(true)
-=======
   const [selectedCore, setSelectedCore] = useState<number | null>(null)
->>>>>>> Stashed changes
   const [showForm, setShowForm] = useState(false)
   const [ruleType, setRuleType] = useState<'geoip' | 'geosite'>('geoip')
   const [formData, setFormData] = useState({
@@ -62,9 +60,6 @@ export function GeoRules() {
     }
   }, [selectedCore])
 
-<<<<<<< Updated upstream
-  const loadData = async () => {
-=======
   const loadCores = async () => {
     try {
       const coresRes = await coreApi.list()
@@ -84,14 +79,13 @@ export function GeoRules() {
 
   const loadGeoData = async () => {
     if (selectedCore === null) return
->>>>>>> Stashed changes
     abortRef.current?.abort()
     const controller = new AbortController()
     abortRef.current = controller
 
     try {
       const [rulesRes, countriesRes, categoriesRes] = await Promise.all([
-        warpApi.getGeoRules(selectedCore),
+        warpApi.getGeoRules(selectedCore!),
         warpApi.getCountries(),
         warpApi.getCategories(),
       ])
@@ -101,21 +95,10 @@ export function GeoRules() {
       setRules(rulesRes.data.data || [])
       setCountries(countriesRes.data.data || [])
       setCategories(categoriesRes.data.data || [])
-<<<<<<< Updated upstream
-      setCores((coresRes.data.data || []).map((c: { name: string; id: number }) => ({ name: c.name, id: c.id })))
-    } catch (error) {
-      if (controller.signal.aborted) return
-      console.error('Failed to load Geo data:', error)
-    } finally {
-      if (!controller.signal.aborted) {
-        setLoading(false)
-      }
-=======
     } catch (error) {
       if (controller.signal.aborted) return
       console.error('Failed to load Geo data:', error)
       addToast({ type: 'error', message: t('geo.loadFail') || 'Failed to load Geo data' })
->>>>>>> Stashed changes
     }
   }
 
@@ -124,7 +107,7 @@ export function GeoRules() {
 
     try {
       await warpApi.createGeoRule({
-        core_id: selectedCore,
+        core_id: selectedCore!,
         type: formData.type,
         code: formData.code,
         action: formData.action,
@@ -145,14 +128,9 @@ export function GeoRules() {
     if (!confirm('Delete this rule?')) return
 
     try {
-      await warpApi.deleteGeoRule(id, selectedCore)
-<<<<<<< Updated upstream
+      await warpApi.deleteGeoRule(id, selectedCore!)
       addToast({ type: 'success', message: 'Rule deleted successfully!' })
-      loadData()
-=======
-      addToast({ type: 'success', message: t('geo.ruleDeleted') })
       loadGeoData()
->>>>>>> Stashed changes
     } catch (err: unknown) {
       const error = err as { response?: { data?: { error?: string } }; message?: string }
       addToast({ type: 'error', message: 'Failed to delete rule: ' + (error.response?.data?.error || error.message) })
@@ -161,7 +139,7 @@ export function GeoRules() {
 
   const handleToggleRule = async (id: number) => {
     try {
-      await warpApi.toggleGeoRule(id, selectedCore)
+      await warpApi.toggleGeoRule(id, selectedCore!)
       loadGeoData()
     } catch (err: unknown) {
       const error = err as { response?: { data?: { error?: string } }; message?: string }
@@ -181,10 +159,6 @@ export function GeoRules() {
     }
   }
 
-<<<<<<< Updated upstream
-  if (loading) {
-    return <div className="p-4">Loading...</div>
-=======
   if (cores.length === 0) {
     return (
       <PageLayout>
@@ -196,7 +170,6 @@ export function GeoRules() {
         </div>
       </PageLayout>
     )
->>>>>>> Stashed changes
   }
 
   return (
@@ -226,7 +199,7 @@ export function GeoRules() {
         <div className="bg-white rounded-lg shadow p-4 mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">Select Core</label>
           <select
-            value={selectedCore}
+            value={selectedCore ?? ''}
             onChange={(e) => setSelectedCore(Number(e.currentTarget.value))}
             className="w-full p-2 border rounded"
           >

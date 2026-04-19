@@ -12,11 +12,8 @@ type ConfigContext struct {
 	// CoreAPISecret is the secret used for Clash-compatible API (sing-box, mihomo).
 	// Loaded from config cores.singbox_api_key / cores.mihomo_api_key.
 	CoreAPISecret string
-<<<<<<< Updated upstream
-=======
 	// V2RayAPIListenAddr is the gRPC listen address for sing-box v2ray_api
 	// (e.g., "127.0.0.1:10086"). Written into sing-box config experimental.v2ray_api.listen.
 	V2RayAPIListenAddr string
 	CoreConfig *CoreConfig
->>>>>>> Stashed changes
 }
