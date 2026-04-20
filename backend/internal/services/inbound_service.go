@@ -15,6 +15,7 @@ type InboundService struct {
 	db               *gorm.DB
 	lifecycleManager *CoreLifecycleManager
 	portManager      *PortManager
+	subscriptions    *SubscriptionService
 }
 
 // NewInboundService creates a new inbound service
@@ -23,6 +24,24 @@ func NewInboundService(db *gorm.DB, lifecycleManager *CoreLifecycleManager, port
 		db:               db,
 		lifecycleManager: lifecycleManager,
 		portManager:      portManager,
+	}
+}
+
+// SetSubscriptionService injects SubscriptionService for cache invalidation (breaks circular dep)
+func (s *InboundService) SetSubscriptionService(subs *SubscriptionService) {
+	s.subscriptions = subs
+}
+
+func (s *InboundService) invalidateInboundUsersCache(inboundID uint) {
+	if s.subscriptions == nil {
+		return
+	}
+	users, err := s.GetInboundUsers(inboundID)
+	if err != nil {
+		return
+	}
+	for _, user := range users {
+		s.subscriptions.InvalidateUserCache(user.ID)
 	}
 }
 
@@ -40,6 +59,12 @@ func (s *InboundService) CreateInbound(inbound *models.Inbound) error {
 	}
 	if inbound.CoreID == 0 {
 		return fmt.Errorf("core_id is required")
+	}
+
+	if inbound.ConfigJSON != "" {
+		if err := s.ValidateInboundConfig(inbound.Protocol, inbound.ConfigJSON); err != nil {
+			return fmt.Errorf("invalid config: %w", err)
+		}
 	}
 
 	// Check if port is already in use
@@ -87,9 +112,11 @@ func (s *InboundService) CreateInbound(inbound *models.Inbound) error {
 	}
 
 	// Trigger core lifecycle check (auto-start if needed)
-	if err := s.lifecycleManager.OnInboundCreated(inbound); err != nil {
-		// Log error but don't fail the creation
-		logger.Log.Warn().Err(err).Msg("Failed to start core after inbound creation")
+	if s.lifecycleManager != nil {
+		if err := s.lifecycleManager.OnInboundCreated(inbound); err != nil {
+			// Log error but don't fail the creation
+			logger.Log.Warn().Err(err).Uint("inbound_id", inbound.ID).Msg("Failed to notify lifecycle manager of inbound creation")
+		}
 	}
 
 	return nil
@@ -195,6 +222,14 @@ func (s *InboundService) UpdateInbound(id uint, updates map[string]interface{}) 
 		}
 	}
 
+	if configJSON, ok := updates["config_json"]; ok {
+		if configStr, isString := configJSON.(string); isString && configStr != "" {
+			if err := s.ValidateInboundConfig(inbound.Protocol, configStr); err != nil {
+				return nil, fmt.Errorf("invalid config: %w", err)
+			}
+		}
+	}
+
 	// Validate TLS certificate binding on update
 	if tlsCertID, ok := updates["tls_cert_id"]; ok && tlsCertID != nil {
 		var certIDVal uint
@@ -229,6 +264,8 @@ func (s *InboundService) UpdateInbound(id uint, updates map[string]interface{}) 
 		return nil, fmt.Errorf("failed to update inbound: %w", err)
 	}
 
+	s.invalidateInboundUsersCache(id)
+
 	// Reload the inbound to get updated values
 	if err := s.db.Preload("Core").First(&inbound, id).Error; err != nil {
 		return nil, fmt.Errorf("failed to reload inbound: %w", err)
@@ -250,6 +287,8 @@ func (s *InboundService) DeleteInbound(id uint) error {
 	if err := s.db.First(&inbound, id).Error; err != nil {
 		return fmt.Errorf("inbound not found: %w", err)
 	}
+
+	s.invalidateInboundUsersCache(id)
 
 	// Delete inbound
 	if err := s.db.Delete(&inbound).Error; err != nil {
@@ -339,6 +378,10 @@ func (s *InboundService) AssignInboundToUser(userID uint, inboundID uint) error 
 		return fmt.Errorf("failed to assign inbound to user: %w", err)
 	}
 
+	if s.subscriptions != nil {
+		s.subscriptions.InvalidateUserCache(userID)
+	}
+
 	return nil
 }
 
@@ -351,6 +394,11 @@ func (s *InboundService) UnassignInboundFromUser(userID uint, inboundID uint) er
 	if result.RowsAffected == 0 {
 		return fmt.Errorf("mapping not found")
 	}
+
+	if s.subscriptions != nil {
+		s.subscriptions.InvalidateUserCache(userID)
+	}
+
 	return nil
 }
 
@@ -435,6 +483,15 @@ func (s *InboundService) BulkAssignUsers(inboundID uint, addUserIDs, removeUserI
 		}
 		if err := s.db.Create(mapping).Error; err == nil {
 			added++
+		}
+	}
+
+	if s.subscriptions != nil {
+		for _, userID := range addUserIDs {
+			s.subscriptions.InvalidateUserCache(userID)
+		}
+		for _, userID := range removeUserIDs {
+			s.subscriptions.InvalidateUserCache(userID)
 		}
 	}
 

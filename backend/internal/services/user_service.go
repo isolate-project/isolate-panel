@@ -176,6 +176,10 @@ func (us *UserService) CreateUser(req *CreateUserRequest, adminID uint) (*models
 		return nil, err
 	}
 
+	if us.subscriptions != nil {
+		us.subscriptions.InvalidateUserCache(user.ID)
+	}
+
 	// Send notification
 	if us.notificationService != nil {
 		us.notificationService.NotifyUserCreated(user)
@@ -350,6 +354,10 @@ func (us *UserService) RegenerateCredentials(id uint) (*models.User, error) {
 
 	if err := us.db.Save(&user).Error; err != nil {
 		return nil, fmt.Errorf("failed to update user: %w", err)
+	}
+
+	if us.subscriptions != nil {
+		us.subscriptions.InvalidateUserCache(user.ID)
 	}
 
 	return &user, nil

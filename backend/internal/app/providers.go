@@ -159,6 +159,7 @@ func NewApp(cfg *appconfig.Config, db *database.Database) (*App, error) {
 	a.Outbounds = services.NewOutboundService(db.DB, a.Config)
 	a.Subscriptions = services.NewSubscriptionService(db.DB, cfg.App.PanelURL, a.Cache)
 	a.Users.SetSubscriptionService(a.Subscriptions) // cache invalidation on user changes
+	a.Inbounds.SetSubscriptionService(a.Subscriptions) // cache invalidation on inbound changes
 
 	// Monitoring services
 	a.Traffic = services.NewTrafficCollector(
