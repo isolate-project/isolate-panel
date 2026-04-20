@@ -114,6 +114,8 @@ export interface ProtocolSummary {
   direction: string
   requires_tls: boolean
   category: string
+  deprecated?: boolean
+  deprecation_notice?: string
 }
 
 export interface ProtocolParameter {
@@ -149,6 +151,8 @@ export interface ProtocolSchema {
   parameters: Record<string, ProtocolParameter>
   transport?: string[]
   category: string
+  deprecated?: boolean
+  deprecation_notice?: string
 }
 
 export interface ProtocolDefaults {

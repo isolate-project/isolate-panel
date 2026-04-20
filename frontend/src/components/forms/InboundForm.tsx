@@ -6,8 +6,9 @@ import { Button } from '../ui/Button'
 import { useCreateInbound, useUpdateInbound } from '../../hooks/useInbounds'
 import { PortValidationField } from '../inbound/PortValidationField'
 import { useCores } from '../../hooks/useCores'
+import { useProtocols } from '../../hooks/useProtocols'
 import { useQuery } from '../../hooks/useQuery'
-import type { Inbound, Core } from '../../types'
+import type { Inbound, Core, ProtocolSummary } from '../../types'
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent } from '../ui/Card'
 import { Save } from 'lucide-preact'
@@ -19,18 +20,12 @@ interface InboundFormProps {
   onCancel: () => void
 }
 
-// Protocol support matrix per core type
-const CORE_PROTOCOLS: Record<string, string[]> = {
-  'sing-box': ['vless', 'vmess', 'trojan', 'shadowsocks', 'hysteria2', 'tuic', 'naive', 'http', 'socks'],
-  'xray': ['vless', 'vmess', 'trojan', 'shadowsocks', 'dokodemo-door', 'socks', 'http', 'mtproto'],
-  'mihomo': ['vless', 'vmess', 'trojan', 'shadowsocks', 'hysteria2', 'tuic', 'http', 'socks'],
-}
-
 export function InboundForm({ inbound, onSuccess, onCancel }: InboundFormProps) {
   const { t } = useTranslation()
   const { mutate: createInbound, isLoading: isCreating } = useCreateInbound()
   const { mutate: updateInbound, isLoading: isUpdating } = useUpdateInbound()
   const { data: cores } = useCores()
+  const { data: protocolsData } = useProtocols({ direction: 'inbound' })
 
   const coreOptions = Array.isArray(cores)
     ? cores.map((c: Core) => ({ value: c.id.toString(), label: `${c.name} (${c.type})`, type: c.type }))
@@ -55,7 +50,7 @@ export function InboundForm({ inbound, onSuccess, onCancel }: InboundFormProps) 
     handleChange,
     handleBlur,
     handleSubmit,
-  } = useForm<InboundFormData>({
+  } = useForm({
     schema: inboundSchema,
     initialValues: inbound
       ? {
@@ -98,16 +93,19 @@ export function InboundForm({ inbound, onSuccess, onCancel }: InboundFormProps) 
 
   const onChange = (name: string, value: string | number | boolean) => {
     handleChange(name as keyof InboundFormData, value)
-    
+
     // Update core type when core changes
     if (name === 'core_id') {
       const selectedCore = coreOptions.find(c => c.value === String(value))
       if (selectedCore?.type) {
         setSelectedCoreType(selectedCore.type)
         // Reset protocol to first supported if current is not supported
-        const supportedProtocols = CORE_PROTOCOLS[selectedCore.type] || []
-        if (!supportedProtocols.includes(values.protocol as string)) {
-          handleChange('protocol', (supportedProtocols[0] || 'vless') as InboundFormData['protocol'])
+        const allProtocols = protocolsData?.protocols || []
+        const supportedProtocols = allProtocols.filter((p: ProtocolSummary) =>
+          p.core.includes(selectedCore.type) && (p.direction === 'inbound' || p.direction === 'both')
+        )
+        if (!supportedProtocols.some((p: ProtocolSummary) => p.protocol === values.protocol)) {
+          handleChange('protocol', (supportedProtocols[0]?.protocol || 'vless') as InboundFormData['protocol'])
         }
       }
     }
@@ -166,8 +164,19 @@ export function InboundForm({ inbound, onSuccess, onCancel }: InboundFormProps) 
   }, [inbound, cores])
 
   // Get supported protocols for selected core
-  const supportedProtocols = CORE_PROTOCOLS[selectedCoreType] || []
-  const protocolOptions = supportedProtocols.map(p => ({ value: p, label: p.toUpperCase() }))
+  const allProtocols = protocolsData?.protocols || []
+  const supportedProtocols = allProtocols.filter((p: ProtocolSummary) =>
+    p.core.includes(selectedCoreType) && (p.direction === 'inbound' || p.direction === 'both')
+  )
+  const protocolOptions = supportedProtocols.map((p: ProtocolSummary) => ({
+    value: p.protocol,
+    label: p.label,
+    deprecated: p.deprecated,
+    deprecationNotice: p.deprecation_notice
+  }))
+
+  // Get selected protocol object for deprecation check
+  const selectedProtocol = supportedProtocols.find((p: ProtocolSummary) => p.protocol === values.protocol)
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col h-full">
@@ -221,6 +230,12 @@ export function InboundForm({ inbound, onSuccess, onCancel }: InboundFormProps) 
                 onBlur={onBlur}
               />
             </div>
+
+            {selectedProtocol?.deprecated && (
+              <div className="rounded-md bg-yellow-500/10 border border-yellow-500/20 p-3 text-sm text-yellow-600 dark:text-yellow-400">
+                <strong>⚠ Deprecated:</strong> {selectedProtocol.deprecation_notice}
+              </div>
+            )}
           </CardContent>
         </Card>
 

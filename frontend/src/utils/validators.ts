@@ -12,8 +12,8 @@ export const userSchema = z.object({
   email: z.string().email({ message: 'validation.emailInvalid' }).optional().or(z.literal('')),
   traffic_limit_bytes: z.number().min(0, { message: 'validation.trafficPositive' }).optional(),
   expiry_days: z.number().min(1, { message: 'validation.expiryDaysMin' }).optional(),
-  unlimited: z.boolean().default(false),
-  is_active: z.boolean().default(true),
+  unlimited: z.boolean().default(false).pipe(z.boolean()),
+  is_active: z.boolean().default(true).pipe(z.boolean()),
 })
 
 export type UserFormData = z.infer<typeof userSchema>
@@ -27,9 +27,9 @@ export const inboundSchema = z.object({
     .min(1, { message: 'validation.portRange' })
     .max(65535, { message: 'validation.portRange' }),
   core_id: z.number().min(1, { message: 'validation.coreRequired' }),
-  listen_address: z.string().default('0.0.0.0'),
-  is_enabled: z.boolean().default(true),
-  tls_enabled: z.boolean().default(true),
+  listen_address: z.string().default('0.0.0.0').pipe(z.string()),
+  is_enabled: z.boolean().default(true).pipe(z.boolean()),
+  tls_enabled: z.boolean().default(true).pipe(z.boolean()),
   tls_cert_id: z.number().nullable().optional(),
 })
 
