@@ -78,7 +78,7 @@ type clashSnellObfsOpts struct {
 
 func boolPtr(b bool) *bool { return &b }
 
-func buildClashProxy(protocol, name, server string, port int, user models.User, config map[string]interface{}, tlsInfo inboundTLSInfo, certsByIDs map[uint]*models.Certificate) *clashProxy {
+func buildClashProxy(protocol, name, server string, port int, user models.User, config map[string]interface{}, tlsInfo inboundTLSInfo, certsByIDs map[uint]*models.Certificate, realityInfo *inboundRealityInfo) *clashProxy {
 	p := &clashProxy{
 		Name:   name,
 		Server: server,
@@ -106,7 +106,21 @@ func buildClashProxy(protocol, name, server string, port int, user models.User, 
 		if encryption, ok := config["encryption"].(string); ok && encryption != "" && encryption != "none" {
 			extra["encryption"] = encryption
 		}
-		if p.Network == "ws" {
+		if realityInfo != nil {
+			realityOpts := map[string]interface{}{}
+			if realityInfo.PublicKey != "" {
+				realityOpts["public-key"] = realityInfo.PublicKey
+			}
+			if realityInfo.ShortID != "" {
+				realityOpts["short-id"] = realityInfo.ShortID
+			}
+			if len(realityOpts) > 0 {
+				extra["reality-opts"] = realityOpts
+			}
+			extra["client-fingerprint"] = realityInfo.Fingerprint
+		}
+		switch p.Network {
+		case "ws":
 			wsOpts := map[string]interface{}{}
 			if path, ok := config["ws_path"].(string); ok && path != "" {
 				wsOpts["path"] = path
@@ -117,13 +131,24 @@ func buildClashProxy(protocol, name, server string, port int, user models.User, 
 			if len(wsOpts) > 0 {
 				extra["ws-opts"] = wsOpts
 			}
-		} else if p.Network == "grpc" {
+		case "grpc":
 			grpcOpts := map[string]interface{}{}
 			if sn, ok := config["grpc_service_name"].(string); ok && sn != "" {
 				grpcOpts["grpc-service-name"] = sn
 			}
 			if len(grpcOpts) > 0 {
 				extra["grpc-opts"] = grpcOpts
+			}
+		case "httpupgrade":
+			httpupgradeOpts := map[string]interface{}{}
+			if host, ok := config["ws_host"].(string); ok && host != "" {
+				httpupgradeOpts["headers"] = map[string]string{"Host": host}
+			}
+			if path, ok := config["ws_path"].(string); ok && path != "" {
+				httpupgradeOpts["path"] = path
+			}
+			if len(httpupgradeOpts) > 0 {
+				extra["http-opts"] = httpupgradeOpts
 			}
 		}
 		if len(extra) > 0 {
@@ -141,7 +166,8 @@ func buildClashProxy(protocol, name, server string, port int, user models.User, 
 			p.ServerName = sni
 		}
 		extra := map[string]interface{}{}
-		if p.Network == "ws" {
+		switch p.Network {
+		case "ws":
 			wsOpts := map[string]interface{}{}
 			if path, ok := config["ws_path"].(string); ok && path != "" {
 				wsOpts["path"] = path
@@ -152,7 +178,7 @@ func buildClashProxy(protocol, name, server string, port int, user models.User, 
 			if len(wsOpts) > 0 {
 				extra["ws-opts"] = wsOpts
 			}
-		} else if p.Network == "grpc" {
+		case "grpc":
 			grpcOpts := map[string]interface{}{}
 			if sn, ok := config["grpc_service_name"].(string); ok && sn != "" {
 				grpcOpts["grpc-service-name"] = sn
@@ -160,7 +186,7 @@ func buildClashProxy(protocol, name, server string, port int, user models.User, 
 			if len(grpcOpts) > 0 {
 				extra["grpc-opts"] = grpcOpts
 			}
-		} else if p.Network == "h2" {
+		case "h2":
 			h2Opts := map[string]interface{}{}
 			if path, ok := config["h2_path"].(string); ok && path != "" {
 				h2Opts["path"] = path
@@ -170,6 +196,17 @@ func buildClashProxy(protocol, name, server string, port int, user models.User, 
 			}
 			if len(h2Opts) > 0 {
 				extra["h2-opts"] = h2Opts
+			}
+		case "httpupgrade":
+			httpupgradeOpts := map[string]interface{}{}
+			if host, ok := config["ws_host"].(string); ok && host != "" {
+				httpupgradeOpts["headers"] = map[string]string{"Host": host}
+			}
+			if path, ok := config["ws_path"].(string); ok && path != "" {
+				httpupgradeOpts["path"] = path
+			}
+			if len(httpupgradeOpts) > 0 {
+				extra["http-opts"] = httpupgradeOpts
 			}
 		}
 		if len(extra) > 0 {
@@ -183,13 +220,24 @@ func buildClashProxy(protocol, name, server string, port int, user models.User, 
 	case "shadowsocks":
 		p.Type = "ss"
 		p.Cipher = getStringOrDefault(config, "method", "aes-256-gcm")
-		p.Password = user.UUID
+		p.Password = getStringOrDefault(config, "password", user.UUID)
 	case "hysteria2":
 		p.Type = "hysteria2"
-		p.Password = user.UUID
+		p.Password = getStringOrDefault(config, "password", user.UUID)
 		p.SkipCertVerify = boolPtr(false)
 		if sni != server {
 			p.SNI = sni
+		}
+		extra := map[string]interface{}{}
+		if obfsType := getStringOrDefault(config, "obfs_type", ""); obfsType != "" {
+			obfsOpts := map[string]interface{}{"type": obfsType}
+			if obfsPass := getStringOrDefault(config, "obfs_password", ""); obfsPass != "" {
+				obfsOpts["password"] = obfsPass
+			}
+			extra["obfs"] = obfsOpts
+		}
+		if len(extra) > 0 {
+			p.Extra = extra
 		}
 	case "tuic_v4":
 		p.Type = "tuic"
