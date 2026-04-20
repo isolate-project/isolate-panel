@@ -49,26 +49,30 @@ type TransportConfig struct {
 
 // ProtocolSchema defines the full schema for a protocol
 type ProtocolSchema struct {
-	Protocol    string               `json:"protocol"`
-	Label       string               `json:"label"`
-	Description string               `json:"description"`
-	Core        []string             `json:"core"`
-	Direction   string               `json:"direction"` // "inbound", "outbound", "both"
-	RequiresTLS bool                 `json:"requires_tls"`
-	Parameters  map[string]Parameter `json:"parameters"`
-	Transport   []string             `json:"transport,omitempty"`
-	Category    string               `json:"category"` // "proxy", "tunnel", "utility"
+	Protocol          string               `json:"protocol"`
+	Label             string               `json:"label"`
+	Description       string               `json:"description"`
+	Core              []string             `json:"core"`
+	Direction         string               `json:"direction"` // "inbound", "outbound", "both"
+	RequiresTLS       bool                 `json:"requires_tls"`
+	Parameters        map[string]Parameter `json:"parameters"`
+	Transport         []string             `json:"transport,omitempty"`
+	Category          string               `json:"category"` // "proxy", "tunnel", "utility"
+	Deprecated        bool                 `json:"deprecated,omitempty"`
+	DeprecationNotice string               `json:"deprecation_notice,omitempty"`
 }
 
 // ProtocolSummary is a lightweight representation for listing protocols
 type ProtocolSummary struct {
-	Protocol    string   `json:"protocol"`
-	Label       string   `json:"label"`
-	Description string   `json:"description"`
-	Core        []string `json:"core"`
-	Direction   string   `json:"direction"`
-	RequiresTLS bool     `json:"requires_tls"`
-	Category    string   `json:"category"`
+	Protocol          string   `json:"protocol"`
+	Label             string   `json:"label"`
+	Description       string   `json:"description"`
+	Core              []string `json:"core"`
+	Direction         string   `json:"direction"`
+	RequiresTLS       bool     `json:"requires_tls"`
+	Category          string   `json:"category"`
+	Deprecated        bool     `json:"deprecated,omitempty"`
+	DeprecationNotice string   `json:"deprecation_notice,omitempty"`
 }
 
 // registry holds all registered protocol schemas
@@ -122,13 +126,15 @@ func GetAllProtocols() []ProtocolSummary {
 	summaries := make([]ProtocolSummary, 0, len(registry))
 	for _, schema := range registry {
 		summaries = append(summaries, ProtocolSummary{
-			Protocol:    schema.Protocol,
-			Label:       schema.Label,
-			Description: schema.Description,
-			Core:        schema.Core,
-			Direction:   schema.Direction,
-			RequiresTLS: schema.RequiresTLS,
-			Category:    schema.Category,
+			Protocol:          schema.Protocol,
+			Label:             schema.Label,
+			Description:       schema.Description,
+			Core:              schema.Core,
+			Direction:         schema.Direction,
+			RequiresTLS:       schema.RequiresTLS,
+			Category:          schema.Category,
+			Deprecated:        schema.Deprecated,
+			DeprecationNotice: schema.DeprecationNotice,
 		})
 	}
 	return summaries
@@ -143,13 +149,15 @@ func GetProtocolsByCore(coreName string) []ProtocolSummary {
 		for _, c := range schema.Core {
 			if c == coreName {
 				result = append(result, ProtocolSummary{
-					Protocol:    schema.Protocol,
-					Label:       schema.Label,
-					Description: schema.Description,
-					Core:        schema.Core,
-					Direction:   schema.Direction,
-					RequiresTLS: schema.RequiresTLS,
-					Category:    schema.Category,
+					Protocol:          schema.Protocol,
+					Label:             schema.Label,
+					Description:       schema.Description,
+					Core:              schema.Core,
+					Direction:         schema.Direction,
+					RequiresTLS:       schema.RequiresTLS,
+					Category:          schema.Category,
+					Deprecated:        schema.Deprecated,
+					DeprecationNotice: schema.DeprecationNotice,
 				})
 				break
 			}
@@ -170,13 +178,15 @@ func GetProtocolsByCoreAndDirection(coreName, direction string) []ProtocolSummar
 		for _, c := range schema.Core {
 			if c == coreName {
 				result = append(result, ProtocolSummary{
-					Protocol:    schema.Protocol,
-					Label:       schema.Label,
-					Description: schema.Description,
-					Core:        schema.Core,
-					Direction:   schema.Direction,
-					RequiresTLS: schema.RequiresTLS,
-					Category:    schema.Category,
+					Protocol:          schema.Protocol,
+					Label:             schema.Label,
+					Description:       schema.Description,
+					Core:              schema.Core,
+					Direction:         schema.Direction,
+					RequiresTLS:       schema.RequiresTLS,
+					Category:          schema.Category,
+					Deprecated:        schema.Deprecated,
+					DeprecationNotice: schema.DeprecationNotice,
 				})
 				break
 			}

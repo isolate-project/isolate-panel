@@ -289,6 +289,63 @@ func registerInboundProtocols() {
 	})
 
 	Register(&ProtocolSchema{
+		Protocol:          "hysteria",
+		Label:             "Hysteria (v1)",
+		Description:       "QUIC-based protocol (LEGACY — use Hysteria 2 instead)",
+		Core:              []string{"singbox", "mihomo"},
+		Direction:         "both",
+		RequiresTLS:       true,
+		Category:          "tunnel",
+		Deprecated:        true,
+		DeprecationNotice: "This protocol is legacy. Use Hysteria 2 for better performance and security.",
+		Parameters: map[string]Parameter{
+			"auth_str": {
+				Name:         "auth_str",
+				Label:        "Auth String",
+				Type:         TypeString,
+				Required:     true,
+				AutoGenerate: true,
+				AutoGenFunc:  "generate_password_16",
+				Group:        "basic",
+			},
+			"up_mbps": {
+				Name:    "up_mbps",
+				Label:   "Upload Speed (Mbps)",
+				Type:    TypeInteger,
+				Default: 100,
+				Min:     intPtr(1),
+				Group:   "basic",
+			},
+			"down_mbps": {
+				Name:    "down_mbps",
+				Label:   "Download Speed (Mbps)",
+				Type:    TypeInteger,
+				Default: 100,
+				Min:     intPtr(1),
+				Group:   "basic",
+			},
+			"obfs": {
+				Name:    "obfs",
+				Label:   "Obfuscation Password",
+				Type:    TypeString,
+				Group:   "advanced",
+			},
+			"recv_window_conn": {
+				Name:    "recv_window_conn",
+				Label:   "QUIC Stream Window",
+				Type:    TypeInteger,
+				Group:   "advanced",
+			},
+			"recv_window_client": {
+				Name:    "recv_window_conn",
+				Label:   "QUIC Connection Window",
+				Type:    TypeInteger,
+				Group:   "advanced",
+			},
+		},
+	})
+
+	Register(&ProtocolSchema{
 		Protocol:    "tuic_v4",
 		Label:       "TUIC v4",
 		Description: "TUIC v4 protocol (token-based auth)",
@@ -381,6 +438,34 @@ func registerInboundProtocols() {
 				AutoGenerate: true,
 				AutoGenFunc:  "generate_password_16",
 				Group:        "basic",
+			},
+		},
+	})
+
+	Register(&ProtocolSchema{
+		Protocol:    "anytls",
+		Label:       "AnyTLS",
+		Description: "TLS-based proxy protocol with flexible padding (Sing-box exclusive)",
+		Core:        []string{"singbox"},
+		Direction:   "both",
+		RequiresTLS: true,
+		Category:    "proxy",
+		Parameters: map[string]Parameter{
+			"password": {
+				Name:         "password",
+				Label:        "Password",
+				Type:         TypeString,
+				Required:     true,
+				AutoGenerate: true,
+				AutoGenFunc:  "generate_base64_token_32",
+				Group:        "basic",
+			},
+			"padding_scheme": {
+				Name:        "padding_scheme",
+				Label:       "Padding Scheme",
+				Type:        TypeArray,
+				Description: "Optional custom padding scheme lines",
+				Group:       "advanced",
 			},
 		},
 	})
