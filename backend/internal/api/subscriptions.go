@@ -14,8 +14,22 @@ import (
 
 // isValidSubscriptionToken validates subscription token format before DB lookup.
 // Tokens are base64url-encoded 32 bytes = 43-44 chars.
+// Charset validation rejects garbage input early, reducing DB load from brute-force attempts.
 func isValidSubscriptionToken(token string) bool {
-	return len(token) >= 32 && len(token) <= 128
+	if len(token) < 32 || len(token) > 128 {
+		return false
+	}
+	for _, c := range token {
+		switch {
+		case c >= 'a' && c <= 'z':
+		case c >= 'A' && c <= 'Z':
+		case c >= '0' && c <= '9':
+		case c == '-' || c == '_' || c == '=':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 type SubscriptionsHandler struct {
@@ -71,6 +85,10 @@ func (h *SubscriptionsHandler) GetV2RaySubscription(c fiber.Ctx) error {
 	c.Set("Content-Disposition", "attachment; filename=subscription.txt")
 	c.Set("Subscription-Userinfo", h.buildUserinfo(data))
 	c.Set("Profile-Update-Interval", "24") // 24 hours
+	c.Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	c.Set("Pragma", "no-cache")
+	c.Set("Profile-Title", "Isolate Panel")
+	c.Set("Support-Url", "")
 	return c.SendString(result)
 }
 
@@ -99,10 +117,13 @@ func (h *SubscriptionsHandler) GetClashSubscription(c fiber.Ctx) error {
 	c.Set("Content-Disposition", "attachment; filename=subscription.yaml")
 	c.Set("Subscription-Userinfo", h.buildUserinfo(data))
 	c.Set("Profile-Update-Interval", "24") // 24 hours
+	c.Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	c.Set("Pragma", "no-cache")
+	c.Set("Profile-Title", "Isolate Panel")
+	c.Set("Support-Url", "")
 	return c.SendString(result)
 }
 
-// GetSingboxSubscription serves Sing-box format subscription (JSON)
 func (h *SubscriptionsHandler) GetSingboxSubscription(c fiber.Ctx) error {
 	start := time.Now()
 	token := c.Params("token")
@@ -126,7 +147,42 @@ func (h *SubscriptionsHandler) GetSingboxSubscription(c fiber.Ctx) error {
 	c.Set("Content-Type", "application/json; charset=utf-8")
 	c.Set("Content-Disposition", "attachment; filename=subscription.json")
 	c.Set("Subscription-Userinfo", h.buildUserinfo(data))
-	c.Set("Profile-Update-Interval", "24") // 24 hours
+	c.Set("Profile-Update-Interval", "24")
+	c.Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	c.Set("Pragma", "no-cache")
+	c.Set("Profile-Title", "Isolate Panel")
+	c.Set("Support-Url", "")
+	return c.SendString(result)
+}
+
+func (h *SubscriptionsHandler) GetIsolateSubscription(c fiber.Ctx) error {
+	start := time.Now()
+	token := c.Params("token")
+	if token == "" || !isValidSubscriptionToken(token) {
+		return c.Status(fiber.StatusNotFound).SendString("Not Found")
+	}
+
+	data, err := h.subscriptionService.GetUserSubscriptionData(token)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).SendString("Not Found")
+	}
+
+	result, err := h.subscriptionService.GenerateIsolate(data)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString("Internal Server Error")
+	}
+
+	elapsed := int(time.Since(start).Milliseconds())
+	h.subscriptionService.LogAccess(data.User.ID, c.IP(), c.Get("User-Agent"), "isolate", elapsed, false)
+
+	c.Set("Content-Type", "application/json; charset=utf-8")
+	c.Set("Content-Disposition", "attachment; filename=isolate.json")
+	c.Set("Subscription-Userinfo", h.buildUserinfo(data))
+	c.Set("Profile-Update-Interval", "24")
+	c.Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	c.Set("Pragma", "no-cache")
+	c.Set("Profile-Title", "Isolate Panel")
+	c.Set("Support-Url", "")
 	return c.SendString(result)
 }
 
