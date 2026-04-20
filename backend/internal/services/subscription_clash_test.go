@@ -32,7 +32,7 @@ func TestBuildClashProxy_VMess(t *testing.T) {
 	config := map[string]interface{}{"transport": "ws", "ws_path": "/ws", "ws_host": "example.com"}
 	tlsInfo := makeTLSInfo("sni.example.com")
 
-	p := buildClashProxy("vmess", "my-vmess", "example.com", 443, user, config, tlsInfo, nil)
+	p := buildClashProxy("vmess", "my-vmess", "example.com", 443, user, config, tlsInfo, nil, nil)
 
 	require.NotNil(t, p)
 	assert.Equal(t, "vmess", p.Type)
@@ -62,7 +62,7 @@ func TestBuildClashProxy_VMess_TCP(t *testing.T) {
 	config := map[string]interface{}{"transport": "tcp"}
 	tlsInfo := makeTestTLSInfo()
 
-	p := buildClashProxy("vmess", "tcp-vmess", "1.2.3.4", 8080, user, config, tlsInfo, nil)
+	p := buildClashProxy("vmess", "tcp-vmess", "1.2.3.4", 8080, user, config, tlsInfo, nil, nil)
 
 	require.NotNil(t, p)
 	assert.Equal(t, "vmess", p.Type)
@@ -82,7 +82,7 @@ func TestBuildClashProxy_VLESS(t *testing.T) {
 	}
 	tlsInfo := makeTLSInfo("sni.vless.example.com")
 
-	p := buildClashProxy("vless", "my-vless", "vless.example.com", 443, user, config, tlsInfo, nil)
+	p := buildClashProxy("vless", "my-vless", "vless.example.com", 443, user, config, tlsInfo, nil, nil)
 
 	require.NotNil(t, p)
 	assert.Equal(t, "vless", p.Type)
@@ -110,7 +110,7 @@ func TestBuildClashProxy_VLESS_NoTLS(t *testing.T) {
 	config := map[string]interface{}{"transport": "tcp"}
 	tlsInfo := makeTestTLSInfo()
 
-	p := buildClashProxy("vless", "notls-vless", "10.0.0.1", 80, user, config, tlsInfo, nil)
+	p := buildClashProxy("vless", "notls-vless", "10.0.0.1", 80, user, config, tlsInfo, nil, nil)
 
 	require.NotNil(t, p)
 	assert.Equal(t, "vless", p.Type)
@@ -124,7 +124,7 @@ func TestBuildClashProxy_Trojan(t *testing.T) {
 	config := map[string]interface{}{}
 	tlsInfo := makeTLSInfo("trojan.example.com")
 
-	p := buildClashProxy("trojan", "my-trojan", "trojan.example.com", 443, user, config, tlsInfo, nil)
+	p := buildClashProxy("trojan", "my-trojan", "trojan.example.com", 443, user, config, tlsInfo, nil, nil)
 
 	require.NotNil(t, p)
 	assert.Equal(t, "trojan", p.Type)
@@ -139,7 +139,7 @@ func TestBuildClashProxy_Shadowsocks(t *testing.T) {
 	config := map[string]interface{}{"method": "chacha20-ietf-poly1305"}
 	tlsInfo := makeTestTLSInfo()
 
-	p := buildClashProxy("shadowsocks", "my-ss", "1.2.3.4", 8388, user, config, tlsInfo, nil)
+	p := buildClashProxy("shadowsocks", "my-ss", "1.2.3.4", 8388, user, config, tlsInfo, nil, nil)
 
 	require.NotNil(t, p)
 	assert.Equal(t, "ss", p.Type)
@@ -152,7 +152,7 @@ func TestBuildClashProxy_Shadowsocks_DefaultMethod(t *testing.T) {
 	config := map[string]interface{}{}
 	tlsInfo := makeTestTLSInfo()
 
-	p := buildClashProxy("shadowsocks", "ss-default", "1.2.3.4", 8388, user, config, tlsInfo, nil)
+	p := buildClashProxy("shadowsocks", "ss-default", "1.2.3.4", 8388, user, config, tlsInfo, nil, nil)
 
 	require.NotNil(t, p)
 	assert.Equal(t, "aes-256-gcm", p.Cipher, "default cipher should be aes-256-gcm")
@@ -166,7 +166,7 @@ func TestBuildClashProxy_SkipCertVerify_False_BM20(t *testing.T) {
 	protocols := []string{"vmess", "vless", "trojan", "hysteria2", "tuic_v4", "tuic_v5", "anytls", "hysteria"}
 	for _, proto := range protocols {
 		t.Run(proto, func(t *testing.T) {
-			p := buildClashProxy(proto, "test-"+proto, "example.com", 443, user, config, tlsInfo, nil)
+			p := buildClashProxy(proto, "test-"+proto, "example.com", 443, user, config, tlsInfo, nil, nil)
 			if p == nil {
 				t.Skipf("protocol %s returned nil proxy", proto)
 			}
@@ -181,7 +181,7 @@ func TestBuildClashProxy_SkipCertVerify_False_NonTLSTransport(t *testing.T) {
 	config := map[string]interface{}{"transport": "tcp"}
 	tlsInfo := makeTestTLSInfo()
 
-	p := buildClashProxy("vmess", "notls-vmess", "1.2.3.4", 80, user, config, tlsInfo, nil)
+	p := buildClashProxy("vmess", "notls-vmess", "1.2.3.4", 80, user, config, tlsInfo, nil, nil)
 	require.NotNil(t, p)
 	assert.NotNil(t, p.SkipCertVerify)
 	assert.False(t, *p.SkipCertVerify, "skip-cert-verify must be false even without TLS")
@@ -192,7 +192,7 @@ func TestBuildClashProxy_UnsupportedProtocol(t *testing.T) {
 	config := map[string]interface{}{}
 	tlsInfo := makeTestTLSInfo()
 
-	p := buildClashProxy("unknown_proto", "bad", "1.2.3.4", 80, user, config, tlsInfo, nil)
+	p := buildClashProxy("unknown_proto", "bad", "1.2.3.4", 80, user, config, tlsInfo, nil, nil)
 	assert.Nil(t, p, "unsupported protocol should return nil")
 }
 
@@ -201,7 +201,7 @@ func TestBuildClashProxy_Hysteria2(t *testing.T) {
 	config := map[string]interface{}{}
 	tlsInfo := makeTLSInfo("hy2.example.com")
 
-	p := buildClashProxy("hysteria2", "my-hy2", "10.0.0.1", 443, user, config, tlsInfo, nil)
+	p := buildClashProxy("hysteria2", "my-hy2", "10.0.0.1", 443, user, config, tlsInfo, nil, nil)
 
 	require.NotNil(t, p)
 	assert.Equal(t, "hysteria2", p.Type)
@@ -218,7 +218,7 @@ func TestBuildClashProxy_TUICv4(t *testing.T) {
 	config := map[string]interface{}{"congestion_control": "cubic"}
 	tlsInfo := makeTLSInfo("tuic.example.com")
 
-	p := buildClashProxy("tuic_v4", "my-tuic4", "tuic.example.com", 443, user, config, tlsInfo, nil)
+	p := buildClashProxy("tuic_v4", "my-tuic4", "tuic.example.com", 443, user, config, tlsInfo, nil, nil)
 
 	require.NotNil(t, p)
 	assert.Equal(t, "tuic", p.Type)
@@ -234,7 +234,7 @@ func TestBuildClashProxy_TUICv4_NoToken(t *testing.T) {
 	config := map[string]interface{}{}
 	tlsInfo := makeTestTLSInfo()
 
-	p := buildClashProxy("tuic_v4", "tuic4-notoken", "1.2.3.4", 443, user, config, tlsInfo, nil)
+	p := buildClashProxy("tuic_v4", "tuic4-notoken", "1.2.3.4", 443, user, config, tlsInfo, nil, nil)
 
 	require.NotNil(t, p)
 	assert.Equal(t, user.UUID, p.Token, "should fallback to UUID when no token")
@@ -248,7 +248,7 @@ func TestBuildClashProxy_TUICv5(t *testing.T) {
 	config := map[string]interface{}{"congestion_control": "bbr"}
 	tlsInfo := makeTLSInfo("tuic5.example.com")
 
-	p := buildClashProxy("tuic_v5", "my-tuic5", "tuic5.example.com", 443, user, config, tlsInfo, nil)
+	p := buildClashProxy("tuic_v5", "my-tuic5", "tuic5.example.com", 443, user, config, tlsInfo, nil, nil)
 
 	require.NotNil(t, p)
 	assert.Equal(t, "tuic", p.Type)
@@ -268,7 +268,7 @@ func TestBuildClashProxy_SSR(t *testing.T) {
 	}
 	tlsInfo := makeTestTLSInfo()
 
-	p := buildClashProxy("ssr", "my-ssr", "1.2.3.4", 8388, user, config, tlsInfo, nil)
+	p := buildClashProxy("ssr", "my-ssr", "1.2.3.4", 8388, user, config, tlsInfo, nil, nil)
 
 	require.NotNil(t, p)
 	assert.Equal(t, "ssr", p.Type)
@@ -285,7 +285,7 @@ func TestBuildClashProxy_Snell(t *testing.T) {
 	config := map[string]interface{}{"version": "3", "obfs": "http"}
 	tlsInfo := makeTestTLSInfo()
 
-	p := buildClashProxy("snell", "my-snell", "1.2.3.4", 443, user, config, tlsInfo, nil)
+	p := buildClashProxy("snell", "my-snell", "1.2.3.4", 443, user, config, tlsInfo, nil, nil)
 
 	require.NotNil(t, p)
 	assert.Equal(t, "snell", p.Type)
@@ -412,8 +412,9 @@ func TestClashProxiesStructure_ForSubscription(t *testing.T) {
 
 		server := resolveServerAddr(inbound, "http://panel.example.com", certsByIDs)
 		tlsInfo := getInboundTLSInfo(inbound, certsByIDs)
+		realityInfo := getInboundRealityInfo(inbound)
 
-		proxy := buildClashProxy(inbound.Protocol, inbound.Name, server, inbound.Port, user, config, tlsInfo, certsByIDs)
+		proxy := buildClashProxy(inbound.Protocol, inbound.Name, server, inbound.Port, user, config, tlsInfo, certsByIDs, realityInfo)
 		if proxy != nil {
 			proxies = append(proxies, *proxy)
 			proxyNames = append(proxyNames, inbound.Name)
@@ -470,7 +471,7 @@ func TestBuildClashProxy_HTTP(t *testing.T) {
 	config := map[string]interface{}{}
 	tlsInfo := makeTLSInfo("http.example.com")
 
-	p := buildClashProxy("http", "my-http", "http.example.com", 443, user, config, tlsInfo, nil)
+	p := buildClashProxy("http", "my-http", "http.example.com", 443, user, config, tlsInfo, nil, nil)
 
 	require.NotNil(t, p)
 	assert.Equal(t, "http", p.Type)
@@ -487,7 +488,7 @@ func TestBuildClashProxy_Socks5(t *testing.T) {
 	config := map[string]interface{}{}
 	tlsInfo := makeTLSInfo("socks.example.com")
 
-	p := buildClashProxy("socks5", "my-socks5", "socks.example.com", 443, user, config, tlsInfo, nil)
+	p := buildClashProxy("socks5", "my-socks5", "socks.example.com", 443, user, config, tlsInfo, nil, nil)
 
 	require.NotNil(t, p)
 	assert.Equal(t, "socks5", p.Type)
