@@ -49,6 +49,11 @@ export function SubscriptionLinks({ isOpen, onClose, user }: SubscriptionLinksPr
       label: t('subscriptions.singboxLink'),
       url: `${baseUrl}/sub/${token}/singbox`,
     },
+    {
+      key: 'isolate',
+      label: t('subscriptions.isolateLink'),
+      url: `${baseUrl}/sub/${token}/isolate`,
+    },
   ]
 
   const handleCopy = async (key: string, text: string) => {
