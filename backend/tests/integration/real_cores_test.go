@@ -52,7 +52,7 @@ func setupCoreTestDB(t *testing.T) *gorm.DB {
 	sqlDB.SetMaxOpenConns(1)
 	require.NoError(t, db.AutoMigrate(
 		&models.Core{}, &models.Inbound{}, &models.Outbound{},
-		&models.Provider{}, &models.User{}, &models.UserInboundMapping{},
+		&models.User{}, &models.UserInboundMapping{},
 		&models.Certificate{}, &models.GeoRule{}, &models.WarpRoute{},
 	))
 	return db

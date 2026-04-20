@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -55,7 +56,6 @@ func setupFullstackDB(t *testing.T) *gorm.DB {
 		&models.Core{},
 		&models.Inbound{},
 		&models.Outbound{},
-		&models.Provider{},
 		&models.User{},
 		&models.UserInboundMapping{},
 		&models.Certificate{},
@@ -223,7 +223,7 @@ func makeAPIRequest(t *testing.T, method, path string, body interface{}, token s
 func waitForPort(t *testing.T, host string, port int, timeout time.Duration) {
 	t.Helper()
 	
-	address := fmt.Sprintf("%s:%d", host, port)
+	address := net.JoinHostPort(host, strconv.Itoa(port))
 	require.Eventually(t, func() bool {
 		conn, err := net.DialTimeout("tcp", address, 1*time.Second)
 		if err != nil {

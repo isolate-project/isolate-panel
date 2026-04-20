@@ -25,8 +25,7 @@ func setupSystemApp(t *testing.T) (*fiber.App, *gorm.DB) {
 	})
 	require.NoError(t, err)
 
-	statsProvider := services.NewStatsClientProvider("", "", "", "", "", "")
-	ct := services.NewConnectionTracker(db, 10*time.Second, statsProvider)
+	ct := services.NewConnectionTracker(db, 10*time.Second, "", "", "", "", "")
 	cm := cores.NewCoreManager(db, "http://127.0.0.1:99999", nil)
 	handler := NewSystemHandler(ct, cm)
 

@@ -36,7 +36,7 @@ func setupLifecycleDB(t *testing.T) *gorm.DB {
 	sqlDB.SetMaxOpenConns(1)
 	sqlDB.SetMaxIdleConns(1)
 
-	if err := db.AutoMigrate(&models.Core{}, &models.Inbound{}, &models.Provider{}); err != nil {
+	if err := db.AutoMigrate(&models.Core{}, &models.Inbound{}); err != nil {
 		t.Fatalf("failed to migrate: %v", err)
 	}
 

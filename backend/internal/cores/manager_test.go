@@ -22,7 +22,7 @@ func setupManagerDB(t *testing.T) *gorm.DB {
 	sqlDB.SetMaxOpenConns(1)
 	sqlDB.SetMaxIdleConns(1)
 
-	if err := db.AutoMigrate(&models.Core{}, &models.Inbound{}, &models.Outbound{}, &models.Provider{}, &models.User{}, &models.UserInboundMapping{}); err != nil {
+	if err := db.AutoMigrate(&models.Core{}, &models.Inbound{}, &models.Outbound{}, &models.User{}, &models.UserInboundMapping{}); err != nil {
 		t.Fatalf("failed to migrate: %v", err)
 	}
 	return db

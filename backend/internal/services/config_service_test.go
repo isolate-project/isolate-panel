@@ -35,7 +35,6 @@ func setupConfigTestDB(t *testing.T) *gorm.DB {
 		&models.Core{},
 		&models.Inbound{},
 		&models.Outbound{},
-		&models.Provider{},
 		&models.User{},
 		&models.UserInboundMapping{},
 		&models.GeoRule{},
