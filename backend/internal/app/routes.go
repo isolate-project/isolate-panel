@@ -111,6 +111,7 @@ SwaggerUIBundle({
 	subsGrp.Get("/sub/:token", a.SubscriptionsH.GetAutoDetectSubscription)
 	subsGrp.Get("/sub/:token/clash", a.SubscriptionsH.GetClashSubscription)
 	subsGrp.Get("/sub/:token/singbox", a.SubscriptionsH.GetSingboxSubscription)
+	subsGrp.Get("/sub/:token/isolate", a.SubscriptionsH.GetIsolateSubscription)
 	subsGrp.Get("/sub/:token/qr", a.SubscriptionsH.GetQRCode)
 	subsGrp.Get("/s/:code", a.SubscriptionsH.RedirectShortURL)
 }

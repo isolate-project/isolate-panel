@@ -44,6 +44,7 @@ func StartSubscriptionListener(a *App, cfg *appconfig.Config) {
 	subApp.Get("/sub/:token", a.SubscriptionsH.GetAutoDetectSubscription)
 	subApp.Get("/sub/:token/clash", a.SubscriptionsH.GetClashSubscription)
 	subApp.Get("/sub/:token/singbox", a.SubscriptionsH.GetSingboxSubscription)
+	subApp.Get("/sub/:token/isolate", a.SubscriptionsH.GetIsolateSubscription)
 	subApp.Get("/sub/:token/qr", a.SubscriptionsH.GetQRCode)
 	subApp.Get("/s/:code", a.SubscriptionsH.RedirectShortURL)
 

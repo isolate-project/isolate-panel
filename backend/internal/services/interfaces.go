@@ -58,6 +58,7 @@ type SubscriptionServiceInterface interface {
 	GetAutoDetectSubscription(token string) (string, error)
 	GetClashSubscription(token string) (string, error)
 	GetSingboxSubscription(token string) (string, error)
+	GetIsolateSubscription(token string) (string, error)
 	GetQRCode(token string) (string, error)
 	GetUserShortURL(userID uint) (string, error)
 	RegenerateToken(userID uint) error
