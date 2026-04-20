@@ -75,8 +75,8 @@ func (w *mihomoStatsClientWrapper) CloseConnection(ctx context.Context, connecti
 
 func (a *Adapter) SupportedProtocols() []string {
 	return []string{
-		"ss", "ssr", "vmess", "vless", "trojan",
-		"tuic", "hysteria2", "snell",
+		"shadowsocks", "shadowsocksr", "vmess", "vless", "trojan",
+		"tuic_v4", "tuic_v5", "hysteria2", "hysteria", "snell", "mieru", "sudoku", "trusttunnel", "redirect", "mixed",
 	}
 }
 

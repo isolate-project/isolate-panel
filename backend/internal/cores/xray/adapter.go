@@ -78,7 +78,7 @@ func (w *xrayStatsClientWrapper) CloseConnection(ctx context.Context, connection
 func (a *Adapter) SupportedProtocols() []string {
 	return []string{
 		"vmess", "vless", "trojan", "shadowsocks",
-		"vless-reality", "trojan-reality",
+		"hysteria2", "http", "socks5", "xhttp",
 	}
 }
 

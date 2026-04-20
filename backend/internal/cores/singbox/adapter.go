@@ -77,7 +77,8 @@ func (w *singboxStatsClientWrapper) CloseConnection(ctx context.Context, connect
 func (a *Adapter) SupportedProtocols() []string {
 	return []string{
 		"vmess", "vless", "trojan", "shadowsocks",
-		"vless-reality", "trojan-reality", "tuic", "hysteria2",
+		"tuic_v4", "tuic_v5", "hysteria2", "hysteria",
+		"anytls", "naive", "mixed", "redirect",
 	}
 }
 
