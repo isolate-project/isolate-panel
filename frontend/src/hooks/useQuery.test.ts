@@ -41,7 +41,7 @@ describe('useQuery Hook', () => {
 
   it('should handle errors', async () => {
     const errorFetcher = vi.fn().mockRejectedValue(new Error('Fetch failed'))
-    const { result } = renderHook(() => useQuery('error-key', errorFetcher, { retry: 0 }))
+    const { result } = renderHook(() => useQuery('error-key', errorFetcher))
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false)

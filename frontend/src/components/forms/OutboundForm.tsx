@@ -12,9 +12,9 @@ const outboundSchema = z.object({
   name: z.string().min(1, { message: 'validation.nameRequired' }).max(100, { message: 'validation.nameTooLong' }),
   protocol: z.string().min(1, { message: 'validation.nameRequired' }),
   core_id: z.number().min(1, { message: 'validation.coreRequired' }),
-  config_json: z.string().default('{}'),
-  priority: z.number().default(0),
-  is_enabled: z.boolean().default(true),
+  config_json: z.string().default('{}').pipe(z.string()),
+  priority: z.number().default(0).pipe(z.number()),
+  is_enabled: z.boolean().default(true).pipe(z.boolean()),
 })
 
 type OutboundFormData = z.infer<typeof outboundSchema>
@@ -59,7 +59,7 @@ export function OutboundForm({ outbound, onSuccess, onCancel }: OutboundFormProp
     handleChange,
     handleBlur,
     handleSubmit,
-  } = useForm<OutboundFormData>({
+  } = useForm({
     schema: outboundSchema,
     initialValues: outbound
       ? {

@@ -68,7 +68,7 @@ export function UserForm({ user, userInboundIds, onSuccess, onCancel }: UserForm
     handleChange,
     handleBlur,
     handleSubmit,
-  } = useForm<UserFormData>({
+  } = useForm({
     schema: userSchema,
     initialValues: user
       ? {
