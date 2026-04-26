@@ -5,6 +5,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
+	"github.com/isolate-project/isolate-panel/internal/middleware"
 	"github.com/isolate-project/isolate-panel/internal/models"
 	"github.com/isolate-project/isolate-panel/internal/services"
 )
@@ -98,11 +99,9 @@ func (h *OutboundsHandler) GetOutbound(c fiber.Ctx) error {
 // @Router       /outbounds [post]
 // @Security     BearerAuth
 func (h *OutboundsHandler) CreateOutbound(c fiber.Ctx) error {
-	var outbound models.Outbound
-	if err := c.Bind().JSON(&outbound); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request body",
-		})
+	outbound, err := middleware.BindAndValidate[models.Outbound](c)
+	if err != nil {
+		return err
 	}
 
 	if err := h.outboundService.CreateOutbound(&outbound); err != nil {
@@ -134,10 +133,16 @@ func (h *OutboundsHandler) UpdateOutbound(c fiber.Ctx) error {
 		})
 	}
 
-	var updates map[string]interface{}
-	if err := c.Bind().JSON(&updates); err != nil {
+	var req UpdateOutboundDTO
+	if err := c.Bind().JSON(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid request body",
+		})
+	}
+	updates := req.ToMap()
+	if len(updates) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "No fields to update",
 		})
 	}
 

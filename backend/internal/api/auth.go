@@ -36,17 +36,19 @@ type LoginRequest struct {
 }
 
 type LoginResponse struct {
-	AccessToken  string    `json:"access_token"`
-	RefreshToken string    `json:"refresh_token"`
-	ExpiresIn    int64     `json:"expires_in"`
-	Admin        AdminInfo `json:"admin"`
+	AccessToken         string    `json:"access_token"`
+	RefreshToken        string    `json:"refresh_token"`
+	ExpiresIn           int64     `json:"expires_in"`
+	Admin               AdminInfo `json:"admin"`
+	MustChangePassword  bool      `json:"must_change_password"`
 }
 
 type AdminInfo struct {
-	ID           uint   `json:"id"`
-	Username     string `json:"username"`
-	Email        string `json:"email"`
-	IsSuperAdmin bool   `json:"is_super_admin"`
+	ID                  uint   `json:"id"`
+	Username            string `json:"username"`
+	Email               string `json:"email"`
+	IsSuperAdmin        bool   `json:"is_super_admin"`
+	MustChangePassword  bool   `json:"must_change_password"`
 }
 
 type RefreshRequest struct {
@@ -69,6 +71,14 @@ func (h *AuthHandler) Login(c fiber.Ctx) error {
 	if err := c.Bind().JSON(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid request body",
+		})
+	}
+
+	// Check if IP is temporarily blocked due to too many failed attempts
+	failedCount, _ := h.countFailedAttempts(c.IP(), 15*time.Minute)
+	if failedCount >= 5 {
+		return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
+			"error": "Too many failed login attempts. Try again later.",
 		})
 	}
 
@@ -132,7 +142,7 @@ func (h *AuthHandler) Login(c fiber.Ctx) error {
 	}
 
 	// Generate tokens
-	accessToken, err := h.tokenService.GenerateAccessToken(admin.ID, admin.Username, admin.IsSuperAdmin)
+	accessToken, err := h.tokenService.GenerateAccessToken(admin.ID, admin.Username, admin.IsSuperAdmin, admin.MustChangePassword)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to generate access token",
@@ -178,15 +188,16 @@ func (h *AuthHandler) Login(c fiber.Ctx) error {
 	}
 
 	return c.JSON(LoginResponse{
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
-		ExpiresIn:    int64(h.tokenService.GetAccessTokenTTL().Seconds()),
+		AccessToken:         accessToken,
+		RefreshToken:        refreshToken,
+		ExpiresIn:           int64(h.tokenService.GetAccessTokenTTL().Seconds()),
 		Admin: AdminInfo{
 			ID:           admin.ID,
 			Username:     admin.Username,
 			Email:        admin.Email,
 			IsSuperAdmin: admin.IsSuperAdmin,
 		},
+		MustChangePassword: admin.MustChangePassword,
 	})
 }
 
@@ -215,8 +226,8 @@ func (h *AuthHandler) Refresh(c fiber.Ctx) error {
 
 	// Find refresh token in database
 	var refreshToken models.RefreshToken
-	if err := h.db.Preload("Admin").Where("token_hash = ? AND revoked = ? AND expires_at > ?",
-		tokenHash, false, time.Now()).First(&refreshToken).Error; err != nil {
+	if err := h.db.Preload("Admin").Joins("Admin").Where("refresh_tokens.token_hash = ? AND refresh_tokens.revoked = ? AND refresh_tokens.expires_at > ? AND admins.is_active = ?",
+		tokenHash, false, time.Now(), true).First(&refreshToken).Error; err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": "Invalid or expired refresh token",
 		})
@@ -229,11 +240,18 @@ func (h *AuthHandler) Refresh(c fiber.Ctx) error {
 		})
 	}
 
+	if !refreshToken.Admin.IsActive {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Admin account is deactivated",
+		})
+	}
+
 	// Generate new access token
 	accessToken, err := h.tokenService.GenerateAccessToken(
 		refreshToken.Admin.ID,
 		refreshToken.Admin.Username,
 		refreshToken.Admin.IsSuperAdmin,
+		refreshToken.Admin.MustChangePassword,
 	)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -241,9 +259,41 @@ func (h *AuthHandler) Refresh(c fiber.Ctx) error {
 		})
 	}
 
+	if err := h.db.Model(&models.RefreshToken{}).
+		Where("id = ?", refreshToken.ID).
+		Update("revoked", true).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to revoke old token",
+		})
+	}
+
+	newRefreshToken, err := h.tokenService.GenerateRefreshToken()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to generate refresh token",
+		})
+	}
+
+	newHash := sha256.Sum256([]byte(newRefreshToken))
+	newTokenHash := hex.EncodeToString(newHash[:])
+
+	newRefreshTokenModel := models.RefreshToken{
+		TokenHash: newTokenHash,
+		AdminID:   refreshToken.AdminID,
+		ExpiresAt: time.Now().Add(h.tokenService.GetRefreshTokenTTL()),
+		UserAgent: c.Get("User-Agent"),
+		IPAddress: c.IP(),
+	}
+	if err := h.db.Create(&newRefreshTokenModel).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to store new refresh token",
+		})
+	}
+
 	return c.JSON(fiber.Map{
-		"access_token": accessToken,
-		"expires_in":   int64(h.tokenService.GetAccessTokenTTL().Seconds()),
+		"access_token":  accessToken,
+		"refresh_token": newRefreshToken,
+		"expires_in":    int64(h.tokenService.GetAccessTokenTTL().Seconds()),
 	})
 }
 
@@ -313,10 +363,11 @@ func (h *AuthHandler) Me(c fiber.Ctx) error {
 	}
 
 	return c.JSON(AdminInfo{
-		ID:           admin.ID,
-		Username:     admin.Username,
-		Email:        admin.Email,
-		IsSuperAdmin: admin.IsSuperAdmin,
+		ID:                 admin.ID,
+		Username:           admin.Username,
+		Email:              admin.Email,
+		IsSuperAdmin:       admin.IsSuperAdmin,
+		MustChangePassword: admin.MustChangePassword,
 	})
 }
 
@@ -474,6 +525,85 @@ func (h *AuthHandler) TOTPStatus(c fiber.Ctx) error {
 	})
 }
 
+// ChangePassword allows an admin to change their password
+//
+// @Summary      Change password
+// @Description  Change the current admin's password. Requires current password verification.
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        body  body  ChangePasswordRequest  true  "Password change request"
+// @Success      200   {object}  map[string]interface{}
+// @Failure      400   {object}  map[string]interface{}
+// @Failure      401   {object}  map[string]interface{}
+// @Router       /auth/change-password [post]
+// @Security     BearerAuth
+func (h *AuthHandler) ChangePassword(c fiber.Ctx) error {
+	adminID, ok := c.Locals("admin_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "unauthorized"})
+	}
+
+	var req ChangePasswordRequest
+	if err := c.Bind().JSON(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request body",
+		})
+	}
+
+	var admin models.Admin
+	if err := h.db.First(&admin, adminID).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Admin not found",
+		})
+	}
+
+	valid, err := auth.VerifyPassword(req.CurrentPassword, admin.PasswordHash)
+	if err != nil || !valid {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid current password",
+		})
+	}
+
+	newPasswordHash, err := auth.HashPassword(req.NewPassword)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to hash new password",
+		})
+	}
+
+	if err := h.db.Model(&admin).Updates(map[string]any{
+		"password_hash":        newPasswordHash,
+		"must_change_password": false,
+	}).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to update password",
+		})
+	}
+
+	accessToken, err := h.tokenService.GenerateAccessToken(admin.ID, admin.Username, admin.IsSuperAdmin, false)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to generate access token",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"message":      "Password changed successfully",
+		"access_token": accessToken,
+	})
+}
+
+// countFailedAttempts counts failed login attempts from an IP within a time window
+func (h *AuthHandler) countFailedAttempts(ip string, window time.Duration) (int64, error) {
+	var count int64
+	windowStart := time.Now().Add(-window)
+	err := h.db.Model(&models.LoginAttempt{}).
+		Where("ip_address = ? AND success = ? AND attempted_at > ?", ip, false, windowStart).
+		Count(&count).Error
+	return count, err
+}
+
 // checkFailedLoginAttempts checks for multiple failed login attempts and sends notification
 func (h *AuthHandler) checkFailedLoginAttempts(username, ip string) {
 	if h.notificationService == nil {
@@ -481,14 +611,10 @@ func (h *AuthHandler) checkFailedLoginAttempts(username, ip string) {
 	}
 
 	// Count failed attempts from this IP in the last hour
-	var count int64
-	oneHourAgo := time.Now().Add(-1 * time.Hour)
-	h.db.Model(&models.LoginAttempt{}).
-		Where("ip_address = ? AND success = ? AND attempted_at > ?", ip, false, oneHourAgo).
-		Count(&count)
+	count, _ := h.countFailedAttempts(ip, 1*time.Hour)
 
-	// Send notification after 5 failed attempts
-	if count >= 5 {
+	// Send notification when count reaches exactly 5 (not on every subsequent attempt)
+	if count == 5 {
 		h.notificationService.NotifyFailedLogin(ip, username, int(count))
 	}
 }

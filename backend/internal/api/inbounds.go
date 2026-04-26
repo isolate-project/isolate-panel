@@ -7,6 +7,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/isolate-project/isolate-panel/internal/haproxy"
+	"github.com/isolate-project/isolate-panel/internal/middleware"
 	"github.com/isolate-project/isolate-panel/internal/models"
 	"github.com/isolate-project/isolate-panel/internal/services"
 )
@@ -120,11 +121,9 @@ func (h *InboundsHandler) GetInbound(c fiber.Ctx) error {
 // @Router       /inbounds [post]
 // @Security     BearerAuth
 func (h *InboundsHandler) CreateInbound(c fiber.Ctx) error {
-	var inbound models.Inbound
-	if err := c.Bind().JSON(&inbound); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request body",
-		})
+	inbound, err := middleware.BindAndValidate[models.Inbound](c)
+	if err != nil {
+		return err
 	}
 
 	if err := h.inboundService.CreateInbound(&inbound); err != nil {
@@ -157,10 +156,16 @@ func (h *InboundsHandler) UpdateInbound(c fiber.Ctx) error {
 		})
 	}
 
-	var updates map[string]interface{}
-	if err := c.Bind().JSON(&updates); err != nil {
+	var req UpdateInboundDTO
+	if err := c.Bind().JSON(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid request body",
+		})
+	}
+	updates := req.ToMap()
+	if len(updates) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "No fields to update",
 		})
 	}
 

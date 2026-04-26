@@ -2,6 +2,8 @@ package models
 
 import (
 	"time"
+
+	"gorm.io/gorm"
 )
 
 type User struct {
@@ -28,10 +30,11 @@ type User struct {
 	LastExpiryNotifiedDays *int `json:"-"` // Prevents duplicate expiry notifications
 
 	// Metadata
-	CreatedAt        time.Time  `json:"created_at"`
-	UpdatedAt        time.Time  `json:"updated_at"`
-	LastConnectedAt  *time.Time `json:"last_connected_at"`
-	CreatedByAdminID *uint      `json:"created_by_admin_id"`
+	CreatedAt        time.Time      `json:"created_at"`
+	UpdatedAt        time.Time      `json:"updated_at"`
+	DeletedAt        gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
+	LastConnectedAt  *time.Time     `json:"last_connected_at"`
+	CreatedByAdminID *uint          `json:"created_by_admin_id"`
 
 	// Relations
 	CreatedByAdmin *Admin `gorm:"foreignKey:CreatedByAdminID" json:"created_by_admin,omitempty"`
