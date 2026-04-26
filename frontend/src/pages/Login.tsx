@@ -45,10 +45,11 @@ export function Login() {
         return
       }
 
-      const { access_token, refresh_token, admin } = data as {
+      const { access_token, refresh_token, admin, must_change_password } = data as {
         access_token: string
         refresh_token: string
         admin: Parameters<typeof setUser>[0]
+        must_change_password?: boolean
       }
 
       setTokens(access_token, refresh_token)
@@ -59,7 +60,11 @@ export function Login() {
         message: t('auth.welcome'),
       })
 
-      route('/', true)
+      if (must_change_password) {
+        route('/change-password', true)
+      } else {
+        route('/', true)
+      }
     } catch (err) {
       const axiosErr = err as AxiosError<{ message?: string; error?: string }>
       const errorMessage =

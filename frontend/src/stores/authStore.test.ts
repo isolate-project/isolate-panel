@@ -33,7 +33,7 @@ describe('authStore', () => {
   })
 
   it('should set user', () => {
-    const user = { id: 1, username: 'admin', is_super_admin: true }
+    const user = { id: 1, username: 'admin', is_super_admin: true, must_change_password: false }
     useAuthStore.getState().setUser(user)
     expect(useAuthStore.getState().user).toEqual(user)
   })

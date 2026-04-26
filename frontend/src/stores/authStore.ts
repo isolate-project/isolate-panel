@@ -5,6 +5,7 @@ interface User {
   id: number
   username: string
   is_super_admin: boolean
+  must_change_password: boolean
 }
 
 interface AuthState {
@@ -13,11 +14,12 @@ interface AuthState {
   user: User | null
   isAuthenticated: boolean
   isLoading: boolean
-  
+
   setTokens: (accessToken: string, refreshToken: string) => void
   setUser: (user: User | null) => void
   logout: () => void
   setLoading: (loading: boolean) => void
+  clearMustChangePassword: () => void
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -52,6 +54,12 @@ export const useAuthStore = create<AuthState>()(
       },
 
       setLoading: (loading) => set({ isLoading: loading }),
+
+      clearMustChangePassword: () => {
+        set((state) => ({
+          user: state.user ? { ...state.user, must_change_password: false } : null,
+        }))
+      },
     }),
     {
       name: 'auth-storage',
