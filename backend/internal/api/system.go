@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
 	"runtime/debug"
 	"strconv"
@@ -160,8 +161,15 @@ func GetCoreLogs(coreManager *cores.CoreManager) fiber.Handler {
 			})
 		}
 
+		safeName := filepath.Base(name)
+		if safeName != name {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Invalid core name",
+			})
+		}
+
 		// Verify the core exists
-		_, err := coreManager.GetCoreStatus(name)
+		_, err := coreManager.GetCoreStatus(c.Context(), safeName)
 		if err != nil {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 				"error": "Core not found",
@@ -170,9 +178,9 @@ func GetCoreLogs(coreManager *cores.CoreManager) fiber.Handler {
 
 		// Try to read log files from common supervisord log locations
 		logPaths := []string{
-			fmt.Sprintf("/var/log/supervisor/%s-stdout.log", name),
-			fmt.Sprintf("/var/log/supervisor/%s.log", name),
-			fmt.Sprintf("/var/log/%s.log", name),
+			fmt.Sprintf("/var/log/supervisor/%s-stdout.log", safeName),
+			fmt.Sprintf("/var/log/supervisor/%s.log", safeName),
+			fmt.Sprintf("/var/log/%s.log", safeName),
 		}
 
 		maxBytes := 64 * 1024 // Read last 64KB
@@ -189,7 +197,7 @@ func GetCoreLogs(coreManager *cores.CoreManager) fiber.Handler {
 					lines = lines[len(lines)-linesParam:]
 				}
 				return c.JSON(fiber.Map{
-					"core":  name,
+					"core":  safeName,
 					"lines": lines,
 					"total": len(lines),
 				})
@@ -197,7 +205,7 @@ func GetCoreLogs(coreManager *cores.CoreManager) fiber.Handler {
 		}
 
 		return c.JSON(fiber.Map{
-			"core":  name,
+			"core":  safeName,
 			"lines": []string{},
 			"total": 0,
 		})

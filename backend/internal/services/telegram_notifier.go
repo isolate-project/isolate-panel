@@ -4,11 +4,26 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
+
+	"github.com/isolate-project/isolate-panel/internal/logger"
 	"github.com/isolate-project/isolate-panel/internal/models"
 )
+
+var botTokenRegex = regexp.MustCompile(`^\d{1,10}:[A-Za-z0-9_-]{35}$`)
+
+// validateBotToken validates the Telegram bot token format
+func validateBotToken(token string) error {
+	if !botTokenRegex.MatchString(token) {
+		return fmt.Errorf("invalid Telegram bot token format")
+	}
+	return nil
+}
 
 // TelegramNotifier sends notifications via Telegram Bot API
 type TelegramNotifier struct {
@@ -20,10 +35,17 @@ type TelegramNotifier struct {
 
 // NewTelegramNotifier creates a new Telegram notifier
 func NewTelegramNotifier(botToken, chatID string) *TelegramNotifier {
+	enabled := botToken != "" && chatID != ""
+	if enabled {
+		if err := validateBotToken(botToken); err != nil {
+			logger.Log.Warn().Err(err).Msg("Invalid Telegram bot token format, disabling Telegram notifications")
+			enabled = false
+		}
+	}
 	return &TelegramNotifier{
 		botToken: botToken,
 		chatID:   chatID,
-		enabled:  botToken != "" && chatID != "",
+		enabled:  enabled,
 		client: &http.Client{
 			Timeout: 10 * time.Second,
 		},
@@ -40,6 +62,12 @@ type TelegramMessage struct {
 // Send sends a notification via Telegram
 func (t *TelegramNotifier) Send(notification *models.Notification) error {
 	if !t.enabled || t.botToken == "" || t.chatID == "" {
+		return nil
+	}
+
+	// Defense-in-depth: validate bot token before URL construction
+	if err := validateBotToken(t.botToken); err != nil {
+		logger.Log.Warn().Err(err).Msg("Invalid Telegram bot token format, skipping notification")
 		return nil
 	}
 
@@ -147,8 +175,9 @@ func (t *TelegramNotifier) formatMessage(notification *models.Notification, emoj
 func (t *TelegramNotifier) formatKey(key string) string {
 	// Convert snake_case to Title Case
 	parts := strings.Split(key, "_")
+	tc := cases.Title(language.English)
 	for i, part := range parts {
-		parts[i] = strings.Title(part)
+		parts[i] = tc.String(part)
 	}
 	return strings.Join(parts, " ")
 }
@@ -175,6 +204,11 @@ func (t *TelegramNotifier) escapeMarkdown(text string) string {
 func (t *TelegramNotifier) TestConnection() error {
 	if !t.enabled || t.botToken == "" || t.chatID == "" {
 		return fmt.Errorf("telegram not configured")
+	}
+
+	// Defense-in-depth: validate bot token before URL construction
+	if err := validateBotToken(t.botToken); err != nil {
+		return fmt.Errorf("invalid Telegram bot token format: %w", err)
 	}
 
 	apiURL := fmt.Sprintf("https://api.telegram.org/bot%s/getMe", t.botToken)

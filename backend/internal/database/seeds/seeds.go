@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"golang.org/x/crypto/argon2"
+	"github.com/isolate-project/isolate-panel/internal/auth"
 	"gorm.io/gorm"
 )
 
@@ -15,10 +15,11 @@ type Seeder struct {
 }
 
 type Admin struct {
-	ID           uint   `gorm:"primaryKey"`
-	Username     string `gorm:"uniqueIndex;not null"`
-	PasswordHash string `gorm:"not null"`
-	IsSuperAdmin bool   `gorm:"default:false"`
+	ID                uint   `gorm:"primaryKey"`
+	Username          string `gorm:"uniqueIndex;not null"`
+	PasswordHash      string `gorm:"not null"`
+	IsSuperAdmin      bool   `gorm:"default:false"`
+	MustChangePassword bool   `gorm:"default:false"`
 }
 
 type Setting struct {
@@ -83,34 +84,28 @@ func (s *Seeder) SeedDefaultAdmin(adminPassword string) error {
 		return nil // Admin already exists
 	}
 
-	// Generate salt and hash password
-	salt := make([]byte, 16)
-	if _, err := rand.Read(salt); err != nil {
-		return fmt.Errorf("failed to generate salt: %w", err)
-	}
-
 	if adminPassword == "" {
 		adminPassword = "admin"
 	}
 
-	passwordHash := hashPasswordArgon2id(adminPassword, salt)
+	passwordHash, err := auth.HashPassword(adminPassword)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %w", err)
+	}
 
 	admin := &Admin{
-		Username:     "admin",
-		PasswordHash: passwordHash,
-		IsSuperAdmin: true,
+		Username:           "admin",
+		PasswordHash:       passwordHash,
+		IsSuperAdmin:       true,
+		MustChangePassword: true, // Always require first-login password change
 	}
 
 	if err := s.db.Table("admins").Create(admin).Error; err != nil {
 		return fmt.Errorf("failed to seed default admin: %w", err)
 	}
 
-	if adminPassword == "admin" {
-		fmt.Println("✓ Default admin created (username: admin, password: admin)")
-		fmt.Println("  WARNING: Default password used! Change it immediately!")
-	} else {
-		fmt.Println("✓ Default admin created with custom setup password")
-	}
+	fmt.Println("✓ Default admin created")
+	fmt.Println("  IMPORTANT: You must change the default password on first login")
 	return nil
 }
 
@@ -235,13 +230,6 @@ func (s *Seeder) SeedDevelopmentUsers() error {
 	return nil
 }
 
-// hashPasswordArgon2id hashes password using Argon2id
-func hashPasswordArgon2id(password string, salt []byte) string {
-	hash := argon2.IDKey([]byte(password), salt, 1, 64*1024, 4, 32)
-	// Store as: salt:hash (both hex encoded)
-	return fmt.Sprintf("%s:%s", hex.EncodeToString(salt), hex.EncodeToString(hash))
-}
-
 // generateRandomToken generates a random token
 func generateRandomToken(length int) string {
 	bytes := make([]byte, length)
@@ -254,4 +242,45 @@ func generateRandomToken(length int) string {
 // int64Ptr returns a pointer to an int64
 func int64Ptr(i int64) *int64 {
 	return &i
+}
+
+// EncryptExistingPasswords encrypts all plaintext user passwords
+// This should be called after migration 000040_encrypt_user_passwords
+func (s *Seeder) EncryptExistingPasswords() error {
+	type User struct {
+		ID                uint
+		Password          string
+		PasswordEncrypted bool
+	}
+
+	var users []User
+	if err := s.db.Table("users").Where("password_encrypted = ?", false).Find(&users).Error; err != nil {
+		return fmt.Errorf("failed to fetch users: %w", err)
+	}
+
+	if len(users) == 0 {
+		fmt.Println("✓ All passwords already encrypted")
+		return nil
+	}
+
+	fmt.Printf("Encrypting %d user passwords...\n", len(users))
+
+	for _, user := range users {
+		encryptedPassword, err := auth.EncryptCredential(user.Password)
+		if err != nil {
+			return fmt.Errorf("failed to encrypt password for user %d: %w", user.ID, err)
+		}
+
+		if err := s.db.Table("users").
+			Where("id = ?", user.ID).
+			Updates(map[string]interface{}{
+				"password":            encryptedPassword,
+				"password_encrypted":  true,
+			}).Error; err != nil {
+			return fmt.Errorf("failed to update user %d: %w", user.ID, err)
+		}
+	}
+
+	fmt.Printf("✓ Encrypted %d user passwords\n", len(users))
+	return nil
 }

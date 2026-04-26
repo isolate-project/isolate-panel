@@ -2,25 +2,27 @@ package services
 
 import (
 	"archive/tar"
-	"bytes"
 	"compress/gzip"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/isolate-project/isolate-panel/internal/logger"
 	"github.com/isolate-project/isolate-panel/internal/models"
 	"github.com/isolate-project/isolate-panel/internal/version"
+	_ "github.com/mattn/go-sqlite3"
 	"gorm.io/gorm"
 )
 
@@ -31,6 +33,7 @@ type BackupService struct {
 	backupDir       string
 	dataDir         string
 	encryptionKey   []byte
+	restoreMu       sync.Mutex
 }
 
 // BackupRequest represents a backup creation request
@@ -69,6 +72,10 @@ func (s *BackupService) Initialize() error {
 	// Load or generate encryption key
 	if err := s.loadOrGenerateEncryptionKey(); err != nil {
 		return fmt.Errorf("failed to initialize encryption key: %w", err)
+	}
+
+	if err := s.CleanupStaleBackups(); err != nil {
+		return fmt.Errorf("failed to clean up stale backups: %w", err)
 	}
 
 	return nil
@@ -118,7 +125,7 @@ func (s *BackupService) CreateBackup(req BackupRequest) (*models.Backup, error) 
 		FilePath:          filepath.Join(s.backupDir, fmt.Sprintf("backup_%s.tar.gz", startTime.Format("2006-01-02_15-04-05"))),
 		BackupType:        req.Type,
 		Destination:       models.BackupDestinationLocal,
-		Status:            models.BackupStatusRunning,
+		Status:            models.BackupStatusPending,
 		EncryptionEnabled: req.EncryptionEnabled,
 		CreatedAt:         startTime,
 	}
@@ -142,22 +149,34 @@ func (s *BackupService) CreateBackup(req BackupRequest) (*models.Backup, error) 
 	}
 
 	// Perform backup in goroutine to avoid blocking
+	backupID := backup.ID
 	go func() {
-		err := s.performBackup(backup, backupSource)
-
-		backup.CompletedAt = func() *time.Time { t := time.Now(); return &t }()
-		backup.DurationMs = int(time.Since(startTime).Milliseconds())
-
-		if err != nil {
-			backup.Status = models.BackupStatusFailed
-			backup.ErrorMessage = err.Error()
-		} else {
-			backup.Status = models.BackupStatusCompleted
+		var b models.Backup
+		if err := s.db.First(&b, backupID).Error; err != nil {
+			return
+		}
+		b.Status = models.BackupStatusRunning
+		if err := s.db.Save(&b).Error; err != nil {
+			logger.Log.Error().Err(err).Uint("backup_id", b.ID).Msg("Failed to update backup status to running")
+			return
 		}
 
-		s.db.Save(backup)
+		err := s.performBackup(&b, backupSource)
 
-		// Rotate old backups
+		b.CompletedAt = func() *time.Time { t := time.Now(); return &t }()
+		b.DurationMs = int(time.Since(startTime).Milliseconds())
+
+		if err != nil {
+			b.Status = models.BackupStatusFailed
+			b.ErrorMessage = err.Error()
+		} else {
+			b.Status = models.BackupStatusCompleted
+		}
+
+		if err := s.db.Save(&b).Error; err != nil {
+			logger.Log.Error().Err(err).Uint("backup_id", b.ID).Msg("Failed to update backup status after completion")
+		}
+
 		if err == nil {
 			s.rotateBackups()
 		}
@@ -615,16 +634,30 @@ func (s *BackupService) calculateChecksum(filePath string) (string, error) {
 
 // createMetaFile creates metadata file next to backup
 func (s *BackupService) createMetaFile(metaPath string, backup *models.Backup) error {
+	var migrationVersion string
+	row := s.db.Raw("SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1").Row()
+	if row != nil {
+		row.Scan(&migrationVersion)
+	}
+	if migrationVersion == "" {
+		migrationVersion = "unknown"
+	}
+
+	hostname, _ := os.Hostname()
+	if hostname == "" {
+		hostname = "unknown"
+	}
+
 	meta := map[string]interface{}{
 		"filename":              backup.Filename,
 		"checksum_sha256":       backup.ChecksumSHA256,
 		"encrypted_size":        backup.FileSizeBytes,
 		"created_at":            backup.CreatedAt.Format(time.RFC3339),
 		"backup_version":        "1.0",
-		"isolate_panel_version": "0.2.0",
-		"database_migration":    "000025",
+		"isolate_panel_version": version.Version,
+		"database_migration":    migrationVersion,
 		"cores_included":        []string{"xray", "singbox", "mihomo"},
-		"hostname":              "unknown",
+		"hostname":              hostname,
 		"encryption_enabled":    backup.EncryptionEnabled,
 	}
 
@@ -671,6 +704,27 @@ func (s *BackupService) rotateBackups() error {
 	return nil
 }
 
+func (s *BackupService) CleanupStaleBackups() error {
+	staleThreshold := time.Now().Add(-1 * time.Hour)
+
+	var staleBackups []models.Backup
+	if err := s.db.Where("status IN (?, ?) AND created_at < ?",
+		models.BackupStatusPending, models.BackupStatusRunning, staleThreshold).
+		Find(&staleBackups).Error; err != nil {
+		return fmt.Errorf("failed to find stale backups: %w", err)
+	}
+
+	for _, backup := range staleBackups {
+		backup.Status = models.BackupStatusFailed
+		backup.ErrorMessage = "Process interrupted"
+		if err := s.db.Save(&backup).Error; err != nil {
+			return fmt.Errorf("failed to mark backup %d as failed: %w", backup.ID, err)
+		}
+	}
+
+	return nil
+}
+
 // ListBackups returns list of all backups
 func (s *BackupService) ListBackups() ([]models.Backup, error) {
 	var backups []models.Backup
@@ -702,6 +756,9 @@ func (s *BackupService) DeleteBackup(id uint) error {
 
 // RestoreBackup restores from a backup
 func (s *BackupService) RestoreBackup(id uint) error {
+	s.restoreMu.Lock()
+	defer s.restoreMu.Unlock()
+
 	backup, err := s.GetBackup(id)
 	if err != nil {
 		return err
@@ -713,7 +770,10 @@ func (s *BackupService) RestoreBackup(id uint) error {
 
 	// Update status
 	backup.Status = models.BackupStatusRestoring
-	s.db.Save(backup)
+	if err := s.db.Save(backup).Error; err != nil {
+		logger.Log.Error().Err(err).Uint("backup_id", backup.ID).Msg("Failed to update backup status to restoring")
+		return err
+	}
 
 	// Perform restore in goroutine
 	go func() {
@@ -725,7 +785,9 @@ func (s *BackupService) RestoreBackup(id uint) error {
 		} else {
 			backup.Status = models.BackupStatusCompleted
 		}
-		s.db.Save(backup)
+		if err := s.db.Save(backup).Error; err != nil {
+			logger.Log.Error().Err(err).Uint("backup_id", backup.ID).Msg("Failed to update backup status after restore")
+		}
 	}()
 
 	return nil
@@ -755,27 +817,65 @@ func (s *BackupService) performRestore(backup *models.Backup) error {
 		return fmt.Errorf("failed to extract archive: %w", err)
 	}
 
-	// 1. Restore database
+	// 1. Backup current config files (cores directory)
+	configDir := filepath.Join(s.dataDir, "cores")
+	backupConfigDir := configDir + ".pre-restore"
+
+	os.RemoveAll(backupConfigDir)
+
+	if _, err := os.Stat(configDir); err == nil {
+		if err := s.copyDir(configDir, backupConfigDir); err != nil {
+			logger.Log.Warn().Err(err).Msg("Failed to backup current configs before restore")
+			// Non-fatal: continue without config backup
+		}
+	}
+
+	// 2. Restore database first
 	if err := s.restoreDatabase(tmpDir); err != nil {
+		// DB restore failed - configs unchanged, just fail
+		os.RemoveAll(backupConfigDir)
 		return fmt.Errorf("failed to restore database: %w", err)
 	}
 
-	// 2. Restore core configs
-	if err := s.restoreCoreConfigs(tmpDir); err != nil {
-		return fmt.Errorf("failed to restore core configs: %w", err)
+	// 3. Extract config files to temp dir
+	tempDir := configDir + ".restoring"
+	os.RemoveAll(tempDir)
+
+	if err := s.restoreCoreConfigsToDir(tmpDir, tempDir); err != nil {
+		// Config restoration failed - DB is already restored, this is OK
+		// Old configs will be regenerated by the panel on next core start
+		logger.Log.Warn().Err(err).Msg("Config file restoration failed, DB restored successfully")
+		os.RemoveAll(tempDir)
+	} else {
+		if _, err := os.Stat(tempDir); err == nil {
+			// 4. Atomic swap: temp -> config dir
+			// On same filesystem, os.Rename is atomic
+			if err := os.Rename(tempDir, configDir); err != nil {
+				logger.Log.Error().Err(err).Msg("Failed to swap config directories")
+				// Rollback: restore original configs
+				os.RemoveAll(configDir)
+				if _, err := os.Stat(backupConfigDir); err == nil {
+					os.Rename(backupConfigDir, configDir)
+				}
+			} else {
+				os.RemoveAll(backupConfigDir)
+			}
+		} else {
+			os.RemoveAll(backupConfigDir)
+		}
 	}
 
-	// 3. Restore certificates
+	// 5. Restore certificates
 	if err := s.restoreCertificates(tmpDir); err != nil {
 		return fmt.Errorf("failed to restore certificates: %w", err)
 	}
 
-	// 4. Restore WARP keys
+	// 6. Restore WARP keys
 	if err := s.restoreWARPKeys(tmpDir); err != nil {
 		return fmt.Errorf("failed to restore WARP keys: %w", err)
 	}
 
-	// 5. Restore Geo databases
+	// 7. Restore Geo databases
 	if err := s.restoreGeoDatabases(tmpDir); err != nil {
 		return fmt.Errorf("failed to restore Geo databases: %w", err)
 	}
@@ -850,83 +950,94 @@ func (s *BackupService) extractTarArchive(srcPath, dstDir string) error {
 }
 
 // restoreDatabase restores the database from a backup.
-// Supports both new format (database.db — binary copy) and legacy format (database.sql — text dump).
+// Supports new format (database.db — binary copy). Legacy .sql format is rejected for security reasons.
 func (s *BackupService) restoreDatabase(tmpDir string) error {
 	dbPath := filepath.Join(s.dataDir, "isolate-panel.db")
-
-	// Determine source: prefer new .db format, fall back to legacy .sql
 	dbCopyPath := filepath.Join(tmpDir, "database.db")
 	sqlDumpPath := filepath.Join(tmpDir, "database.sql")
 
-	var srcPath string
-	if _, err := os.Stat(dbCopyPath); err == nil {
-		srcPath = dbCopyPath
-	} else if _, err := os.Stat(sqlDumpPath); err == nil {
-		srcPath = sqlDumpPath
-	} else {
-		return nil // No database dump to restore
+	if _, err := os.Stat(sqlDumpPath); err == nil {
+		return fmt.Errorf("legacy .sql backup format is no longer supported for security reasons; please re-create backup using the current encrypted format")
 	}
 
-	// Backup current database
+	if _, err := os.Stat(dbCopyPath); err != nil {
+		return nil
+	}
+
+	var backupPath string
 	if _, err := os.Stat(dbPath); err == nil {
-		backupPath := dbPath + ".backup." + time.Now().Format("20060102150405")
+		backupPath = dbPath + ".backup." + time.Now().Format("20060102150405")
 		if err := os.Rename(dbPath, backupPath); err != nil {
 			return fmt.Errorf("failed to backup current database: %w", err)
 		}
 	}
 
-	// For .db format — simple file copy
-	if srcPath == dbCopyPath {
-		src, err := os.Open(srcPath)
-		if err != nil {
-			return fmt.Errorf("failed to open backup database: %w", err)
-		}
-		defer src.Close()
-
-		dst, err := os.OpenFile(dbPath, os.O_CREATE|os.O_WRONLY, 0600)
-		if err != nil {
-			return fmt.Errorf("failed to create database: %w", err)
-		}
-		defer dst.Close()
-
-		if _, err = io.Copy(dst, src); err != nil {
-			return fmt.Errorf("failed to copy database: %w", err)
-		}
-		return nil
-	}
-
-	// Legacy .sql format — requires sqlite3 CLI
-	if _, err := exec.LookPath("sqlite3"); err != nil {
-		return fmt.Errorf("legacy .sql backup format requires sqlite3 CLI which is not installed; please re-create backup in new format")
-	}
-
-	dumpData, err := os.ReadFile(srcPath)
+	src, err := os.Open(dbCopyPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to open backup database: %w", err)
+	}
+	defer src.Close()
+
+	dst, err := os.OpenFile(dbPath, os.O_CREATE|os.O_WRONLY, 0600)
+	if err != nil {
+		return fmt.Errorf("failed to create database: %w", err)
+	}
+	defer dst.Close()
+
+	if _, err = io.Copy(dst, src); err != nil {
+		return fmt.Errorf("failed to copy database: %w", err)
 	}
 
-	cmd := exec.Command("sqlite3", dbPath)
-	cmd.Stdin = bytes.NewReader(dumpData)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	if err := s.verifyDatabaseIntegrity(dbPath); err != nil {
+		if backupPath != "" {
+			os.Remove(dbPath)
+			if err := os.Rename(backupPath, dbPath); err != nil {
+				return fmt.Errorf("database integrity check failed and restore from backup failed: %v (original error: %w)", err, err)
+			}
+			return fmt.Errorf("database integrity check failed, restored from backup: %w", err)
+		}
+		return fmt.Errorf("database integrity check failed: %w", err)
+	}
 
-	return cmd.Run()
+	if backupPath != "" {
+		os.Remove(backupPath)
+	}
+
+	return nil
 }
 
-// restoreCoreConfigs restores core configurations.
-// Supports both new format (xray_config.json, singbox_config.json, mihomo_config.yaml)
-// and legacy format (config.json → xray only, config.yaml → mihomo).
-func (s *BackupService) restoreCoreConfigs(tmpDir string) error {
-	coresDir := filepath.Join(tmpDir, "cores")
+func (s *BackupService) verifyDatabaseIntegrity(dbPath string) error {
+	db, err := sql.Open("sqlite3", dbPath+"?mode=rw")
+	if err != nil {
+		return fmt.Errorf("failed to open database for integrity check: %w", err)
+	}
+	defer db.Close()
+
+	var result string
+	row := db.QueryRow("PRAGMA integrity_check")
+	if err := row.Scan(&result); err != nil {
+		return fmt.Errorf("integrity check query failed: %w", err)
+	}
+
+	if result != "ok" {
+		return fmt.Errorf("database integrity check failed: %s", result)
+	}
+
+	return nil
+}
+
+// restoreCoreConfigsToDir extracts core config files from the backup archive
+// into the staging directory, so they can be atomically swapped into place.
+func (s *BackupService) restoreCoreConfigsToDir(archiveDir, stagingDir string) error {
+	coresDir := filepath.Join(archiveDir, "cores")
 	if _, err := os.Stat(coresDir); os.IsNotExist(err) {
 		return nil
 	}
 
-	// New format: explicit per-core names
-	coreConfigs := []struct{ backupName, targetDir, targetFile string }{
-		{"xray_config.json", "cores/xray", "config.json"},
-		{"singbox_config.json", "cores/singbox", "config.json"},
-		{"mihomo_config.yaml", "cores/mihomo", "config.yaml"},
+	coreConfigs := []struct{ backupName, targetSubDir, targetFile string }{
+		{"xray_config.json", "xray", "config.json"},
+		{"singbox_config.json", "singbox", "config.json"},
+		{"mihomo_config.yaml", "mihomo", "config.yaml"},
 	}
 
 	restored := false
@@ -942,21 +1053,19 @@ func (s *BackupService) restoreCoreConfigs(tmpDir string) error {
 			return err
 		}
 
-		targetDir := filepath.Join(s.dataDir, cfg.targetDir)
+		targetDir := filepath.Join(stagingDir, cfg.targetSubDir)
 		if err := os.MkdirAll(targetDir, 0755); err != nil {
 			return err
 		}
-		//nolint:gosec // G703: targetDir and targetFile are controlled configs
 		if err := os.WriteFile(filepath.Join(targetDir, cfg.targetFile), data, 0600); err != nil {
 			return err
 		}
 	}
 
-	// Legacy format fallback: config.json → xray, config.yaml → mihomo
 	if !restored {
-		legacyConfigs := []struct{ backupName, targetDir string }{
-			{"config.json", "cores/xray"},
-			{"config.yaml", "cores/mihomo"},
+		legacyConfigs := []struct{ backupName, targetSubDir string }{
+			{"config.json", "xray"},
+			{"config.yaml", "mihomo"},
 		}
 		for _, cfg := range legacyConfigs {
 			src := filepath.Join(coresDir, cfg.backupName)
@@ -967,11 +1076,10 @@ func (s *BackupService) restoreCoreConfigs(tmpDir string) error {
 			if err != nil {
 				return err
 			}
-			targetDir := filepath.Join(s.dataDir, cfg.targetDir)
+			targetDir := filepath.Join(stagingDir, cfg.targetSubDir)
 			if err := os.MkdirAll(targetDir, 0755); err != nil {
 				return err
 			}
-			//nolint:gosec // G703: targetDir and backupName are controlled configs
 			if err := os.WriteFile(filepath.Join(targetDir, cfg.backupName), data, 0600); err != nil {
 				return err
 			}

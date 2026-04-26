@@ -10,7 +10,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/isolate-project/isolate-panel/internal/logger"
 	"github.com/isolate-project/isolate-panel/internal/models"
+	"github.com/isolate-project/isolate-panel/internal/utils/urlvalidator"
 )
 
 // WebhookNotifier sends notifications via webhook
@@ -23,10 +25,19 @@ type WebhookNotifier struct {
 
 // NewWebhookNotifier creates a new webhook notifier
 func NewWebhookNotifier(url, secret string) *WebhookNotifier {
+	enabled := url != ""
+
+	if url != "" {
+		if err := urlvalidator.ValidateWebhookURL(url); err != nil {
+			logger.Log.Warn().Err(err).Str("url", url).Msg("Invalid webhook URL, webhook notifications disabled")
+			enabled = false
+		}
+	}
+
 	return &WebhookNotifier{
 		url:     url,
 		secret:  secret,
-		enabled: url != "",
+		enabled: enabled,
 		client: &http.Client{
 			Timeout: 10 * time.Second,
 		},
@@ -47,6 +58,11 @@ type WebhookPayload struct {
 // Send sends a notification via webhook
 func (w *WebhookNotifier) Send(notification *models.Notification) error {
 	if !w.enabled || w.url == "" {
+		return nil
+	}
+
+	if err := urlvalidator.ValidateWebhookURL(w.url); err != nil {
+		logger.Log.Warn().Err(err).Str("url", w.url).Msg("Webhook URL validation failed, skipping notification")
 		return nil
 	}
 

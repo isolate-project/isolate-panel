@@ -2,6 +2,8 @@ package models
 
 import (
 	"time"
+
+	"gorm.io/gorm"
 )
 
 // NotificationSeverity represents the severity level of a notification
@@ -77,13 +79,16 @@ type NotificationMetadata struct {
 
 // NotificationSettings represents notification settings
 type NotificationSettings struct {
-	ID               uint      `gorm:"primaryKey" json:"id"`
-	WebhookEnabled   bool      `json:"webhook_enabled"`
-	WebhookURL       string    `gorm:"size:255" json:"webhook_url"`
-	WebhookSecret    string    `gorm:"size:255" json:"webhook_secret"`
-	TelegramEnabled  bool      `json:"telegram_enabled"`
-	TelegramBotToken string    `gorm:"size:255" json:"telegram_bot_token"`
-	TelegramChatID   string    `gorm:"size:100" json:"telegram_chat_id"`
+	ID               uint   `gorm:"primaryKey;uniqueIndex" json:"id"`
+	WebhookEnabled   bool   `json:"webhook_enabled"`
+	WebhookURL       string `gorm:"size:255" json:"webhook_url"`
+	WebhookSecret    string `gorm:"size:255" json:"-"`
+	TelegramEnabled  bool   `json:"telegram_enabled"`
+	TelegramBotToken string `gorm:"size:255" json:"-"`
+	TelegramChatID   string `gorm:"size:100" json:"telegram_chat_id"`
+	// Masked fields for display (computed, not stored)
+	WebhookSecretMasked    string `gorm:"-" json:"webhook_secret_masked"`
+	TelegramBotTokenMasked string `gorm:"-" json:"telegram_bot_token_masked"`
 	// Event toggles
 	NotifyQuotaExceeded bool      `json:"notify_quota_exceeded"`
 	NotifyExpiryWarning bool      `json:"notify_expiry_warning"`
@@ -92,13 +97,32 @@ type NotificationSettings struct {
 	NotifyFailedLogin   bool      `json:"notify_failed_login"`
 	NotifyUserCreated   bool      `json:"notify_user_created"`
 	NotifyUserDeleted   bool      `json:"notify_user_deleted"`
-	CreatedAt        time.Time `json:"created_at"`
-	UpdatedAt        time.Time `json:"updated_at"`
+	CreatedAt           time.Time `json:"created_at"`
+	UpdatedAt           time.Time `json:"updated_at"`
 }
 
 // TableName returns the table name for NotificationSettings
 func (NotificationSettings) TableName() string {
 	return "notification_settings"
+}
+
+// AfterFind is a GORM hook that computes masked values after loading from database
+func (ns *NotificationSettings) AfterFind(tx *gorm.DB) error {
+	if ns.WebhookSecret != "" {
+		if len(ns.WebhookSecret) > 4 {
+			ns.WebhookSecretMasked = ns.WebhookSecret[:4] + "****"
+		} else {
+			ns.WebhookSecretMasked = "****"
+		}
+	}
+	if ns.TelegramBotToken != "" {
+		if len(ns.TelegramBotToken) > 4 {
+			ns.TelegramBotTokenMasked = ns.TelegramBotToken[:4] + "****"
+		} else {
+			ns.TelegramBotTokenMasked = "****"
+		}
+	}
+	return nil
 }
 
 // DefaultNotificationSettings returns default notification settings
