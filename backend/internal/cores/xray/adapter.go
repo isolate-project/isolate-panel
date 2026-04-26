@@ -3,6 +3,8 @@ package xray
 import (
 	"context"
 	"fmt"
+	"net"
+	"time"
 
 	"github.com/isolate-project/isolate-panel/internal/cores"
 	"github.com/isolate-project/isolate-panel/internal/logger"
@@ -13,9 +15,15 @@ func init() {
 	cores.RegisterCore("xray", func() cores.CoreAdapter { return &Adapter{} })
 }
 
-type Adapter struct{}
+type Adapter struct {
+	coreCfg *cores.CoreConfig
+}
 
 func NewAdapter() *Adapter { return &Adapter{} }
+
+func (a *Adapter) SetCoreConfig(cfg *cores.CoreConfig) {
+	a.coreCfg = cfg
+}
 
 func (a *Adapter) ConfigFilename() string { return "config.json" }
 
@@ -40,7 +48,26 @@ func (a *Adapter) WriteConfig(config any, path string) error {
 }
 
 func (a *Adapter) GetHealthCheckEndpoint() string {
+	if a.coreCfg != nil {
+		return "tcp://" + a.coreCfg.XrayAPIAddr()
+	}
 	return "tcp://127.0.0.1:10085"
+}
+
+func (a *Adapter) CheckHealth(ctx context.Context, timeout time.Duration) error {
+	dialCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	var d net.Dialer
+	addr := "127.0.0.1:10085"
+	if a.coreCfg != nil {
+		addr = a.coreCfg.XrayAPIAddr()
+	}
+	conn, err := d.DialContext(dialCtx, "tcp", addr)
+	if err != nil {
+		return fmt.Errorf("xray gRPC API not reachable: %w", err)
+	}
+	conn.Close()
+	return nil
 }
 
 func (a *Adapter) GetDefaultLogPaths() (string, string) {
@@ -78,7 +105,7 @@ func (w *xrayStatsClientWrapper) CloseConnection(ctx context.Context, connection
 func (a *Adapter) SupportedProtocols() []string {
 	return []string{
 		"vmess", "vless", "trojan", "shadowsocks",
-		"hysteria2", "http", "socks5", "xhttp",
+		"hysteria2", "http", "socks5", "xhttp", "tun",
 	}
 }
 
@@ -101,4 +128,16 @@ func (a *Adapter) NewStatsClient(config cores.StatsClientConfig) cores.StatsClie
 		logger.Log.Warn().Err(err).Msg("Xray gRPC initial connect failed (will retry)")
 	}
 	return &xrayStatsClientWrapper{client: client}
+}
+
+func (a *Adapter) HotReloadInfo() (cores.HotReloadMethod, string, string) {
+	return cores.HotReloadNone, "", ""
+}
+
+	func (a *Adapter) SupportsHotReload() bool {
+	return false
+}
+
+func (a *Adapter) ReloadConfig(ctx context.Context) error {
+	return fmt.Errorf("xray hot-reload via gRPC not yet implemented")
 }

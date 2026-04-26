@@ -1,10 +1,13 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sync"
@@ -16,10 +19,11 @@ import (
 
 // GeoService manages GeoIP/GeoSite databases and rules
 type GeoService struct {
-	db       *gorm.DB
-	geoDir   string
-	stopCh   chan struct{}
-	stopOnce sync.Once
+	db        *gorm.DB
+	geoDir    string
+	stopCh    chan struct{}
+	stopOnce  sync.Once
+	startOnce sync.Once
 }
 
 // GeoDatabase represents a GeoIP/GeoSite database
@@ -113,10 +117,80 @@ func (s *GeoService) DownloadCountryMMDB() error {
 	return s.downloadFile(url, "Country.mmdb")
 }
 
+// isPrivateURL validates that a URL is not pointing to private/internal addresses
+func isPrivateURL(rawURL string) error {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return fmt.Errorf("invalid URL: %w", err)
+	}
+	if u.Scheme != "https" {
+		return fmt.Errorf("only HTTPS URLs are allowed")
+	}
+	host := u.Hostname()
+	ip := net.ParseIP(host)
+	if ip == nil {
+		// It's a hostname, not an IP - resolve it
+		ips, err := net.LookupIP(host)
+		if err != nil {
+			return nil // Can't resolve, let it fail naturally
+		}
+		for _, resolvedIP := range ips {
+			if isPrivateIP(resolvedIP) {
+				return fmt.Errorf("hostname resolves to private IP: %s", resolvedIP)
+			}
+		}
+		return nil
+	}
+	if isPrivateIP(ip) {
+		return fmt.Errorf("private IP not allowed: %s", ip)
+	}
+	return nil
+}
+
+// isPrivateIP checks if an IP address is in a private range
+func isPrivateIP(ip net.IP) bool {
+	privateRanges := []struct {
+		network *net.IPNet
+	}{
+		{mustParseCIDR("10.0.0.0/8")},
+		{mustParseCIDR("172.16.0.0/12")},
+		{mustParseCIDR("192.168.0.0/16")},
+		{mustParseCIDR("169.254.0.0/16")},
+		{mustParseCIDR("127.0.0.0/8")},
+		{mustParseCIDR("::1/128")},
+		{mustParseCIDR("fc00::/7")},
+	}
+	for _, r := range privateRanges {
+		if r.network.Contains(ip) {
+			return true
+		}
+	}
+	return false
+}
+
+// mustParseCIDR parses a CIDR string and panics on error
+func mustParseCIDR(s string) *net.IPNet {
+	_, network, err := net.ParseCIDR(s)
+	if err != nil {
+		panic(err)
+	}
+	return network
+}
+
 // downloadFile downloads a file from URL with atomic write (tmp → rename)
 func (s *GeoService) downloadFile(url, filename string) error {
-	//nolint:gosec // G107: url is securely constructed from reliable config
-	resp, err := http.Get(url)
+	if err := isPrivateURL(url); err != nil {
+		return fmt.Errorf("URL validation failed: %w", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return err
+	}
+	//nolint:gosec // G107: url is securely constructed from reliable config and validated
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -278,10 +352,15 @@ func (s *GeoService) DB() *gorm.DB {
 
 // downloadFileConditional downloads if modified (using If-Modified-Since)
 func (s *GeoService) downloadFileConditional(url, filename string) (bool, error) {
+	if err := isPrivateURL(url); err != nil {
+		return false, fmt.Errorf("URL validation failed: %w", err)
+	}
 	path := filepath.Join(s.geoDir, filename)
 
-	client := &http.Client{Timeout: 120 * time.Second}
-	req, err := http.NewRequest("GET", url, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return false, err
 	}
@@ -291,7 +370,7 @@ func (s *GeoService) downloadFileConditional(url, filename string) (bool, error)
 		req.Header.Set("If-Modified-Since", info.ModTime().UTC().Format(http.TimeFormat))
 	}
 
-	resp, err := client.Do(req)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return false, err
 	}
@@ -355,32 +434,35 @@ func (s *GeoService) UpdateAllDatabases() error {
 
 // StartAutoUpdate starts a background goroutine to periodically update geo databases
 func (s *GeoService) StartAutoUpdate(interval time.Duration) {
-	s.stopCh = make(chan struct{})
+	s.startOnce.Do(func() {
+		s.stopCh = make(chan struct{})
+		s.stopOnce = sync.Once{}
 
-	// Initial async download if files don't exist
-	go func() {
-		if _, err := os.Stat(filepath.Join(s.geoDir, "geoip.dat")); os.IsNotExist(err) {
-			log.Printf("[GEO] Geo databases not found, downloading...")
-			if err := s.UpdateAllDatabases(); err != nil {
-				log.Printf("[GEO] Initial download failed: %v", err)
-			}
-		}
-	}()
-
-	go func() {
-		ticker := time.NewTicker(interval)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
+		// Initial async download if files don't exist
+		go func() {
+			if _, err := os.Stat(filepath.Join(s.geoDir, "geoip.dat")); os.IsNotExist(err) {
+				log.Printf("[GEO] Geo databases not found, downloading...")
 				if err := s.UpdateAllDatabases(); err != nil {
-					log.Printf("[GEO] Auto-update failed: %v", err)
+					log.Printf("[GEO] Initial download failed: %v", err)
 				}
-			case <-s.stopCh:
-				return
 			}
-		}
-	}()
+		}()
+
+		go func() {
+			ticker := time.NewTicker(interval)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ticker.C:
+					if err := s.UpdateAllDatabases(); err != nil {
+						log.Printf("[GEO] Auto-update failed: %v", err)
+					}
+				case <-s.stopCh:
+					return
+				}
+			}
+		}()
+	})
 }
 
 // StopAutoUpdate stops the background auto-update goroutine

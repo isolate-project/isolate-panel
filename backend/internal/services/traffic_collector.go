@@ -118,6 +118,12 @@ func (tc *TrafficCollector) Stop() {
 	if tc.xrayClient != nil {
 		tc.xrayClient.Close()
 	}
+	if tc.singboxClient != nil {
+		tc.singboxClient.Close()
+	}
+	if tc.mihomoClient != nil {
+		tc.mihomoClient.Close()
+	}
 }
 
 // ReloadInterval triggers a reload of the monitoring interval from settings
@@ -222,7 +228,6 @@ func (tc *TrafficCollector) getCoreStats(ctx context.Context, core models.Core) 
 	}
 }
 
-
 // GetXrayClient returns the Xray stats client for direct access
 func (tc *TrafficCollector) GetXrayClient() *xray.StatsClient {
 	tc.mu.RLock()
@@ -242,4 +247,22 @@ func (tc *TrafficCollector) GetMihomoClient() *mihomo.StatsClient {
 	tc.mu.RLock()
 	defer tc.mu.RUnlock()
 	return tc.mihomoClient
+}
+
+// UpdateXrayClientAddress recreates the Xray stats client with a new address
+func (tc *TrafficCollector) UpdateXrayClientAddress(newAddr string) error {
+	tc.mu.Lock()
+	defer tc.mu.Unlock()
+
+	if tc.xrayClient != nil {
+		tc.xrayClient.Close()
+	}
+
+	client, err := xray.NewStatsClient(newAddr)
+	if err != nil {
+		return fmt.Errorf("failed to create Xray stats client: %w", err)
+	}
+
+	tc.xrayClient = client
+	return nil
 }

@@ -52,7 +52,8 @@ type Proxy struct {
 // ProxyUser represents a user for a proxy
 type ProxyUser struct {
 	Name     string `yaml:"name"`
-	Password string `yaml:"password"`
+	Password string `yaml:"password,omitempty"`
+	UUID     string `yaml:"uuid,omitempty"`
 }
 
 // ProxyGroup represents a proxy group for load balancing
@@ -247,34 +248,24 @@ func convertInboundToProxy(db *gorm.DB, inbound models.Inbound, users []models.U
 			}
 		}
 	case "vmess":
-		// VMess in Mihomo uses different structure
+		// VMess in Mihomo uses uuid field instead of password
 		if len(users) > 0 {
 			proxy.Users = make([]ProxyUser, len(users))
 			for i, user := range users {
 				proxy.Users[i] = ProxyUser{
-					Name:     fmt.Sprintf("user_%d", user.ID),
-					Password: user.UUID,
+					Name: fmt.Sprintf("user_%d", user.ID),
+					UUID: user.UUID,
 				}
 			}
 		}
 	case "vless":
-		// VLESS support in Mihomo
+		// VLESS in Mihomo uses uuid field instead of password
 		if len(users) > 0 {
 			proxy.Users = make([]ProxyUser, len(users))
 			for i, user := range users {
 				proxy.Users[i] = ProxyUser{
-					Name:     fmt.Sprintf("user_%d", user.ID),
-					Password: user.UUID,
-				}
-			}
-		}
-	case "hysteria2":
-		if len(users) > 0 {
-			proxy.Users = make([]ProxyUser, len(users))
-			for i, user := range users {
-				proxy.Users[i] = ProxyUser{
-					Name:     fmt.Sprintf("user_%d", user.ID),
-					Password: user.UUID,
+					Name: fmt.Sprintf("user_%d", user.ID),
+					UUID: user.UUID,
 				}
 			}
 		}
@@ -288,6 +279,70 @@ func convertInboundToProxy(db *gorm.DB, inbound models.Inbound, users []models.U
 					Password: user.UUID,
 				}
 			}
+		}
+		if proxy.Extra == nil {
+			proxy.Extra = make(map[string]interface{})
+		}
+		if v, ok := cfgSettings["token"].(string); ok {
+			proxy.Extra["token"] = v
+		}
+		if v, ok := cfgSettings["password"].(string); ok {
+			proxy.Extra["password"] = v
+		}
+	case "hysteria2":
+		if len(users) > 0 {
+			proxy.Users = make([]ProxyUser, len(users))
+			for i, user := range users {
+				proxy.Users[i] = ProxyUser{
+					Name:     fmt.Sprintf("user_%d", user.ID),
+					Password: user.UUID,
+				}
+			}
+		}
+		// Add hysteria2-specific settings
+		if proxy.Extra == nil {
+			proxy.Extra = make(map[string]interface{})
+		}
+		if v, ok := cfgSettings["password"].(string); ok {
+			proxy.Extra["password"] = v
+		}
+		if v, ok := cfgSettings["obfs"].(string); ok && v != "" {
+			proxy.Extra["obfs"] = v
+		}
+		if v, ok := cfgSettings["obfs-password"].(string); ok {
+			proxy.Extra["obfs-password"] = v
+		}
+		if v, ok := cfgSettings["up"].(string); ok {
+			proxy.Extra["up"] = v
+		}
+		if v, ok := cfgSettings["down"].(string); ok {
+			proxy.Extra["down"] = v
+		}
+	case "hysteria":
+		if len(users) > 0 {
+			proxy.Users = make([]ProxyUser, len(users))
+			for i, user := range users {
+				proxy.Users[i] = ProxyUser{
+					Name:     fmt.Sprintf("user_%d", user.ID),
+					Password: user.UUID,
+				}
+			}
+		}
+		// Add hysteria-specific settings
+		if proxy.Extra == nil {
+			proxy.Extra = make(map[string]interface{})
+		}
+		if v, ok := cfgSettings["auth-str"].(string); ok {
+			proxy.Extra["auth-str"] = v
+		}
+		if v, ok := cfgSettings["protocol"].(string); ok {
+			proxy.Extra["protocol"] = v
+		}
+		if v, ok := cfgSettings["up"].(string); ok {
+			proxy.Extra["up"] = v
+		}
+		if v, ok := cfgSettings["down"].(string); ok {
+			proxy.Extra["down"] = v
 		}
 	}
 
@@ -398,57 +453,98 @@ func convertInboundToProxy(db *gorm.DB, inbound models.Inbound, users []models.U
 		}
 	}
 
-	// Apply transport settings from ConfigJSON
-	if inbound.ConfigJSON != "" {
-		var cfgSettings map[string]interface{}
-		if err := json.Unmarshal([]byte(inbound.ConfigJSON), &cfgSettings); err != nil {
-			logger.Log.Warn().Err(err).Uint("inbound_id", inbound.ID).Msg("Failed to parse ConfigJSON")
-		} else {
-			if transport, ok := cfgSettings["transport"].(string); ok && transport != "" && transport != "tcp" {
-				if proxy.Extra == nil {
-					proxy.Extra = make(map[string]interface{})
+	// Apply transport settings from ConfigJSON (cfgSettings already parsed above)
+	if len(cfgSettings) > 0 {
+		if transport, ok := cfgSettings["transport"].(string); ok && transport != "" && transport != "tcp" {
+			if proxy.Extra == nil {
+				proxy.Extra = make(map[string]interface{})
+			}
+			proxy.Extra["network"] = transport
+
+			switch transport {
+			case "ws":
+				wsOpts := make(map[string]interface{})
+				if p, ok := cfgSettings["ws_path"].(string); ok && p != "" {
+					wsOpts["path"] = p
+				} else {
+					wsOpts["path"] = "/ws"
 				}
-				proxy.Extra["network"] = transport
-
-				switch transport {
-				case "ws":
-					wsOpts := make(map[string]interface{})
-					if p, ok := cfgSettings["ws_path"].(string); ok && p != "" {
-						wsOpts["path"] = p
-					} else {
-						wsOpts["path"] = "/ws"
-					}
-					if host, ok := cfgSettings["ws_host"].(string); ok && host != "" {
-						wsOpts["headers"] = map[string]string{"Host": host}
-					}
-					proxy.Extra["ws-opts"] = wsOpts
-
-				case "grpc":
-					grpcOpts := make(map[string]interface{})
-					if sn, ok := cfgSettings["grpc_service_name"].(string); ok && sn != "" {
-						grpcOpts["grpc-service-name"] = sn
-					} else {
-						grpcOpts["grpc-service-name"] = "grpc"
-					}
-					proxy.Extra["grpc-opts"] = grpcOpts
-
-				case "h2":
-					h2Opts := make(map[string]interface{})
-					if p, ok := cfgSettings["h2_path"].(string); ok && p != "" {
-						h2Opts["path"] = p
-					} else {
-						h2Opts["path"] = "/"
-					}
-					if host, ok := cfgSettings["h2_host"].(string); ok && host != "" {
-						h2Opts["host"] = []string{host}
-					}
-					proxy.Extra["h2-opts"] = h2Opts
+				if host, ok := cfgSettings["ws_host"].(string); ok && host != "" {
+					wsOpts["headers"] = map[string]string{"Host": host}
 				}
+				proxy.Extra["ws-opts"] = wsOpts
+
+			case "grpc":
+				grpcOpts := make(map[string]interface{})
+				if sn, ok := cfgSettings["grpc_service_name"].(string); ok && sn != "" {
+					grpcOpts["grpc-service-name"] = sn
+				} else {
+					grpcOpts["grpc-service-name"] = "grpc"
+				}
+				proxy.Extra["grpc-opts"] = grpcOpts
+
+			case "h2":
+				h2Opts := make(map[string]interface{})
+				if p, ok := cfgSettings["h2_path"].(string); ok && p != "" {
+					h2Opts["path"] = p
+				} else {
+					h2Opts["path"] = "/"
+				}
+				if host, ok := cfgSettings["h2_host"].(string); ok && host != "" {
+					h2Opts["host"] = []string{host}
+				}
+				proxy.Extra["h2-opts"] = h2Opts
 			}
 		}
 	}
 
 	return proxy, nil
+}
+
+// allowedOutboundExtraKeys is a security allowlist for outbound Extra fields
+// This prevents injection of dangerous keys like dialer-proxy, interface-name, routing-mark
+var allowedOutboundExtraKeys = map[string]bool{
+	// Transport options
+	"ws-opts": true, "grpc-opts": true, "h2-opts": true, "http-opts": true,
+	// TLS
+	"tls": true, "skip-cert-verify": true, "servername": true,
+	// Reality
+	"reality-opts": true,
+	// Network
+	"network": true,
+	// Obfs
+	"obfs": true, "obfs-password": true,
+	// Congestion/brutal
+	"up": true, "down": true,
+	"brutal-debug": true,
+	// Auth
+	"password": true, "uuid": true, "token": true, "auth-str": true,
+	// Cipher
+	"cipher": true, "method": true, "protocol": true,
+	// SNI
+	"sni": true,
+	// HTTP
+	"headers": true,
+	// Fingerprint
+	"fingerprint": true,
+	// Client-fingerprint
+	"client-fingerprint": true,
+	// TUIC
+	"congestion-controller": true, "max-udp-relay-packet-size": true,
+	// Port hopping
+	"hop-interval": true,
+	"hop-ports": true,
+}
+
+// filterOutboundExtra filters outbound Extra fields to only allow known safe keys
+func filterOutboundExtra(extra map[string]interface{}) map[string]interface{} {
+	filtered := make(map[string]interface{})
+	for key, value := range extra {
+		if allowedOutboundExtraKeys[key] {
+			filtered[key] = value
+		}
+	}
+	return filtered
 }
 
 // convertOutboundToProxy converts database outbound to Mihomo proxy
@@ -458,11 +554,11 @@ func convertOutboundToProxy(outbound models.Outbound) (*Proxy, error) {
 		Type: mapMihomoProtocol(outbound.Protocol),
 	}
 
-	// Add extra settings from ConfigJSON if present
+	// Add extra settings from ConfigJSON if present (filtered for security)
 	if outbound.ConfigJSON != "" {
 		var extra map[string]interface{}
-		if err := yaml.Unmarshal([]byte(outbound.ConfigJSON), &extra); err == nil {
-			proxy.Extra = extra
+		if err := json.Unmarshal([]byte(outbound.ConfigJSON), &extra); err == nil {
+			proxy.Extra = filterOutboundExtra(extra)
 		}
 	}
 
@@ -526,6 +622,11 @@ func ValidateConfig(config *Config) error {
 		return fmt.Errorf("mode is required")
 	}
 
+	// Check for at least one proxy (inbound)
+	if len(config.Proxies) == 0 {
+		return fmt.Errorf("at least one proxy (inbound) is required")
+	}
+
 	// Check for duplicate proxy names
 	names := make(map[string]bool)
 	for _, proxy := range config.Proxies {
@@ -542,7 +643,7 @@ func ValidateConfig(config *Config) error {
 func WriteConfig(config *Config, path string) error {
 	// Create directory if it doesn't exist
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0700); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 

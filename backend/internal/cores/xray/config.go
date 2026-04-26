@@ -1,10 +1,15 @@
 package xray
 
 import (
+	"crypto/rand"
+	"crypto/tls"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gorm.io/gorm"
 
@@ -78,20 +83,23 @@ type OutboundConfig struct {
 
 // StreamConfig represents stream (transport) configuration
 type StreamConfig struct {
-	Network       string      `json:"network"`
-	Security      string      `json:"security,omitempty"`
-	TLSConfig     *TLSConfig  `json:"tlsSettings,omitempty"`
-	RealityConfig *RealityConfig `json:"realitySettings,omitempty"`
-	WSConfig      *WSConfig   `json:"wsSettings,omitempty"`
-	HTTPConfig    *HTTPConfig `json:"httpSettings,omitempty"`
-	GRPCConfig    *GRPCConfig `json:"grpcSettings,omitempty"`
+	Network       string           `json:"network"`
+	Security      string           `json:"security,omitempty"`
+	TLSConfig     *TLSConfig       `json:"tlsSettings,omitempty"`
+	RealityConfig *RealityConfig   `json:"realitySettings,omitempty"`
+	WSConfig      *WSConfig        `json:"wsSettings,omitempty"`
+	HTTPConfig    *HTTPConfig      `json:"httpSettings,omitempty"`
+	GRPCConfig    *GRPCConfig      `json:"grpcSettings,omitempty"`
+	XHTTPConfig   *XHTTPConfig     `json:"splithttpSettings,omitempty"`
+	Finalmask     *FinalmaskConfig `json:"finalmask,omitempty"`
 }
 
 // TLSConfig represents TLS settings
 type TLSConfig struct {
-	ServerName string `json:"serverName"`
-	CertFile   string `json:"certificateFile,omitempty"`
-	KeyFile    string `json:"keyFile,omitempty"`
+	ServerName    string `json:"serverName"`
+	CertFile      string `json:"certificateFile,omitempty"`
+	KeyFile       string `json:"keyFile,omitempty"`
+	ECHForceQuery string `json:"echForceQuery,omitempty"` // "off", "strict", "full" (default in v26+ is "full")
 }
 
 // RealityConfig represents Xray Reality settings
@@ -119,6 +127,98 @@ type HTTPConfig struct {
 // GRPCConfig represents gRPC settings
 type GRPCConfig struct {
 	ServiceName string `json:"serviceName"`
+}
+
+// TUNConfig represents TUN inbound settings
+type TUNConfig struct {
+	Name         string                 `json:"name,omitempty"`
+	MTU          int                    `json:"mtu,omitempty"`
+	Stack        string                 `json:"stack,omitempty"`
+	Inet4Address string                 `json:"inet4_address,omitempty"`
+	Inet6Address string                 `json:"inet6_address,omitempty"`
+	Extra        map[string]interface{} `json:"-"`
+}
+
+// MarshalJSON flattens Extra fields
+func (t TUNConfig) MarshalJSON() ([]byte, error) {
+	m := map[string]interface{}{}
+	if t.Name != "" {
+		m["name"] = t.Name
+	}
+	if t.MTU > 0 {
+		m["mtu"] = t.MTU
+	}
+	if t.Stack != "" {
+		m["stack"] = t.Stack
+	}
+	if t.Inet4Address != "" {
+		m["inet4_address"] = t.Inet4Address
+	}
+	if t.Inet6Address != "" {
+		m["inet6_address"] = t.Inet6Address
+	}
+	for k, v := range t.Extra {
+		if _, exists := m[k]; !exists {
+			m[k] = v
+		}
+	}
+	return json.Marshal(m)
+}
+
+// XHTTPConfig represents Xray XHTTP/splithttp transport settings
+type XHTTPConfig struct {
+	Path  string                 `json:"path,omitempty"`
+	Host  string                 `json:"host,omitempty"`
+	Mode  string                 `json:"mode,omitempty"` // "auto", "packet-up", "stream-up"
+	Extra map[string]interface{} `json:"-"`
+}
+
+// MarshalJSON flattens Extra fields
+func (x XHTTPConfig) MarshalJSON() ([]byte, error) {
+	m := make(map[string]interface{})
+	if x.Path != "" {
+		m["path"] = x.Path
+	}
+	if x.Host != "" {
+		m["host"] = x.Host
+	}
+	if x.Mode != "" {
+		m["mode"] = x.Mode
+	}
+	for k, v := range x.Extra {
+		if _, exists := m[k]; !exists {
+			m[k] = v
+		}
+	}
+	return json.Marshal(m)
+}
+
+// FinalmaskConfig represents Xray Finalmask obfuscation layer (v26+)
+type FinalmaskConfig struct {
+	QUICParams *QUICParamsConfig      `json:"quicParams,omitempty"`
+	Extra      map[string]interface{} `json:"-"`
+}
+
+// MarshalJSON flattens Extra fields
+func (f FinalmaskConfig) MarshalJSON() ([]byte, error) {
+	m := make(map[string]interface{})
+	if f.QUICParams != nil {
+		m["quicParams"] = f.QUICParams
+	}
+	for k, v := range f.Extra {
+		if _, exists := m[k]; !exists {
+			m[k] = v
+		}
+	}
+	return json.Marshal(m)
+}
+
+// QUICParamsConfig represents QUIC congestion control parameters
+type QUICParamsConfig struct {
+	Congestion  string `json:"congestion,omitempty"`   // "bbr", "cubic", "new_reno"
+	BrutalUp    string `json:"brutal_up,omitempty"`    // upload bandwidth e.g. "100 mbps"
+	BrutalDown  string `json:"brutal_down,omitempty"`  // download bandwidth
+	ForceBrutal bool   `json:"force_brutal,omitempty"` // force brutal congestion
 }
 
 // SniffingConfig represents sniffing configuration
@@ -153,6 +253,22 @@ func GenerateConfig(ctx *cores.ConfigContext, coreID uint) (*Config, error) {
 		return nil, fmt.Errorf("failed to get core: %w", err)
 	}
 
+	// Generate random API port if not set (for Xray cores only)
+	apiPort := core.APIPort
+	if core.Name == "xray" && apiPort == 0 || apiPort == 10085 {
+		randomPort, err := generateRandomPort()
+		if err != nil {
+			logger.Log.Warn().Err(err).Msg("Failed to generate random API port, using default 10085")
+			apiPort = 10085
+		} else {
+			apiPort = randomPort
+			core.APIPort = apiPort
+			if err := db.Save(&core).Error; err != nil {
+				logger.Log.Warn().Err(err).Int("port", apiPort).Msg("Failed to save API port to database")
+			}
+		}
+	}
+
 	// Get inbounds for this core
 	var inbounds []models.Inbound
 	if err := db.Where("core_id = ?", coreID).Find(&inbounds).Error; err != nil {
@@ -166,10 +282,14 @@ func GenerateConfig(ctx *cores.ConfigContext, coreID uint) (*Config, error) {
 	}
 
 	// Build base config with API and stats enabled
+	logDir := "/var/log/supervisor"
+	if ctx.CoreConfig != nil && ctx.CoreConfig.LogDirectory != "" {
+		logDir = ctx.CoreConfig.LogDirectory
+	}
 	config := &Config{
 		Log: &LogConfig{
-			Access:   "/var/log/supervisor/xray_access.log",
-			Error:    "/var/log/supervisor/xray_error.log",
+			Access:   filepath.Join(logDir, "xray_access.log"),
+			Error:    filepath.Join(logDir, "xray_error.log"),
 			LogLevel: "warning",
 		},
 		API: &APIConfig{
@@ -207,7 +327,7 @@ func GenerateConfig(ctx *cores.ConfigContext, coreID uint) (*Config, error) {
 	config.Inbounds = append(config.Inbounds, InboundConfig{
 		Tag:      "api",
 		Listen:   "127.0.0.1",
-		Port:     10085,
+		Port:     apiPort,
 		Protocol: "dokodemo-door",
 		Settings: safeMarshal(map[string]interface{}{
 			"address": "127.0.0.1",
@@ -286,7 +406,10 @@ func GenerateConfig(ctx *cores.ConfigContext, coreID uint) (*Config, error) {
 
 	// Inject WARP WireGuard outbound + routing rules
 	if warpData, ok := cores.InjectWARP(ctx, coreID); ok {
-		tag, protocol, settings := cores.XrayWARPOutbound(warpData.Account)
+		tag, protocol, settings, err := cores.XrayWARPOutbound(warpData.Account)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate WARP outbound: %w", err)
+		}
 		config.Outbounds = append(config.Outbounds, OutboundConfig{
 			Tag:      tag,
 			Protocol: protocol,
@@ -333,13 +456,25 @@ func GenerateConfig(ctx *cores.ConfigContext, coreID uint) (*Config, error) {
 // convertInbound converts database inbound model to Xray inbound config
 func convertInbound(db *gorm.DB, inbound models.Inbound, users []models.User) (*InboundConfig, error) {
 	// Build settings based on protocol
-	settings, err := buildInboundSettings(inbound.Protocol, []byte(inbound.ConfigJSON), users)
+	settings, err := buildInboundSettings(inbound.Protocol, []byte(inbound.ConfigJSON), users, inbound.RealityEnabled)
 	if err != nil {
 		return nil, err
 	}
 
 	// Generate tag from inbound ID and protocol
 	tag := fmt.Sprintf("%s_%d", inbound.Protocol, inbound.ID)
+
+	// Parse ConfigJSON early so it can be used throughout the function
+	var cfgSettings map[string]interface{}
+	if inbound.ConfigJSON != "" {
+		if err := json.Unmarshal([]byte(inbound.ConfigJSON), &cfgSettings); err != nil {
+			logger.Log.Warn().Err(err).Uint("inbound_id", inbound.ID).Msg("Failed to parse ConfigJSON")
+			cfgSettings = make(map[string]interface{})
+		}
+	}
+	if cfgSettings == nil {
+		cfgSettings = make(map[string]interface{})
+	}
 
 	config := &InboundConfig{
 		Tag:      tag,
@@ -352,8 +487,8 @@ func convertInbound(db *gorm.DB, inbound models.Inbound, users []models.User) (*
 	// Add stream settings if TLS is enabled
 	if inbound.TLSEnabled {
 		streamConfig := &StreamConfig{
-			Network:  "tcp",
-			Security: "tls",
+			Network:   "tcp",
+			Security:  "tls",
 			TLSConfig: &TLSConfig{},
 		}
 
@@ -365,6 +500,14 @@ func convertInbound(db *gorm.DB, inbound models.Inbound, users []models.User) (*
 				streamConfig.TLSConfig.KeyFile = cert.KeyPath
 				streamConfig.TLSConfig.ServerName = cert.Domain
 			}
+		}
+
+		// Xray v26+ defaults echForceQuery to "full" which breaks non-ECH clients.
+		// Explicitly set to "off" unless user specifies otherwise.
+		if echFQ, ok := cfgSettings["ech_force_query"].(string); ok {
+			streamConfig.TLSConfig.ECHForceQuery = echFQ
+		} else {
+			streamConfig.TLSConfig.ECHForceQuery = "off"
 		}
 
 		config.StreamSettings = streamConfig
@@ -402,61 +545,89 @@ func convertInbound(db *gorm.DB, inbound models.Inbound, users []models.User) (*
 			if config.StreamSettings == nil {
 				config.StreamSettings = &StreamConfig{Network: "tcp"}
 			}
-		config.StreamSettings.Security = "reality"
+			config.StreamSettings.Security = "reality"
 			config.StreamSettings.TLSConfig = nil // Reality replaces TLS
 			config.StreamSettings.RealityConfig = realityConfig
 		}
 	}
 
 	// Apply transport settings from ConfigJSON
-	if inbound.ConfigJSON != "" {
-		var cfgSettings map[string]interface{}
-		if err := json.Unmarshal([]byte(inbound.ConfigJSON), &cfgSettings); err != nil {
-			logger.Log.Warn().Err(err).Uint("inbound_id", inbound.ID).Msg("Failed to parse ConfigJSON")
-		} else {
-			if transport, ok := cfgSettings["transport"].(string); ok && transport != "" && transport != "tcp" {
-				if config.StreamSettings == nil {
-					config.StreamSettings = &StreamConfig{Network: "tcp"}
-				}
-
-				switch transport {
-				case "ws":
-					config.StreamSettings.Network = "ws"
-					wsPath := "/ws"
-					if p, ok := cfgSettings["ws_path"].(string); ok && p != "" {
-						wsPath = p
-					}
-					wsConfig := &WSConfig{Path: wsPath}
-					if host, ok := cfgSettings["ws_host"].(string); ok && host != "" {
-						wsConfig.Host = host
-					}
-					config.StreamSettings.WSConfig = wsConfig
-
-				case "grpc":
-					config.StreamSettings.Network = "grpc"
-					serviceName := "grpc"
-					if sn, ok := cfgSettings["grpc_service_name"].(string); ok && sn != "" {
-						serviceName = sn
-					}
-					config.StreamSettings.GRPCConfig = &GRPCConfig{ServiceName: serviceName}
-
-				case "h2":
-					config.StreamSettings.Network = "h2"
-					h2Path := "/"
-					if p, ok := cfgSettings["h2_path"].(string); ok && p != "" {
-						h2Path = p
-					}
-					h2Config := &HTTPConfig{Path: h2Path}
-					if host, ok := cfgSettings["h2_host"].(string); ok && host != "" {
-						h2Config.Host = []string{host}
-					}
-					config.StreamSettings.HTTPConfig = h2Config
-
-				case "xhttp":
-					// XHTTP is Xray-exclusive, uses splithttp network
-					config.StreamSettings.Network = "splithttp"
-				}
+	if len(cfgSettings) > 0 {
+		if transport, ok := cfgSettings["transport"].(string); ok && transport != "" && transport != "tcp" {
+			if config.StreamSettings == nil {
+				config.StreamSettings = &StreamConfig{Network: "tcp"}
 			}
+
+			switch transport {
+			case "ws":
+				config.StreamSettings.Network = "ws"
+				wsPath := "/ws"
+				if p, ok := cfgSettings["ws_path"].(string); ok && p != "" {
+					wsPath = p
+				}
+				wsConfig := &WSConfig{Path: wsPath}
+				if host, ok := cfgSettings["ws_host"].(string); ok && host != "" {
+					wsConfig.Host = host
+				}
+				config.StreamSettings.WSConfig = wsConfig
+
+			case "grpc":
+				config.StreamSettings.Network = "grpc"
+				serviceName := "grpc"
+				if sn, ok := cfgSettings["grpc_service_name"].(string); ok && sn != "" {
+					serviceName = sn
+				}
+				config.StreamSettings.GRPCConfig = &GRPCConfig{ServiceName: serviceName}
+
+			case "h2":
+				config.StreamSettings.Network = "h2"
+				h2Path := "/"
+				if p, ok := cfgSettings["h2_path"].(string); ok && p != "" {
+					h2Path = p
+				}
+				h2Config := &HTTPConfig{Path: h2Path}
+				if host, ok := cfgSettings["h2_host"].(string); ok && host != "" {
+					h2Config.Host = []string{host}
+				}
+				config.StreamSettings.HTTPConfig = h2Config
+
+			case "xhttp":
+				// XHTTP is Xray-exclusive, uses splithttp network
+				config.StreamSettings.Network = "splithttp"
+				xhttpConfig := &XHTTPConfig{
+					Path: "/xhttp",
+				}
+				if p, ok := cfgSettings["xhttp_path"].(string); ok && p != "" {
+					xhttpConfig.Path = p
+				}
+				if h, ok := cfgSettings["xhttp_host"].(string); ok && h != "" {
+					xhttpConfig.Host = h
+				}
+				if m, ok := cfgSettings["xhttp_mode"].(string); ok && m != "" {
+					xhttpConfig.Mode = m
+				}
+				config.StreamSettings.XHTTPConfig = xhttpConfig
+			}
+		}
+
+		// Apply Finalmask settings if enabled
+		if finalmaskEnabled, ok := cfgSettings["finalmask_enabled"].(bool); ok && finalmaskEnabled {
+			if config.StreamSettings == nil {
+				config.StreamSettings = &StreamConfig{Network: "tcp"}
+			}
+			finalmaskConfig := &FinalmaskConfig{
+				QUICParams: &QUICParamsConfig{},
+			}
+			if congestion, ok := cfgSettings["finalmask_congestion"].(string); ok && congestion != "" {
+				finalmaskConfig.QUICParams.Congestion = congestion
+			}
+			if brutalUp, ok := cfgSettings["finalmask_brutal_up"].(string); ok && brutalUp != "" {
+				finalmaskConfig.QUICParams.BrutalUp = brutalUp
+			}
+			if brutalDown, ok := cfgSettings["finalmask_brutal_down"].(string); ok && brutalDown != "" {
+				finalmaskConfig.QUICParams.BrutalDown = brutalDown
+			}
+			config.StreamSettings.Finalmask = finalmaskConfig
 		}
 	}
 
@@ -468,11 +639,16 @@ func convertInbound(db *gorm.DB, inbound models.Inbound, users []models.User) (*
 		}
 	}
 
+	// TUN doesn't use stream settings (it's a Layer 3 tunnel)
+	if inbound.Protocol == "tun" {
+		config.StreamSettings = nil
+	}
+
 	return config, nil
 }
 
 // buildInboundSettings builds protocol-specific settings
-func buildInboundSettings(protocol string, baseSettings json.RawMessage, users []models.User) (json.RawMessage, error) {
+func buildInboundSettings(protocol string, baseSettings json.RawMessage, users []models.User, realityEnabled bool) (json.RawMessage, error) {
 	var settings map[string]interface{}
 	if len(baseSettings) > 0 {
 		if err := json.Unmarshal(baseSettings, &settings); err != nil {
@@ -480,6 +656,11 @@ func buildInboundSettings(protocol string, baseSettings json.RawMessage, users [
 		}
 	} else {
 		settings = make(map[string]interface{})
+	}
+
+	// Handle TUN which doesn't use clients
+	if protocol == "tun" {
+		return buildTUNSettings(settings), nil
 	}
 
 	// Handle socks/http which use accounts instead of clients
@@ -516,16 +697,123 @@ func buildInboundSettings(protocol string, baseSettings json.RawMessage, users [
 	}
 
 	// Add clients based on protocol (vmess, vless, trojan, etc.)
-	clients := buildClients(protocol, users)
+	clients := buildClients(protocol, users, realityEnabled)
 	if len(clients) > 0 {
 		settings["clients"] = clients
+	}
+
+	// Handle Shadowsocks SS2022 ciphers - method at inbound level, not client level
+	if protocol == "shadowsocks" {
+		if method, ok := settings["method"].(string); ok && strings.HasPrefix(method, "2022-blake3") {
+			settings["method"] = method
+			// SS2022 key length must match cipher: 16 bytes for aes-128-gcm, 32 for aes-256-gcm/chacha20-poly1305
+			keyLen := 32
+			if strings.Contains(method, "aes-128") {
+				keyLen = 16
+			}
+			key := make([]byte, keyLen)
+			if _, err := rand.Read(key); err == nil {
+				settings["password"] = base64.StdEncoding.EncodeToString(key)
+			}
+			// Remove method from individual clients (SS2022 forbids it)
+			if clientList, ok := settings["clients"].([]map[string]interface{}); ok {
+				for i := range clientList {
+					delete(clientList[i], "method")
+					delete(clientList[i], "level")
+				}
+			}
+		}
+	}
+
+	// Handle hysteria2 QUIC params - move to finalmask.quicParams (Xray v26+)
+	if protocol == "hysteria2" {
+		if congestion, ok := settings["congestion"]; ok {
+			// Create finalmask structure
+			if _, fmOk := settings["finalmask"]; !fmOk {
+				settings["finalmask"] = make(map[string]interface{})
+			}
+			fm := settings["finalmask"].(map[string]interface{})
+			if _, qpOk := fm["quicParams"]; !qpOk {
+				fm["quicParams"] = make(map[string]interface{})
+			}
+			qp := fm["quicParams"].(map[string]interface{})
+			qp["congestion"] = congestion
+			delete(settings, "congestion")
+
+			if brutalUp, ok := settings["brutal_up"]; ok {
+				qp["brutal_up"] = brutalUp
+				delete(settings, "brutal_up")
+			}
+			if brutalDown, ok := settings["brutal_down"]; ok {
+				qp["brutal_down"] = brutalDown
+				delete(settings, "brutal_down")
+			}
+			if forceBrutal, ok := settings["force_brutal"]; ok {
+				qp["force_brutal"] = forceBrutal
+				delete(settings, "force_brutal")
+			}
+		}
+	}
+
+	// Handle Finalmask settings for other protocols (vmess, vless, trojan)
+	if finalmaskEnabled, ok := settings["finalmask_enabled"].(bool); ok && finalmaskEnabled {
+		// Create finalmask structure
+		if _, fmOk := settings["finalmask"]; !fmOk {
+			settings["finalmask"] = make(map[string]interface{})
+		}
+		fm := settings["finalmask"].(map[string]interface{})
+		if _, qpOk := fm["quicParams"]; !qpOk {
+			fm["quicParams"] = make(map[string]interface{})
+		}
+		qp := fm["quicParams"].(map[string]interface{})
+
+		if congestion, ok := settings["finalmask_congestion"].(string); ok && congestion != "" {
+			qp["congestion"] = congestion
+		}
+		if brutalUp, ok := settings["finalmask_brutal_up"].(string); ok && brutalUp != "" {
+			qp["brutal_up"] = brutalUp
+		}
+		if brutalDown, ok := settings["finalmask_brutal_down"].(string); ok && brutalDown != "" {
+			qp["brutal_down"] = brutalDown
+		}
+
+		// Remove the finalmask_* keys from settings
+		delete(settings, "finalmask_enabled")
+		delete(settings, "finalmask_congestion")
+		delete(settings, "finalmask_brutal_up")
+		delete(settings, "finalmask_brutal_down")
 	}
 
 	return json.Marshal(settings)
 }
 
+// buildTUNSettings builds TUN inbound settings
+func buildTUNSettings(cfgSettings map[string]interface{}) json.RawMessage {
+	settings := map[string]interface{}{
+		"name":          "tun0",
+		"mtu":           1500,
+		"stack":         "system",
+		"inet4_address": "10.0.0.1/24",
+	}
+	// Override with user settings
+	for k, v := range cfgSettings {
+		// Skip transport-related keys that don't apply to TUN
+		if k == "transport" || k == "ws_path" || k == "ws_host" || k == "grpc_service_name" {
+			continue
+		}
+		// Map interface_name to name for Xray config
+		if k == "interface_name" {
+			settings["name"] = v
+		} else {
+			settings[k] = v
+		}
+	}
+	data, _ := json.Marshal(settings)
+	return data
+}
+
 // buildClients builds client list for the protocol
-func buildClients(protocol string, users []models.User) []map[string]interface{} {
+func buildClients(protocol string, users []models.User, realityEnabled bool) []map[string]interface{} {
 	clients := make([]map[string]interface{}, 0, len(users))
 
 	for _, user := range users {
@@ -538,11 +826,16 @@ func buildClients(protocol string, users []models.User) []map[string]interface{}
 				"alterId": 0,
 			})
 		case "vless":
+			// VLESS with Vision flow when Reality is enabled (required for Xray v26+)
+			flow := ""
+			if realityEnabled {
+				flow = "xtls-rprx-vision"
+			}
 			clients = append(clients, map[string]interface{}{
 				"id":         user.UUID,
 				"level":      0,
 				"email":      fmt.Sprintf("user_%d", user.ID),
-				"flow":       "",
+				"flow":       flow,
 				"encryption": "none",
 			})
 		case "trojan":
@@ -553,7 +846,7 @@ func buildClients(protocol string, users []models.User) []map[string]interface{}
 			})
 		case "shadowsocks":
 			clients = append(clients, map[string]interface{}{
-				"method":   "chacha20-poly1305",
+				"method":   "aes-128-gcm",
 				"password": user.UUID,
 				"email":    fmt.Sprintf("user_%d", user.ID),
 				"level":    0,
@@ -573,42 +866,6 @@ func buildClients(protocol string, users []models.User) []map[string]interface{}
 	}
 
 	return clients
-}
-
-// buildStreamSettings builds stream/transport settings
-func buildStreamSettings(transport string, transportSettings json.RawMessage) *StreamConfig {
-	config := &StreamConfig{
-		Network: "tcp",
-	}
-
-	switch transport {
-	case "ws":
-		config.Network = "ws"
-		config.WSConfig = &WSConfig{
-			Path: "/ws",
-		}
-	case "http":
-		config.Network = "h2"
-		config.HTTPConfig = &HTTPConfig{
-			Host: []string{},
-			Path: "/",
-		}
-	case "grpc":
-		config.Network = "grpc"
-		config.GRPCConfig = &GRPCConfig{
-			ServiceName: "grpc",
-		}
-	}
-
-	if len(transportSettings) > 0 {
-		// Override with custom settings
-		var custom map[string]interface{}
-		if err := json.Unmarshal(transportSettings, &custom); err == nil {
-			// Apply custom settings as needed
-		}
-	}
-
-	return config
 }
 
 // convertOutbound converts database outbound model to Xray outbound config
@@ -674,13 +931,46 @@ func ValidateConfig(config *Config) error {
 		return fmt.Errorf("at least one inbound is required")
 	}
 
-	// Check for duplicate tags
+	// Check for duplicate tags and validate TLS certificate files
 	tags := make(map[string]bool)
 	for _, inbound := range config.Inbounds {
 		if tags[inbound.Tag] {
 			return fmt.Errorf("duplicate inbound tag: %s", inbound.Tag)
 		}
 		tags[inbound.Tag] = true
+
+		// Validate TLS certificate files if TLS is enabled
+		if inbound.StreamSettings != nil && inbound.StreamSettings.Security == "tls" && inbound.StreamSettings.TLSConfig != nil {
+			if inbound.StreamSettings.TLSConfig.CertFile != "" {
+				certInfo, err := os.Stat(inbound.StreamSettings.TLSConfig.CertFile)
+				if os.IsNotExist(err) {
+					return fmt.Errorf("TLS certificate file not found: %s", inbound.StreamSettings.TLSConfig.CertFile)
+				}
+				if err != nil {
+					return fmt.Errorf("TLS certificate file check failed: %w", err)
+				}
+				if certInfo.Size() == 0 {
+					return fmt.Errorf("TLS certificate file is empty: %s", inbound.StreamSettings.TLSConfig.CertFile)
+				}
+			}
+			if inbound.StreamSettings.TLSConfig.KeyFile != "" {
+				keyInfo, err := os.Stat(inbound.StreamSettings.TLSConfig.KeyFile)
+				if os.IsNotExist(err) {
+					return fmt.Errorf("TLS key file not found: %s", inbound.StreamSettings.TLSConfig.KeyFile)
+				}
+				if err != nil {
+					return fmt.Errorf("TLS key file check failed: %w", err)
+				}
+				if keyInfo.Size() == 0 {
+					return fmt.Errorf("TLS key file is empty: %s", inbound.StreamSettings.TLSConfig.KeyFile)
+				}
+			}
+			if inbound.StreamSettings.TLSConfig.CertFile != "" && inbound.StreamSettings.TLSConfig.KeyFile != "" {
+				if _, err := tls.LoadX509KeyPair(inbound.StreamSettings.TLSConfig.CertFile, inbound.StreamSettings.TLSConfig.KeyFile); err != nil {
+					return fmt.Errorf("invalid TLS certificate/key pair: %w", err)
+				}
+			}
+		}
 	}
 
 	for _, outbound := range config.Outbounds {
@@ -697,7 +987,7 @@ func ValidateConfig(config *Config) error {
 func WriteConfig(config *Config, path string) error {
 	// Create directory if it doesn't exist
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0700); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
@@ -728,4 +1018,38 @@ func ReadConfig(path string) (*Config, error) {
 	}
 
 	return &config, nil
+}
+
+// generateRandomPort generates a random port in the range 10000-65535
+// and checks if it's available (not in use)
+func generateRandomPort() (int, error) {
+	const maxAttempts = 100
+
+	for i := 0; i < maxAttempts; i++ {
+		port := 10000 + int(randUint32()%55536)
+
+		if isPortAvailable(port) {
+			return port, nil
+		}
+	}
+
+	return 0, fmt.Errorf("failed to find available port after %d attempts", maxAttempts)
+}
+
+// isPortAvailable checks if a port is available for binding
+func isPortAvailable(port int) bool {
+	addr := fmt.Sprintf("127.0.0.1:%d", port)
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		return false
+	}
+	listener.Close()
+	return true
+}
+
+// randUint32 generates a random uint32
+func randUint32() uint32 {
+	b := make([]byte, 4)
+	_, _ = rand.Read(b)
+	return uint32(b[0])<<24 | uint32(b[1])<<16 | uint32(b[2])<<8 | uint32(b[3])
 }

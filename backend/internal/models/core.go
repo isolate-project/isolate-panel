@@ -13,11 +13,13 @@ type Core struct {
 	PID        *int   `json:"pid"`
 	ConfigPath string `json:"config_path"`
 	LogPath    string `json:"log_path"`
+	APIPort    int    `gorm:"default:10085" json:"api_port"` // Random port for Xray gRPC API (security)
 
 	// Statistics
 	UptimeSeconds int    `gorm:"default:0" json:"uptime_seconds"`
 	RestartCount  int    `gorm:"default:0" json:"restart_count"`
 	LastError     string `json:"last_error"`
+	HealthStatus  string `json:"health_status" gorm:"default:unknown"`
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`

@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/gofiber/fiber/v3"
 	"gorm.io/gorm"
 
 	"github.com/isolate-project/isolate-panel/internal/api"
@@ -19,6 +20,7 @@ import (
 	"github.com/isolate-project/isolate-panel/internal/haproxy"
 	applogger "github.com/isolate-project/isolate-panel/internal/logger"
 	"github.com/isolate-project/isolate-panel/internal/middleware"
+	"github.com/isolate-project/isolate-panel/internal/models"
 	"github.com/isolate-project/isolate-panel/internal/scheduler"
 	"github.com/isolate-project/isolate-panel/internal/services"
 )
@@ -28,40 +30,43 @@ type App struct {
 	StartTime time.Time
 	stopQuota chan struct{}
 	gormDB    *gorm.DB
+	subApp    *fiber.App
 
 	// Infrastructure
-	Cache       *cache.CacheManager
-	TokenSvc    *auth.TokenService
-	LoginRL     *middleware.RateLimiter
-	ProtectedRL *middleware.RateLimiter // 60 req/min per admin (standard)
-	HeavyRL     *middleware.RateLimiter // 10 req/min per admin (expensive ops)
-	SubTokenRL  *middleware.RateLimiter // subscription token rate limiter
-	SubIPRL     *middleware.RateLimiter // subscription IP rate limiter
+	Cache           *cache.CacheManager
+	TokenSvc        *auth.TokenService
+	LoginRL         *middleware.RateLimiter
+	RefreshLogoutRL *middleware.RateLimiter // 10 req/min per IP (refresh/logout)
+	ProtectedRL     *middleware.RateLimiter // 60 req/min per admin (standard)
+	HeavyRL         *middleware.RateLimiter // 10 req/min per admin (expensive ops)
+	SubTokenRL      *middleware.RateLimiter // subscription token rate limiter
+	SubIPRL         *middleware.RateLimiter // subscription IP rate limiter
 
 	// Core management
 	Cores     *cores.CoreManager
 	Lifecycle *services.CoreLifecycleManager
 	Config    *services.ConfigService
+	Watchdog  *Watchdog
 
 	// Audit
 	Audit  *services.AuditService
 	AuditH *api.AuditHandler
 
 	// Domain services
-	Notifications *services.NotificationService
-	Ports         *services.PortManager
-	Settings      *services.SettingsService
-	Users         *services.UserService
-	Inbounds      *services.InboundService
-	Outbounds     *services.OutboundService
-	Subscriptions *services.SubscriptionService
-	Certs         *services.CertificateService
-	Warp          *services.WARPService
-	Geo           *services.GeoService
-	Backups             *services.BackupService
-	BackupSched         *scheduler.BackupScheduler
-	TrafficResetSched   *scheduler.TrafficResetScheduler
-	Quota               *services.QuotaEnforcer
+	Notifications     *services.NotificationService
+	Ports             *services.PortManager
+	Settings          *services.SettingsService
+	Users             *services.UserService
+	Inbounds          *services.InboundService
+	Outbounds         *services.OutboundService
+	Subscriptions     *services.SubscriptionService
+	Certs             *services.CertificateService
+	Warp              *services.WARPService
+	Geo               *services.GeoService
+	Backups           *services.BackupService
+	BackupSched       *scheduler.BackupScheduler
+	TrafficResetSched *scheduler.TrafficResetScheduler
+	Quota             *services.QuotaEnforcer
 
 	// Monitoring services
 	Traffic     *services.TrafficCollector
@@ -115,12 +120,36 @@ func NewApp(cfg *appconfig.Config, db *database.Database) (*App, error) {
 		V2RayAPIPort:  cfg.Cores.V2RayAPIPort,
 	}
 	coreCfg.ApplyDefaults()
-	a.Cores = cores.NewCoreManager(db.DB, cfg.Cores.SupervisorURL, coreCfg)
-	a.Lifecycle = services.NewCoreLifecycleManager(db.DB, a.Cores)
+
+	// Resolve data directories with defaults
+	dataDir := cfg.Data.DataDir
+	if dataDir == "" {
+		dataDir = "/app/data"
+	}
+	warpDir := cfg.Data.WarpDir
+	if warpDir == "" {
+		warpDir = dataDir + "/warp"
+	}
+	geoDir := cfg.Data.GeoDir
+	if geoDir == "" {
+		geoDir = dataDir + "/geo"
+	}
+
+	// Resolve core API secret
 	coreAPISecret := cfg.Cores.SingboxAPIKey
 	if coreAPISecret == "" {
 		coreAPISecret = cfg.Cores.MihomoAPIKey
 	}
+
+	// Resolve V2Ray API listen address
+	v2rayAPIListenAddr := ""
+	if cfg.Cores.V2RayAPIPort > 0 {
+		v2rayAPIListenAddr = fmt.Sprintf("127.0.0.1:%d", cfg.Cores.V2RayAPIPort)
+	}
+
+	a.Cores = cores.NewCoreManager(db.DB, cfg.Cores.SupervisorURL, coreCfg, cfg.Cores.ConfigDir, warpDir, geoDir, coreAPISecret, v2rayAPIListenAddr)
+	a.Lifecycle = services.NewCoreLifecycleManager(db.DB, a.Cores)
+	a.Watchdog = NewWatchdog(db.DB, a.Cores, 30*time.Second, 5*time.Second)
 	a.Config = services.NewConfigService(db.DB, a.Cores, cfg.Cores.ConfigDir, coreAPISecret)
 	a.Config.SetCoreConfig(coreCfg)
 	a.Lifecycle.SetConfigService(a.Config)
@@ -129,12 +158,22 @@ func NewApp(cfg *appconfig.Config, db *database.Database) (*App, error) {
 	}
 
 	// Auth
+	adminValidator := func(adminID uint) (isActive bool, isSuperAdmin bool, mustChangePassword bool, err error) {
+		var admin models.Admin
+		if err := db.DB.Select("is_active, is_super_admin, must_change_password").First(&admin, adminID).Error; err != nil {
+			return false, false, false, err
+		}
+		return admin.IsActive, admin.IsSuperAdmin, admin.MustChangePassword, nil
+	}
 	a.TokenSvc = auth.NewTokenService(
 		cfg.JWT.Secret,
 		time.Duration(cfg.JWT.AccessTokenTTL)*time.Second,
 		time.Duration(cfg.JWT.RefreshTokenTTL)*time.Second,
+		adminValidator,
+		db.DB,
 	)
 	a.LoginRL = middleware.NewRateLimiter(5, time.Minute)
+	a.RefreshLogoutRL = middleware.NewRateLimiter(10, time.Minute)
 	a.ProtectedRL = middleware.NewRateLimiter(600, time.Minute)
 	a.HeavyRL = middleware.NewRateLimiter(60, time.Minute)
 
@@ -150,6 +189,7 @@ func NewApp(cfg *appconfig.Config, db *database.Database) (*App, error) {
 	if err := a.Notifications.Initialize(); err != nil {
 		log.Warn().Err(err).Msg("Failed to initialize Notification service")
 	}
+	a.Notifications.Start()
 
 	// Domain services
 	a.Ports = services.NewPortManager(db.DB)
@@ -158,7 +198,7 @@ func NewApp(cfg *appconfig.Config, db *database.Database) (*App, error) {
 	a.Inbounds = services.NewInboundService(db.DB, a.Lifecycle, a.Ports)
 	a.Outbounds = services.NewOutboundService(db.DB, a.Config)
 	a.Subscriptions = services.NewSubscriptionService(db.DB, cfg.App.PanelURL, a.Cache)
-	a.Users.SetSubscriptionService(a.Subscriptions) // cache invalidation on user changes
+	a.Users.SetSubscriptionService(a.Subscriptions)    // cache invalidation on user changes
 	a.Inbounds.SetSubscriptionService(a.Subscriptions) // cache invalidation on inbound changes
 
 	// Monitoring services
@@ -167,6 +207,7 @@ func NewApp(cfg *appconfig.Config, db *database.Database) (*App, error) {
 		cfg.Cores.XrayAPIAddr, cfg.Cores.SingboxAPIAddr, cfg.Cores.MihomoAPIAddr,
 		cfg.Cores.SingboxAPIKey, cfg.Cores.MihomoAPIKey,
 	)
+	a.Config.SetTrafficCollector(a.Traffic)
 	a.Connections = services.NewConnectionTracker(
 		db.DB, time.Duration(cfg.Traffic.ConnInterval)*time.Second,
 		cfg.Cores.XrayAPIAddr, cfg.Cores.SingboxAPIAddr, cfg.Cores.MihomoAPIAddr,
@@ -176,19 +217,7 @@ func NewApp(cfg *appconfig.Config, db *database.Database) (*App, error) {
 	a.Aggregator = services.NewDataAggregator(db.DB, 0)
 	a.Retention = services.NewDataRetentionService(db.DB, 0, a.Settings)
 
-	// Resolve data directories with defaults
-	dataDir := cfg.Data.DataDir
-	if dataDir == "" {
-		dataDir = "/app/data"
-	}
-	warpDir := cfg.Data.WarpDir
-	if warpDir == "" {
-		warpDir = dataDir + "/warp"
-	}
-	geoDir := cfg.Data.GeoDir
-	if geoDir == "" {
-		geoDir = dataDir + "/geo"
-	}
+	// Resolve additional data directories with defaults
 	backupDir := cfg.Data.BackupDir
 	if backupDir == "" {
 		backupDir = dataDir + "/backups"
@@ -242,6 +271,7 @@ func NewApp(cfg *appconfig.Config, db *database.Database) (*App, error) {
 	// Wire notification service to dependents
 	if a.Certs != nil {
 		a.Certs.SetNotificationService(a.Notifications)
+		a.Certs.OnCertChange = InvalidateCertCache
 	}
 	a.Lifecycle.SetNotificationService(a.Notifications)
 
