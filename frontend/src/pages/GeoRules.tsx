@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'preact/hooks'
 import { warpApi, coreApi } from '../api/endpoints'
+import { sanitizeError } from '../utils/errorHandler'
 import { useToastStore } from '../stores/toastStore'
 import { useTranslation } from 'react-i18next'
 import { PageLayout } from '../components/layout/PageLayout'
@@ -119,8 +120,8 @@ export function GeoRules() {
       setFormData({ type: 'geoip', code: '', action: 'proxy', priority: 50, description: '' })
       loadGeoData()
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: string } }; message?: string }
-      addToast({ type: 'error', message: 'Failed to create rule: ' + (error.response?.data?.error || error.message) })
+      const { message } = sanitizeError(err)
+      addToast({ type: 'error', message: `Failed to create rule: ${message}` })
     }
   }
 
@@ -132,8 +133,8 @@ export function GeoRules() {
       addToast({ type: 'success', message: 'Rule deleted successfully!' })
       loadGeoData()
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: string } }; message?: string }
-      addToast({ type: 'error', message: 'Failed to delete rule: ' + (error.response?.data?.error || error.message) })
+      const { message } = sanitizeError(err)
+      addToast({ type: 'error', message: `Failed to delete rule: ${message}` })
     }
   }
 
@@ -142,8 +143,8 @@ export function GeoRules() {
       await warpApi.toggleGeoRule(id, selectedCore!)
       loadGeoData()
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: string } }; message?: string }
-      addToast({ type: 'error', message: 'Failed to toggle rule: ' + (error.response?.data?.error || error.message) })
+      const { message } = sanitizeError(err)
+      addToast({ type: 'error', message: `Failed to toggle rule: ${message}` })
     }
   }
 
@@ -154,8 +155,8 @@ export function GeoRules() {
       await warpApi.updateDatabases()
       addToast({ type: 'success', message: 'Geo databases updated successfully!' })
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: string } }; message?: string }
-      addToast({ type: 'error', message: 'Failed to update databases: ' + (error.response?.data?.error || error.message) })
+      const { message } = sanitizeError(err)
+      addToast({ type: 'error', message: `Failed to update databases: ${message}` })
     }
   }
 

@@ -16,6 +16,7 @@ func StartWorkers(a *App) {
 	a.Retention.Start()
 	a.Warp.StartAutoRefresh(24 * time.Hour)
 	a.Geo.StartAutoUpdate(7 * 24 * time.Hour)
+	a.Watchdog.Start()
 
 	// Quota enforcement + expiry check loop (every 5 minutes)
 	go func() {
@@ -38,21 +39,45 @@ func StopWorkers(a *App) {
 	log := applogger.Log
 	log.Info().Msg("Stopping background services...")
 
+	if a.Watchdog != nil {
+		a.Watchdog.Stop()
+	}
 	close(a.stopQuota)
-	a.DashboardHub.Stop()
-	a.Aggregator.Stop()
-	a.Retention.Stop()
-	a.Connections.Stop()
-	a.Traffic.Stop()
-	a.BackupSched.Stop()
-	a.TrafficResetSched.Stop()
-	a.Warp.StopAutoRefresh()
-	a.Geo.StopAutoUpdate()
+	if a.DashboardHub != nil {
+		a.DashboardHub.Stop()
+	}
+	if a.Aggregator != nil {
+		a.Aggregator.Stop()
+	}
+	if a.Retention != nil {
+		a.Retention.Stop()
+	}
+	if a.Connections != nil {
+		a.Connections.Stop()
+	}
+	if a.Traffic != nil {
+		a.Traffic.Stop()
+	}
+	if a.BackupSched != nil {
+		a.BackupSched.Stop()
+	}
+	if a.TrafficResetSched != nil {
+		a.TrafficResetSched.Stop()
+	}
+	if a.Warp != nil {
+		a.Warp.StopAutoRefresh()
+	}
+	if a.Geo != nil {
+		a.Geo.StopAutoUpdate()
+	}
 	if a.Certs != nil {
 		a.Certs.Stop()
 	}
 	if a.Cache != nil {
 		a.Cache.Close()
+	}
+	if a.Notifications != nil {
+		a.Notifications.Stop()
 	}
 
 	// Stop rate limiter cleanup goroutines

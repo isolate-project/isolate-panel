@@ -1,19 +1,33 @@
 package testutil
 
 import (
+	"crypto/rand"
 	"fmt"
+	"sync"
+	"sync/atomic"
 	"testing"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
+	"github.com/isolate-project/isolate-panel/internal/auth"
 	"github.com/isolate-project/isolate-panel/internal/models"
 )
+
+var encryptionInitOnce sync.Once
 
 // SetupTestDB creates a true in-memory SQLite database for testing
 // Each call creates a new isolated in-memory database
 func SetupTestDB(t testing.TB) *gorm.DB {
 	t.Helper()
+
+	encryptionInitOnce.Do(func() {
+		key := make([]byte, 32)
+		if _, err := rand.Read(key); err != nil {
+			panic("failed to generate test encryption key: " + err.Error())
+		}
+		auth.SetTestEncryptionKey(key)
+	})
 
 	// Use true in-memory database (no file created)
 	// Without cache=shared, each connection gets its own isolated DB
@@ -186,16 +200,20 @@ func CreateTestUser(t testing.TB, db *gorm.DB, username, email string) *models.U
 	return user
 }
 
+var testInboundPortCounter int32
+
 // CreateTestInbound creates a test inbound and returns it
 func CreateTestInbound(t testing.TB, db *gorm.DB, name string, coreID uint) *models.Inbound {
 	t.Helper()
+
+	port := int(atomic.AddInt32(&testInboundPortCounter, 1)) + 10000
 
 	inbound := &models.Inbound{
 		Name:          name,
 		Protocol:      "vmess",
 		CoreID:        coreID,
 		ListenAddress: "0.0.0.0",
-		Port:          10000,
+		Port:          port,
 		ConfigJSON:    `{"clients":[]}`,
 		IsEnabled:     true,
 	}

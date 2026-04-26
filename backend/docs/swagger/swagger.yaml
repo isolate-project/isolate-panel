@@ -319,6 +319,9 @@ definitions:
         $ref: '#/definitions/internal_api.AdminInfo'
       expires_in:
         type: integer
+      must_change_password:
+        description: Whether the user must change their password before accessing other endpoints
+        type: boolean
       refresh_token:
         type: string
     type: object

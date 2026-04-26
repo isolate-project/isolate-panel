@@ -38,30 +38,33 @@ const InboundActionMenu = ({
   onManageUsers, 
   onEdit, 
   onDelete 
-}: ActionMenuProps) => (
-  <DropdownMenu>
-    <DropdownMenuTrigger onClick={() => setOpenDropdownId(openDropdownId === inbound.id ? null : inbound.id)}>
-      <Button variant="ghost" size="icon" className="h-8 w-8 text-text-tertiary">
-        <MoreVertical className="h-4 w-4" />
-      </Button>
-    </DropdownMenuTrigger>
-    <DropdownMenuContent isOpen={openDropdownId === inbound.id} onClose={() => setOpenDropdownId(null)}>
-      <DropdownMenuItem onClick={() => { setOpenDropdownId(null); onManageUsers(inbound); }}>
-        <UsersIcon className="mr-2 h-4 w-4 text-text-secondary" /> Manage Users
-      </DropdownMenuItem>
-      <DropdownMenuItem onClick={() => { 
-        setOpenDropdownId(null); 
-        onEdit(inbound);
-      }}>
-        <Edit className="mr-2 h-4 w-4 text-text-secondary" /> Edit Inbound
-      </DropdownMenuItem>
-      <DropdownMenuSeparator />
-      <DropdownMenuItem onClick={() => { setOpenDropdownId(null); onDelete(inbound); }} variant="danger">
-        <Trash2 className="mr-2 h-4 w-4" /> Delete
-      </DropdownMenuItem>
-    </DropdownMenuContent>
-  </DropdownMenu>
-)
+}: ActionMenuProps) => {
+  const { t } = useTranslation()
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger onClick={() => setOpenDropdownId(openDropdownId === inbound.id ? null : inbound.id)}>
+        <Button variant="ghost" size="icon" className="h-8 w-8 text-text-tertiary">
+          <MoreVertical className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent isOpen={openDropdownId === inbound.id} onClose={() => setOpenDropdownId(null)}>
+        <DropdownMenuItem onClick={() => { setOpenDropdownId(null); onManageUsers(inbound); }}>
+          <UsersIcon className="mr-2 h-4 w-4 text-text-secondary" /> {t('inbounds.manageUsers')}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => { 
+          setOpenDropdownId(null); 
+          onEdit(inbound);
+        }}>
+          <Edit className="mr-2 h-4 w-4 text-text-secondary" /> {t('inbounds.editInbound')}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => { setOpenDropdownId(null); onDelete(inbound); }} variant="danger">
+          <Trash2 className="mr-2 h-4 w-4" /> {t('common.delete')}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
 
 export function Inbounds() {
   const { t } = useTranslation()
@@ -148,7 +151,7 @@ export function Inbounds() {
                 value={protocolFilter}
                 onChange={(e) => setProtocolFilter((e.target as HTMLSelectElement).value)}
                 options={[
-                  { value: 'all', label: 'All Protocols' },
+                  { value: 'all', label: t('inbounds.allProtocols') },
                   { value: 'vless', label: 'VLESS' },
                   { value: 'vmess', label: 'VMess' },
                   { value: 'trojan', label: 'Trojan' },
@@ -180,7 +183,7 @@ export function Inbounds() {
                       <h3 className="font-semibold text-text-primary text-lg">{inbound.name}</h3>
                     </div>
                     <Badge variant={inbound.is_enabled ? 'success' : 'secondary'} showDot className="uppercase tracking-wider text-[10px]">
-                      {inbound.is_enabled ? 'Active' : 'Disabled'}
+                      {inbound.is_enabled ? t('inbounds.active') : t('inbounds.disabled')}
                     </Badge>
                   </div>
                   <InboundActionMenu 
@@ -197,13 +200,13 @@ export function Inbounds() {
                 <div className="p-5 space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <p className="text-xs text-text-tertiary uppercase tracking-wider">Protocol</p>
+                      <p className="text-xs text-text-tertiary uppercase tracking-wider">{t('inbounds.protocol')}</p>
                       <p className="text-sm font-medium text-text-primary flex items-center gap-1.5">
                         {inbound.protocol.toUpperCase()}
                       </p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-xs text-text-tertiary uppercase tracking-wider">Port</p>
+                      <p className="text-xs text-text-tertiary uppercase tracking-wider">{t('inbounds.port')}</p>
                       <p className="text-sm font-medium text-text-primary font-mono bg-bg-tertiary px-1.5 py-0.5 rounded inline-block">
                         {inbound.port}
                       </p>
@@ -211,10 +214,10 @@ export function Inbounds() {
                   </div>
 
                   <div className="space-y-1">
-                    <p className="text-xs text-text-tertiary uppercase tracking-wider">Assigned Core</p>
+                    <p className="text-xs text-text-tertiary uppercase tracking-wider">{t('inbounds.core')}</p>
                     <p className="text-sm font-medium text-text-secondary flex items-center gap-2">
                        <Cpu className="w-3.5 h-3.5" />
-                       {inbound.core?.name || 'No core assigned'}
+                       {inbound.core?.name || t('inbounds.noCoreAssigned')}
                     </p>
                   </div>
 
@@ -230,7 +233,7 @@ export function Inbounds() {
                 <div className="p-3 bg-bg-tertiary/30 border-t border-border-primary/50">
                   <Button variant="ghost" fullWidth className="text-sm text-text-secondary hover:text-color-primary" onClick={() => { setInboundForUsers(inbound); setIsUsersModalOpen(true); }}>
                     <UsersIcon className="w-4 h-4 mr-2" />
-                    Manage Access
+                    {t('inbounds.manageAccess')}
                   </Button>
                 </div>
               </CardContent>
@@ -243,9 +246,9 @@ export function Inbounds() {
             <div className="w-16 h-16 bg-bg-tertiary rounded-full flex items-center justify-center mb-4">
               <ShieldAlert className="w-8 h-8 text-text-tertiary" />
             </div>
-            <p className="text-lg font-medium text-text-primary">No inbounds found</p>
-            <p className="text-text-secondary mb-6 mt-1">Create an inbound connection to start routing traffic.</p>
-            <Button onClick={() => { setDrawerMode('create'); setInboundToEdit(null); setIsDrawerOpen(true); }}><Plus className="w-4 h-4 mr-2" /> Add Inbound</Button>
+            <p className="text-lg font-medium text-text-primary">{t('inbounds.noMatchingInbounds')}</p>
+            <p className="text-text-secondary mb-6 mt-1">{t('inbounds.createHint')}</p>
+            <Button onClick={() => { setDrawerMode('create'); setInboundToEdit(null); setIsDrawerOpen(true); }}><Plus className="w-4 h-4 mr-2" /> {t('inbounds.addInbound')}</Button>
           </CardContent>
         </Card>
       )}
@@ -254,8 +257,8 @@ export function Inbounds() {
       <Drawer
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
-        title={drawerMode === 'create' ? t('inbounds.addInbound') : 'Edit Inbound'}
-        description={drawerMode === 'create' ? 'Configure a new incoming proxy node.' : 'Update inbound connection settings.'}
+        title={drawerMode === 'create' ? t('inbounds.addInbound') : t('inbounds.editInbound')}
+        description={drawerMode === 'create' ? t('inbounds.createDescription') : t('inbounds.editDescription')}
         size="lg"
       >
         <InboundForm 
@@ -267,14 +270,14 @@ export function Inbounds() {
 
       <Modal isOpen={isDeleteModalOpen} onClose={() => { setIsDeleteModalOpen(false); setInboundToDelete(null) }} title={t('inbounds.deleteInbound')}>
         <Alert variant="danger" className="mb-4">{t('inbounds.deleteConfirm')}</Alert>
-        {inboundToDelete && <p className="text-text-secondary mb-6">Are you sure you want to permanently delete inbound <strong>{inboundToDelete.name}</strong>?</p>}
+        {inboundToDelete && <p className="text-text-secondary mb-6">{t('inbounds.deleteConfirmation')} <strong>{inboundToDelete.name}</strong>?</p>}
         <div className="flex gap-3 justify-end">
           <Button variant="outline" onClick={() => { setIsDeleteModalOpen(false); setInboundToDelete(null) }}>{t('common.cancel')}</Button>
           <Button variant="destructive" onClick={handleDelete}>{t('common.delete')}</Button>
         </div>
       </Modal>
 
-      <Modal isOpen={isUsersModalOpen} onClose={() => { setIsUsersModalOpen(false); setInboundForUsers(null) }} title={`Manage Access - ${inboundForUsers?.name || ''}`} size="lg">
+      <Modal isOpen={isUsersModalOpen} onClose={() => { setIsUsersModalOpen(false); setInboundForUsers(null) }} title={`${t('inbounds.manageAccess')} - ${inboundForUsers?.name || ''}`} size="lg">
         {inboundForUsers && (
           <div className="space-y-4">
             <p className="text-sm text-text-secondary mb-4">Select which users are allowed to connect through this inbound.</p>

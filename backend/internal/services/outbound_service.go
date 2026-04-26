@@ -65,6 +65,9 @@ func (s *OutboundService) CreateOutbound(outbound *models.Outbound) error {
 		if err := validateJSON(outbound.ConfigJSON); err != nil {
 			return fmt.Errorf("invalid config_json: %w", err)
 		}
+		if err := protocol.ValidateConfigJSON(outbound.Protocol, outbound.ConfigJSON); err != nil {
+			return fmt.Errorf("config validation: %w", err)
+		}
 	} else {
 		outbound.ConfigJSON = "{}"
 	}

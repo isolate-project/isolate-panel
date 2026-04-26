@@ -176,7 +176,7 @@ func TestSubscriptionService_InactiveUser(t *testing.T) {
 		Username:          "inactive_user",
 		Email:             "inactive@example.com",
 		UUID:              "inactive-uuid-12345",
-		Password:          "password123",
+		Password:          "password12345",
 		SubscriptionToken: "inactive_token",
 		IsActive:          false,
 	}

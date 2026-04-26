@@ -11,6 +11,7 @@ import { useQuery } from '../hooks/useQuery'
 import { useMutation } from '../hooks/useMutation'
 import { certificateApi } from '../api/endpoints'
 import type { Certificate } from '../types'
+import { sanitizeError } from '../utils/errorHandler'
 import { useToastStore } from '../stores/toastStore'
 import { Plus, RefreshCw, Ban, Trash2, Upload, Shield, AlertTriangle } from 'lucide-preact'
 import { useTranslation } from 'react-i18next'
@@ -40,7 +41,8 @@ export function Certificates() {
         setRequestWildcard(false)
       },
       onError: (error: Error) => {
-        addToast({ type: 'error', message: error.message })
+        const { message } = sanitizeError(error)
+        addToast({ type: 'error', message })
       },
     }
   )
@@ -56,7 +58,8 @@ export function Certificates() {
         setUploadForm({ domain: '', certificate: '', private_key: '', issuer: '' })
       },
       onError: (error: Error) => {
-        addToast({ type: 'error', message: error.message })
+        const { message } = sanitizeError(error)
+        addToast({ type: 'error', message })
       },
     }
   )
@@ -69,7 +72,8 @@ export function Certificates() {
         refetch()
       },
       onError: (error: Error) => {
-        addToast({ type: 'error', message: error.message })
+        const { message } = sanitizeError(error)
+        addToast({ type: 'error', message })
       },
     }
   )
@@ -82,7 +86,8 @@ export function Certificates() {
         refetch()
       },
       onError: (error: Error) => {
-        addToast({ type: 'error', message: error.message })
+        const { message } = sanitizeError(error)
+        addToast({ type: 'error', message })
       },
     }
   )
@@ -95,7 +100,8 @@ export function Certificates() {
         refetch()
       },
       onError: (error: Error) => {
-        addToast({ type: 'error', message: error.message })
+        const { message } = sanitizeError(error)
+        addToast({ type: 'error', message })
       },
     }
   )

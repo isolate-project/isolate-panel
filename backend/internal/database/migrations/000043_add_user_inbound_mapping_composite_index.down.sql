@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS idx_user_inbound_mapping_user_inbound;

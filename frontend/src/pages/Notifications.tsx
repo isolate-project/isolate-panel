@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'preact/hooks'
 import { notificationApi } from '../api/endpoints'
+import { sanitizeError } from '../utils/errorHandler'
 import { useToastStore } from '../stores/toastStore'
 
 interface Notification {
@@ -42,8 +43,8 @@ export function Notifications() {
       await notificationApi.delete(id)
       loadData()
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: string } }; message?: string }
-      addToast({ type: 'error', message: 'Failed to delete: ' + (error.response?.data?.error || error.message) })
+      const { message } = sanitizeError(err)
+      addToast({ type: 'error', message: `Failed to delete: ${message}` })
     }
   }
 
@@ -53,8 +54,8 @@ export function Notifications() {
       await notificationApi.sendTest(testChannel)
       addToast({ type: 'success', message: 'Test notification sent!' })
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: string } }; message?: string }
-      addToast({ type: 'error', message: 'Failed to send test: ' + (error.response?.data?.error || error.message) })
+      const { message } = sanitizeError(err)
+      addToast({ type: 'error', message: `Failed to send test: ${message}` })
     } finally {
       setSendingTest(false)
     }

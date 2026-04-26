@@ -2,13 +2,16 @@ package api
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/json"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/isolate-project/isolate-panel/internal/auth"
 	"github.com/isolate-project/isolate-panel/internal/models"
 	"github.com/isolate-project/isolate-panel/internal/services"
 	"github.com/stretchr/testify/assert"
@@ -17,6 +20,18 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
+
+var testEncryptionKeyInit sync.Once
+
+func initTestEncryptionKey() {
+	testEncryptionKeyInit.Do(func() {
+		key := make([]byte, 32)
+		if _, err := rand.Read(key); err != nil {
+			panic("failed to generate test encryption key: " + err.Error())
+		}
+		auth.SetTestEncryptionKey(key)
+	})
+}
 
 // setupUsersTestDB sets up an in-memory DB with required migrations
 func setupUsersTestDB(t *testing.T) *gorm.DB {
@@ -36,6 +51,7 @@ func setupUsersTestDB(t *testing.T) *gorm.DB {
 
 func setupUsersApp(t *testing.T) (*fiber.App, *gorm.DB) {
 	t.Helper()
+	initTestEncryptionKey()
 	db := setupUsersTestDB(t)
 	svc := services.NewUserService(db, nil)
 	handler := NewUsersHandler(svc)
@@ -61,7 +77,7 @@ func createTestUser(t *testing.T, app *fiber.App) uint {
 	testName := strings.ReplaceAll(t.Name(), "TestUsersHandler_", "")
 	body, _ := json.Marshal(services.CreateUserRequest{
 		Username: "user_" + testName,
-		Password: "pass123456",
+		Password: "pass12345678",
 		Email:    "test@example.com",
 	})
 	req, _ := http.NewRequest(http.MethodPost, "/users", bytes.NewBuffer(body))

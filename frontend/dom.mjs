@@ -4,7 +4,7 @@ import { chromium } from 'playwright';
   const context = await browser.newContext();
   const page = await context.newPage();
   const loginRes = await page.request.post('http://127.0.0.1:8080/api/auth/login', {
-    data: { username: 'admin', password: 'admin' }
+    data: { username: process.env.TEST_ADMIN_USER || 'admin', password: process.env.TEST_ADMIN_PASS || 'admin' }
   });
   const data = await loginRes.json();
   const accessToken = data.access_token;

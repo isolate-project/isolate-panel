@@ -38,7 +38,7 @@ func setupAuthTestEnv(t *testing.T) (*fiber.App, *gorm.DB) {
 	db.Create(&admin)
 
 	// Setup token service
-	tokenService := auth.NewTokenService("test-secret", 900*time.Second, 7*24*time.Hour)
+	tokenService := auth.NewTokenService("test-secret", 900*time.Second, 7*24*time.Hour, nil, nil)
 
 	// Setup handler
 	handler := NewAuthHandler(db, tokenService, nil)

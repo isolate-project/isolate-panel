@@ -28,6 +28,7 @@ type CertificateService struct {
 	stopRenewal         chan struct{}
 	renewalTicker       *time.Ticker
 	notificationService *NotificationService
+	OnCertChange        func()
 }
 
 // CertificateServiceConfig holds configuration for CertificateService
@@ -42,6 +43,12 @@ type CertificateServiceConfig struct {
 // SetNotificationService sets the notification service
 func (cs *CertificateService) SetNotificationService(ns *NotificationService) {
 	cs.notificationService = ns
+}
+
+func (cs *CertificateService) notifyCertChange() {
+	if cs.OnCertChange != nil {
+		cs.OnCertChange()
+	}
 }
 
 // NewCertificateService creates a new certificate service
@@ -145,6 +152,8 @@ func (cs *CertificateService) RequestCertificate(domain string, isWildcard bool)
 		return nil, fmt.Errorf("failed to save certificate record: %w", err)
 	}
 
+	cs.notifyCertChange()
+
 	return cert, nil
 }
 
@@ -209,6 +218,8 @@ func (cs *CertificateService) RenewCertificate(certID uint) (*models.Certificate
 		return nil, fmt.Errorf("failed to update certificate record: %w", err)
 	}
 
+	cs.notifyCertChange()
+
 	// Send notification
 	if cs.notificationService != nil {
 		cs.notificationService.NotifyCertRenewed(&cert)
@@ -248,6 +259,8 @@ func (cs *CertificateService) RevokeCertificate(certID uint) error {
 		return fmt.Errorf("failed to update certificate status: %w", err)
 	}
 
+	cs.notifyCertChange()
+
 	return nil
 }
 
@@ -271,6 +284,8 @@ func (cs *CertificateService) DeleteCertificate(certID uint) error {
 	if err := cs.db.Delete(&cert).Error; err != nil {
 		return fmt.Errorf("failed to delete certificate record: %w", err)
 	}
+
+	cs.notifyCertChange()
 
 	return nil
 }
@@ -313,6 +328,14 @@ func (cs *CertificateService) startRenewalChecker() {
 	cs.renewalTicker = time.NewTicker(24 * time.Hour) // Check daily
 
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				logger.Log.Error().Interface("panic", r).Str("component", "cert-renewal").Msg("Certificate renewal goroutine panicked — restarting")
+				time.AfterFunc(5*time.Minute, func() {
+					cs.startRenewalChecker()
+				})
+			}
+		}()
 		for {
 			select {
 			case <-cs.renewalTicker.C:

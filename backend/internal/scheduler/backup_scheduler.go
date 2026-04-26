@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/robfig/cron/v3"
+	"github.com/isolate-project/isolate-panel/internal/logger"
 	"github.com/isolate-project/isolate-panel/internal/models"
 	"github.com/isolate-project/isolate-panel/internal/services"
 	"gorm.io/gorm"
@@ -75,6 +76,12 @@ func (s *BackupScheduler) scheduleBackup(cronExpr string) error {
 
 // runScheduledBackup executes a scheduled backup
 func (s *BackupScheduler) runScheduledBackup() {
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Log.Error().Interface("panic", r).Msg("Scheduled backup panicked, recovered")
+		}
+	}()
+
 	// Create backup request
 	req := services.BackupRequest{
 		Type:              models.BackupTypeScheduled,
@@ -88,12 +95,11 @@ func (s *BackupScheduler) runScheduledBackup() {
 	// Create backup
 	backup, err := s.backupService.CreateBackup(req)
 	if err != nil {
-		// Log error - in production this should use proper logging
-		fmt.Printf("Scheduled backup failed: %v\n", err)
+		logger.Log.Error().Err(err).Str("scheduler", "backup").Msg("Scheduled backup failed")
 		return
 	}
 
-	fmt.Printf("Scheduled backup created: %s (ID: %d)\n", backup.Filename, backup.ID)
+	logger.Log.Info().Str("scheduler", "backup").Str("filename", backup.Filename).Uint("id", backup.ID).Msg("Scheduled backup created")
 }
 
 // UpdateSchedule updates the backup schedule

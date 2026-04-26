@@ -9,6 +9,7 @@ import { Alert } from '../components/ui/Alert'
 import { Spinner } from '../components/ui/Spinner'
 import { Download, RefreshCw, Trash2, Calendar, Shield, Database, Globe, HardDrive } from 'lucide-preact'
 import { formatBytes } from '../utils/format'
+import { sanitizeError } from '../utils/errorHandler'
 import { useToastStore } from '../stores/toastStore'
 
 interface Backup {
@@ -124,8 +125,8 @@ export function Backups() {
       })
       loadData()
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } }; message?: string }
-      addToast({ type: 'error', message: 'Failed to create backup: ' + (axiosErr.response?.data?.error || axiosErr.message) })
+      const { message } = sanitizeError(err)
+      addToast({ type: 'error', message: `Failed to create backup: ${message}` })
     } finally {
       setCreating(false)
     }
@@ -145,8 +146,8 @@ export function Backups() {
           setModal(prev => ({ ...prev, show: false }))
           addToast({ type: 'success', message: 'Restore operation started! The panel will restart after completion.' })
         } catch (err: unknown) {
-          const axiosErr = err as { response?: { data?: { error?: string } }; message?: string }
-          addToast({ type: 'error', message: 'Failed to restore: ' + (axiosErr.response?.data?.error || axiosErr.message) })
+          const { message } = sanitizeError(err)
+          addToast({ type: 'error', message: `Failed to restore: ${message}` })
         } finally {
           setModal(prev => ({ ...prev, loading: false }))
         }
@@ -168,8 +169,8 @@ export function Backups() {
           loadData()
           setModal(prev => ({ ...prev, show: false }))
         } catch (err: unknown) {
-          const axiosErr = err as { response?: { data?: { error?: string } }; message?: string }
-          addToast({ type: 'error', message: 'Failed to delete: ' + (axiosErr.response?.data?.error || axiosErr.message) })
+          const { message } = sanitizeError(err)
+          addToast({ type: 'error', message: `Failed to delete: ${message}` })
         } finally {
           setModal(prev => ({ ...prev, loading: false }))
         }
@@ -190,8 +191,8 @@ export function Backups() {
       document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } }; message?: string }
-      addToast({ type: 'error', message: 'Failed to download: ' + (axiosErr.response?.data?.error || axiosErr.message) })
+      const { message } = sanitizeError(err)
+      addToast({ type: 'error', message: `Failed to download: ${message}` })
     }
   }
 
@@ -201,8 +202,8 @@ export function Backups() {
       setShowScheduleForm(false)
       loadData()
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } }; message?: string }
-      addToast({ type: 'error', message: 'Failed to set schedule: ' + (axiosErr.response?.data?.error || axiosErr.message) })
+      const { message } = sanitizeError(err)
+      addToast({ type: 'error', message: `Failed to set schedule: ${message}` })
     }
   }
 
@@ -214,8 +215,8 @@ export function Backups() {
       })
       addToast({ type: 'success', message: 'Retention policy updated' })
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } }; message?: string }
-      addToast({ type: 'error', message: 'Failed to update retention: ' + (axiosErr.response?.data?.error || axiosErr.message) })
+      const { message } = sanitizeError(err)
+      addToast({ type: 'error', message: `Failed to update retention: ${message}` })
     } finally {
       setSavingRetention(false)
     }

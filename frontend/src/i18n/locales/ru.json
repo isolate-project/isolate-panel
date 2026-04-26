@@ -26,7 +26,8 @@
     "active": "Активен",
     "inactive": "Неактивен",
     "clearFilters": "Сбросить фильтры",
-    "days": "дней"
+    "days": "дней",
+    "back": "Назад"
   },
   "nav": {
     "dashboard": "Панель управления",
@@ -55,7 +56,19 @@
     "sessionExpired": "Ваша сессия истекла. Пожалуйста, войдите снова.",
     "welcome": "Добро пожаловать в Isolate Panel",
     "superAdmin": "Суперадмин",
-    "admin": "Администратор"
+    "admin": "Администратор",
+    "changePassword": "Сменить пароль",
+    "changePasswordDescription": "Пожалуйста, смените пароль для продолжения",
+    "currentPassword": "Текущий пароль",
+    "newPassword": "Новый пароль",
+    "confirmPassword": "Подтвердите новый пароль",
+    "changePasswordButton": "Сменить пароль",
+    "passwordsDoNotMatch": "Пароли не совпадают",
+    "passwordTooShort": "Пароль должен быть не менее 8 символов",
+    "passwordChanged": "Пароль успешно изменён",
+    "changePasswordError": "Неверный пароль",
+    "totpCode": "Код аутентификации",
+    "verify": "Подтвердить"
   },
   "dashboard": {
     "title": "Панель управления",
@@ -172,6 +185,15 @@
     "tuic": "TUIC",
     "portConflict": "Этот порт уже используется другим входящим.",
     "bulkAssignSuccess": "Назначения пользователей успешно обновлены",
+    "allProtocols": "Все протоколы",
+    "manageAccess": "Управление доступом",
+    "noCoreAssigned": "Ядро не назначено",
+    "active": "Активен",
+    "disabled": "Отключен",
+    "createDescription": "Настройте новый входящий прокси-узел.",
+    "editDescription": "Обновите настройки входящего соединения.",
+    "createHint": "Создайте входящее соединение для начала маршрутизации трафика.",
+    "deleteConfirmation": "Вы уверены, что хотите навсегда удалить входящее соединение",
     "tlsCertificate": "TLS сертификат",
     "noCertificate": "Без сертификата (использовать стандартный)",
     "selectCertificate": "Выберите сертификат...",
@@ -229,7 +251,13 @@
     "monitoringModeLiteDesc": "Режим Lite собирает статистику трафика каждые 60 секунд. Использует ~30MB RAM. Подходит для серверов с малыми ресурсами.",
     "monitoringModeFullDesc": "Режим Full собирает статистику трафика каждые 10 секунд. Использует ~100MB RAM. Обеспечивает более точную статистику в реальном времени.",
     "monitoringModeUpdated": "Режим мониторинга обновлен",
-    "currentInterval": "Текущий интервал сбора"
+    "currentInterval": "Текущий интервал сбора",
+    "trafficManagement": "Управление трафиком",
+    "trafficResetSchedule": "Расписание сброса трафика",
+    "trafficResetDisabled": "Отключено",
+    "trafficResetWeekly": "Еженедельно (каждый понедельник)",
+    "trafficResetMonthly": "Ежемесячно (1-е число месяца)",
+    "trafficResetHint": "Автоматический сброс счётчиков трафика всех пользователей по расписанию"
   },
   "errors": {
     "networkError": "Ошибка сети. Проверьте подключение.",

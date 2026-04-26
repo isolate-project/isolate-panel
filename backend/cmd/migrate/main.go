@@ -17,14 +17,14 @@ import (
 func main() {
 	var (
 		dbPath  = flag.String("db", "./data/isolate-panel.db", "Database path")
-		command = flag.String("cmd", "up", "Command: up, down, steps, version, force, setup")
+		command = flag.String("cmd", "up", "Command: up, down, steps, version, force, setup, encrypt-passwords")
 		steps   = flag.Int("steps", 1, "Number of steps for 'steps' command")
 		version = flag.Int("version", 0, "Version for 'force' command")
 	)
 	flag.Parse()
 
 	// Open database
-	db, err := sql.Open("sqlite3", *dbPath)
+	db, err := sql.Open("sqlite3", *dbPath+"?_journal_mode=WAL&_busy_timeout=5000&_synchronous=NORMAL")
 	if err != nil {
 		log.Fatalf("Failed to open database: %v", err)
 	}
@@ -79,7 +79,7 @@ func main() {
 
 	case "setup":
 		fmt.Println("Running initialization setup (admin, settings, cores)...")
-		gormDB, err := gorm.Open(sqlite.Open(*dbPath), &gorm.Config{})
+		gormDB, err := gorm.Open(sqlite.Open(*dbPath+"?_journal_mode=WAL&_busy_timeout=5000&_synchronous=NORMAL"), &gorm.Config{})
 		if err != nil {
 			log.Fatalf("Failed to open GORM database: %v", err)
 		}
@@ -92,6 +92,18 @@ func main() {
 			log.Fatalf("Failed to run setup/seeders: %v", err)
 		}
 		fmt.Println("✓ Initial setup completed successfully")
+
+	case "encrypt-passwords":
+		fmt.Println("Encrypting existing user passwords...")
+		gormDB, err := gorm.Open(sqlite.Open(*dbPath+"?_journal_mode=WAL&_busy_timeout=5000&_synchronous=NORMAL"), &gorm.Config{})
+		if err != nil {
+			log.Fatalf("Failed to open GORM database: %v", err)
+		}
+		seeder := seeds.NewSeeder(gormDB)
+		if err := seeder.EncryptExistingPasswords(); err != nil {
+			log.Fatalf("Failed to encrypt passwords: %v", err)
+		}
+		fmt.Println("✓ Password encryption completed successfully")
 
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", *command)

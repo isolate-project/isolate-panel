@@ -319,12 +319,12 @@ func TestMihomoExclusiveProtocols(t *testing.T) {
 	// Test Mihomo-exclusive protocols (including TrustTunnel and MASQUE)
 	exclusiveProtocols := []string{"mieru", "sudoku", "ssr", "snell", "trusttunnel", "masque"}
 
-	for _, protocol := range exclusiveProtocols {
+	for i, protocol := range exclusiveProtocols {
 		inbound := models.Inbound{
 			Name:     fmt.Sprintf("test-%s", protocol),
 			Protocol: protocol,
 			CoreID:   core.ID,
-			Port:     10000,
+			Port:     10000 + i,
 		}
 		db.Create(&inbound)
 

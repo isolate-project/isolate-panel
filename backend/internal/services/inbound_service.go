@@ -8,6 +8,7 @@ import (
 
 	"github.com/isolate-project/isolate-panel/internal/logger"
 	"github.com/isolate-project/isolate-panel/internal/models"
+	"github.com/isolate-project/isolate-panel/internal/protocol"
 )
 
 // InboundService handles inbound management operations
@@ -403,19 +404,19 @@ func (s *InboundService) UnassignInboundFromUser(userID uint, inboundID uint) er
 }
 
 // ValidateInboundConfig validates the inbound configuration JSON
-func (s *InboundService) ValidateInboundConfig(protocol string, configJSON string) error {
+func (s *InboundService) ValidateInboundConfig(protocolName string, configJSON string) error {
 	if configJSON == "" {
-		return nil // Empty config is valid
+		return nil
 	}
 
-	// Try to parse as JSON
-	var config map[string]interface{}
-	if err := json.Unmarshal([]byte(configJSON), &config); err != nil {
+	var cfg map[string]interface{}
+	if err := json.Unmarshal([]byte(configJSON), &cfg); err != nil {
 		return fmt.Errorf("invalid JSON: %w", err)
 	}
 
-	// Protocol-specific validation can be added here
-	// For now, just ensure it's valid JSON
+	if err := protocol.ValidateConfigJSON(protocolName, configJSON); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -454,36 +455,44 @@ func (s *InboundService) BulkAssignUsers(inboundID uint, addUserIDs, removeUserI
 	added := 0
 	removed := 0
 
-	// Remove users
-	for _, userID := range removeUserIDs {
-		result := s.db.Where("user_id = ? AND inbound_id = ?", userID, inboundID).Delete(&models.UserInboundMapping{})
-		if result.RowsAffected > 0 {
-			removed++
-		}
-	}
-
-	// Add users
-	for _, userID := range addUserIDs {
-		// Check user exists
-		var user models.User
-		if err := s.db.First(&user, userID).Error; err != nil {
-			continue // Skip invalid users
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		// Remove users
+		for _, userID := range removeUserIDs {
+			result := tx.Where("user_id = ? AND inbound_id = ?", userID, inboundID).Delete(&models.UserInboundMapping{})
+			if result.RowsAffected > 0 {
+				removed++
+			}
 		}
 
-		// Check if mapping already exists
-		var existing models.UserInboundMapping
-		err := s.db.Where("user_id = ? AND inbound_id = ?", userID, inboundID).First(&existing).Error
-		if err == nil {
-			continue // Already assigned
+		// Add users
+		for _, userID := range addUserIDs {
+			// Check user exists
+			var user models.User
+			if err := tx.First(&user, userID).Error; err != nil {
+				continue // Skip invalid users
+			}
+
+			// Check if mapping already exists
+			var existing models.UserInboundMapping
+			err := tx.Where("user_id = ? AND inbound_id = ?", userID, inboundID).First(&existing).Error
+			if err == nil {
+				continue // Already assigned
+			}
+
+			mapping := &models.UserInboundMapping{
+				UserID:    userID,
+				InboundID: inboundID,
+			}
+			if err := tx.Create(mapping).Error; err == nil {
+				added++
+			}
 		}
 
-		mapping := &models.UserInboundMapping{
-			UserID:    userID,
-			InboundID: inboundID,
-		}
-		if err := s.db.Create(mapping).Error; err == nil {
-			added++
-		}
+		return nil
+	})
+
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to bulk assign users: %w", err)
 	}
 
 	if s.subscriptions != nil {

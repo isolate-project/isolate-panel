@@ -88,6 +88,14 @@ func (h *ProtocolsHandler) GetProtocol(c fiber.Ctx) error {
 		})
 	}
 
+	// Fill default widgets if not set
+	for key, param := range schema.Parameters {
+		if param.Widget == "" {
+			param.Widget = protocol.DefaultWidget(param.Type)
+			schema.Parameters[key] = param
+		}
+	}
+
 	return c.JSON(schema)
 }
 

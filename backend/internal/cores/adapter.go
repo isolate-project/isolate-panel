@@ -4,8 +4,23 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/isolate-project/isolate-panel/internal/stats"
+)
+
+// HotReloadMethod represents the method used for hot-reloading a core
+type HotReloadMethod int
+
+const (
+	// HotReloadNone indicates the core does not support hot-reload and requires full restart
+	HotReloadNone HotReloadMethod = iota
+	// HotReloadSignal indicates the core supports hot-reload via signal (e.g., SIGUSR1)
+	HotReloadSignal
+	// HotReloadAPI indicates the core supports hot-reload via REST API
+	HotReloadAPI
 )
 
 // CoreAdapter provides a unified interface for all proxy core operations.
@@ -18,6 +33,12 @@ type CoreAdapter interface {
 	ValidateConfig(config any) error
 	WriteConfig(config any, path string) error
 	GetHealthCheckEndpoint() string
+	// CheckHealth verifies the core process is healthy and responsive
+	CheckHealth(ctx context.Context, timeout time.Duration) error
+	// SupportsHotReload returns true if the core supports hot-reload without full restart
+	SupportsHotReload() bool
+	// ReloadConfig triggers a config reload for the core (if supported)
+	ReloadConfig(ctx context.Context) error
 	GetDefaultLogPaths() (access string, errorLog string)
 	CreateStatsClient(endpoint string) (StatsClient, error)
 	// SupportedProtocols returns the list of protocols this core supports
@@ -28,6 +49,12 @@ type CoreAdapter interface {
 	WriteConfigToDir(config any, configDir string, coreName string) error
 	// NewStatsClient creates a stats client with configuration
 	NewStatsClient(config StatsClientConfig) StatsClient
+	// HotReloadInfo returns information about how this core supports hot-reload
+	// Returns: (method, signal, endpoint)
+	//   - method: HotReloadNone, HotReloadSignal, or HotReloadAPI
+	//   - signal: signal name for HotReloadSignal (e.g., "USR1")
+	//   - endpoint: API endpoint for HotReloadAPI (e.g., "http://127.0.0.1:9091/configs")
+	HotReloadInfo() (method HotReloadMethod, signal string, endpoint string)
 }
 
 // StatsClient provides a unified interface for collecting runtime statistics
@@ -57,6 +84,9 @@ var (
 // RegisterCore adds a CoreAdapter factory to the registry.
 // Called by each core sub-package in its init() function.
 func RegisterCore(name string, factory CoreFactory) {
+	if _, exists := coreFactories[name]; exists {
+		log.Warn().Str("core", name).Msg("Core adapter already registered, overwriting")
+	}
 	coreFactories[name] = factory
 }
 

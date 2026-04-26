@@ -4299,6 +4299,10 @@ const docTemplate = `{
                 "expires_in": {
                     "type": "integer"
                 },
+                "must_change_password": {
+                    "type": "boolean",
+                    "description": "Whether the user must change their password before accessing other endpoints"
+                },
                 "refresh_token": {
                     "type": "string"
                 }

@@ -51,7 +51,7 @@ systemctl enable --now docker
 mkdir -p /opt/isolate-panel && cd /opt/isolate-panel
 
 # Скачайте файлы
-curl -sL https://raw.githubusercontent.com/isolate-project/isolate-panel/main/docker/docker-compose.production.yml -o docker-compose.yml
+curl -sL https://raw.githubusercontent.com/isolate-project/isolate-panel/main/docker/docker-compose.yml -o docker-compose.yml
 curl -sL https://raw.githubusercontent.com/isolate-project/isolate-panel/main/docker/.env.example -o .env
 ```
 

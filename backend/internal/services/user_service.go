@@ -5,11 +5,13 @@ import (
 	"encoding/hex"
 	"fmt"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/isolate-project/isolate-panel/internal/auth"
 	"github.com/isolate-project/isolate-panel/internal/models"
 )
 
@@ -17,6 +19,13 @@ var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]
 
 func isValidEmail(email string) bool {
 	return emailRegex.MatchString(email)
+}
+
+func escapeLike(s string) string {
+	s = strings.ReplaceAll(s, "\\", "\\\\")
+	s = strings.ReplaceAll(s, "%", "\\%")
+	s = strings.ReplaceAll(s, "_", "\\_")
+	return s
 }
 
 type UserService struct {
@@ -49,7 +58,7 @@ type CreateUserRequest struct {
 type UpdateUserRequest struct {
 	Username          *string `json:"username" validate:"omitempty,min=3,max=50"`
 	Email             *string `json:"email" validate:"omitempty,email"`
-	Password          *string `json:"password" validate:"omitempty,min=8"`
+	Password          *string `json:"password" validate:"omitempty,min=12"`
 	TrafficLimitBytes *int64  `json:"traffic_limit_bytes"`
 	ExpiryDays        *int    `json:"expiry_days"`
 	IsActive          *bool   `json:"is_active"`
@@ -92,8 +101,8 @@ func (us *UserService) CreateUser(req *CreateUserRequest, adminID uint) (*models
 		}
 	}
 	// Validate password length
-	if req.Password != "" && len(req.Password) < 8 {
-		return nil, fmt.Errorf("validation error: password must be at least 8 characters")
+	if req.Password != "" && len(req.Password) < 12 {
+		return nil, fmt.Errorf("validation error: password must be at least 12 characters")
 	}
 	// Auto-generate protocol password if not provided
 	if req.Password == "" {
@@ -133,12 +142,17 @@ func (us *UserService) CreateUser(req *CreateUserRequest, adminID uint) (*models
 		expiryDate = &expiry
 	}
 
+	encryptedPassword, err := auth.EncryptCredential(req.Password)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encrypt password: %w", err)
+	}
+
 	// Create user
 	user := &models.User{
 		Username:          req.Username,
 		Email:             req.Email,
 		UUID:              userUUID,
-		Password:          req.Password,
+		Password:          encryptedPassword,
 		Token:             tuicToken,
 		SubscriptionToken: subToken,
 		TrafficLimitBytes: req.TrafficLimitBytes,
@@ -205,7 +219,7 @@ func (us *UserService) ListUsers(page, pageSize int, search, status string) ([]m
 	query := us.db.Model(&models.User{})
 
 	if search != "" {
-		like := "%" + search + "%"
+		like := "%" + escapeLike(search) + "%"
 		query = query.Where("username LIKE ? OR email LIKE ? OR uuid LIKE ?", like, like, like)
 	}
 	if status == "active" {
@@ -240,14 +254,22 @@ func (us *UserService) UpdateUser(id uint, req *UpdateUserRequest) (*models.User
 	}
 
 	// Update fields
-	if req.Username != nil {
+	if req.Username != nil && *req.Username != user.Username {
+		var existing models.User
+		if err := us.db.Where("username = ? AND id != ?", *req.Username, id).First(&existing).Error; err == nil {
+			return nil, fmt.Errorf("username already exists")
+		}
 		user.Username = *req.Username
 	}
 	if req.Email != nil {
 		user.Email = *req.Email
 	}
 	if req.Password != nil {
-		user.Password = *req.Password
+		encryptedPassword, err := auth.EncryptCredential(*req.Password)
+		if err != nil {
+			return nil, fmt.Errorf("failed to encrypt password: %w", err)
+		}
+		user.Password = encryptedPassword
 	}
 	if req.TrafficLimitBytes != nil {
 		user.TrafficLimitBytes = req.TrafficLimitBytes

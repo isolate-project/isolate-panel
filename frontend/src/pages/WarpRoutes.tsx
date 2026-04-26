@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'preact/hooks'
 import { warpApi, coreApi } from '../api/endpoints'
+import { sanitizeError } from '../utils/errorHandler'
 import { useToastStore } from '../stores/toastStore'
 import { useTranslation } from 'react-i18next'
 import { PageLayout } from '../components/layout/PageLayout'
@@ -112,8 +113,8 @@ export function WarpRoutes() {
       addToast({ type: 'success', message: 'WARP registered successfully!' })
       loadWarpData()
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: string } }; message?: string }
-      addToast({ type: 'error', message: 'Failed to register WARP: ' + (error.response?.data?.error || error.message) })
+      const { message } = sanitizeError(err)
+      addToast({ type: 'error', message: `Failed to register WARP: ${message}` })
     }
   }
 
@@ -125,8 +126,8 @@ export function WarpRoutes() {
       addToast({ type: 'success', message: 'Preset applied successfully!' })
       loadWarpData()
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: string } }; message?: string }
-      addToast({ type: 'error', message: 'Failed to apply preset: ' + (error.response?.data?.error || error.message) })
+      const { message } = sanitizeError(err)
+      addToast({ type: 'error', message: `Failed to apply preset: ${message}` })
     }
   }
 
@@ -146,8 +147,8 @@ export function WarpRoutes() {
       setFormData({ resource_type: 'domain', resource_value: '', description: '', priority: 50 })
       loadWarpData()
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: string } }; message?: string }
-      addToast({ type: 'error', message: 'Failed to create route: ' + (error.response?.data?.error || error.message) })
+      const { message } = sanitizeError(err)
+      addToast({ type: 'error', message: `Failed to create route: ${message}` })
     }
   }
 
@@ -159,8 +160,8 @@ export function WarpRoutes() {
       addToast({ type: 'success', message: 'Route deleted successfully!' })
       loadWarpData()
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: string } }; message?: string }
-      addToast({ type: 'error', message: 'Failed to delete route: ' + (error.response?.data?.error || error.message) })
+      const { message } = sanitizeError(err)
+      addToast({ type: 'error', message: `Failed to delete route: ${message}` })
     }
   }
 
@@ -169,8 +170,8 @@ export function WarpRoutes() {
       await warpApi.toggleRoute(id)
       loadWarpData()
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: string } }; message?: string }
-      addToast({ type: 'error', message: 'Failed to toggle route: ' + (error.response?.data?.error || error.message) })
+      const { message } = sanitizeError(err)
+      addToast({ type: 'error', message: `Failed to toggle route: ${message}` })
     }
   }
 
@@ -179,8 +180,8 @@ export function WarpRoutes() {
       await warpApi.sync()
       addToast({ type: 'success', message: 'WARP routes synchronized!' })
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: string } }; message?: string }
-      addToast({ type: 'error', message: 'Failed to sync: ' + (error.response?.data?.error || error.message) })
+      const { message } = sanitizeError(err)
+      addToast({ type: 'error', message: `Failed to sync: ${message}` })
     }
   }
 

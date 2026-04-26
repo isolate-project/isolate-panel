@@ -13,10 +13,10 @@ import (
 func TestAuthMiddleware_ValidToken(t *testing.T) {
 	// Create token service
 	secret := "test-secret"
-	tokenService := auth.NewTokenService(secret, 15*time.Minute, 7*24*time.Hour)
+	tokenService := auth.NewTokenService(secret, 15*time.Minute, 7*24*time.Hour, nil, nil)
 
 	// Generate valid token
-	token, err := tokenService.GenerateAccessToken(1, "testuser", false)
+	token, err := tokenService.GenerateAccessToken(1, "testuser", false, false)
 	if err != nil {
 		t.Fatalf("Failed to generate token: %v", err)
 	}
@@ -45,7 +45,7 @@ func TestAuthMiddleware_ValidToken(t *testing.T) {
 
 func TestAuthMiddleware_MissingToken(t *testing.T) {
 	secret := "test-secret"
-	tokenService := auth.NewTokenService(secret, 15*time.Minute, 7*24*time.Hour)
+	tokenService := auth.NewTokenService(secret, 15*time.Minute, 7*24*time.Hour, nil, nil)
 
 	app := fiber.New()
 	app.Use(middleware.AuthMiddleware(tokenService))
@@ -68,7 +68,7 @@ func TestAuthMiddleware_MissingToken(t *testing.T) {
 
 func TestAuthMiddleware_InvalidToken(t *testing.T) {
 	secret := "test-secret"
-	tokenService := auth.NewTokenService(secret, 15*time.Minute, 7*24*time.Hour)
+	tokenService := auth.NewTokenService(secret, 15*time.Minute, 7*24*time.Hour, nil, nil)
 
 	app := fiber.New()
 	app.Use(middleware.AuthMiddleware(tokenService))
@@ -92,7 +92,7 @@ func TestAuthMiddleware_InvalidToken(t *testing.T) {
 
 func TestAuthMiddleware_InvalidFormat(t *testing.T) {
 	secret := "test-secret"
-	tokenService := auth.NewTokenService(secret, 15*time.Minute, 7*24*time.Hour)
+	tokenService := auth.NewTokenService(secret, 15*time.Minute, 7*24*time.Hour, nil, nil)
 
 	app := fiber.New()
 	app.Use(middleware.AuthMiddleware(tokenService))

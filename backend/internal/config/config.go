@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -31,6 +32,7 @@ type AppConfig struct {
 	Host       string `mapstructure:"host"`
 	AdminEmail string `mapstructure:"admin_email"`
 	PanelURL   string `mapstructure:"panel_url"`
+	BodyLimit  int    `mapstructure:"body_limit"` // Request body limit in KB (default: 2048 = 2MB)
 }
 
 type DatabaseConfig struct {
@@ -89,9 +91,11 @@ type TrafficConfig struct {
 }
 
 type SubscriptionConfig struct {
-	Enabled bool `mapstructure:"enabled"`
-	Port    int  `mapstructure:"port"`
-	AutoTLS bool `mapstructure:"auto_tls"`
+	Enabled   bool `mapstructure:"enabled" json:"enabled" yaml:"enabled"`
+	Host      string `mapstructure:"host" json:"host" yaml:"host"`
+	Port      int    `mapstructure:"port" json:"port" yaml:"port"`
+	AutoTLS   bool   `mapstructure:"auto_tls" json:"auto_tls" yaml:"auto_tls"`
+	AllowHTTP bool   `mapstructure:"allow_http" json:"allow_http" yaml:"allow_http"`
 }
 
 type HAProxyConfig struct {
@@ -185,6 +189,19 @@ func Load(configPath string) (*Config, error) {
 		config.App.PanelURL = val
 	}
 
+	if bodyLimit := v.GetInt("APP_BODY_LIMIT"); bodyLimit > 0 {
+		config.App.BodyLimit = bodyLimit
+	} else if val := os.Getenv("APP_BODY_LIMIT"); val != "" {
+		if n, err := strconv.Atoi(val); err == nil && n > 0 {
+			config.App.BodyLimit = n
+		}
+	}
+
+	// Apply default body limit if not set
+	if config.App.BodyLimit == 0 {
+		config.App.BodyLimit = 2048 // 2MB default
+	}
+
 	// Core API keys from environment (without ISOLATE_ prefix for backwards compat)
 	if key := v.GetString("CORES_SINGBOX_API_KEY"); key != "" {
 		config.Cores.SingboxAPIKey = key
@@ -225,6 +242,27 @@ func Load(configPath string) (*Config, error) {
 		config.HAProxy.StatsPassword = val
 	}
 
+	// Subscription configuration from environment
+	if host := v.GetString("SUBSCRIPTION_HOST"); host != "" {
+		config.Subscription.Host = host
+	} else if val := os.Getenv("ISOLATE_SUBSCRIPTION_HOST"); val != "" {
+		config.Subscription.Host = val
+	}
+	if allowHTTP := v.GetString("SUBSCRIPTION_ALLOW_HTTP"); allowHTTP != "" {
+		if b, err := strconv.ParseBool(allowHTTP); err == nil {
+			config.Subscription.AllowHTTP = b
+		}
+	} else if val := os.Getenv("ISOLATE_SUBSCRIPTION_ALLOW_HTTP"); val != "" {
+		if b, err := strconv.ParseBool(val); err == nil {
+			config.Subscription.AllowHTTP = b
+		}
+	}
+
+	// Apply defaults for subscription configuration
+	if config.Subscription.Host == "" {
+		config.Subscription.Host = "127.0.0.1"
+	}
+
 	return &config, nil
 }
 
@@ -236,8 +274,8 @@ func (c *Config) Validate() error {
 	if c.Database.Path == "" {
 		return fmt.Errorf("database path is required")
 	}
-	if c.JWT.Secret == "" || c.JWT.Secret == "change-this-in-production-use-env-var" {
-		return fmt.Errorf("JWT secret must be set via JWT_SECRET environment variable")
+	if c.JWT.Secret == "" || c.JWT.Secret == "change-this-in-production-use-env-var" || c.JWT.Secret == "change-this-in-production-use-a-strong-random-secret" {
+		log.Printf("WARNING: JWT secret not properly configured - auto-generation should handle this in Docker")
 	}
 	if c.JWT.AccessTokenTTL <= 0 {
 		return fmt.Errorf("invalid access token TTL: %d", c.JWT.AccessTokenTTL)

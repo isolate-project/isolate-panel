@@ -88,10 +88,8 @@ export function Dashboard() {
         const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
         setWsUrl(`${proto}//${window.location.host}/api/ws/dashboard?ticket=${encodeURIComponent(ticket)}`)
       } catch {
-        // Fallback: use token directly (backward compat)
+        // Ticket acquisition failed - fall back to polling
         if (cancelled) return
-        const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-        setWsUrl(`${proto}//${window.location.host}/api/ws/dashboard?token=${encodeURIComponent(accessToken)}`)
       }
     })()
     return () => { cancelled = true }

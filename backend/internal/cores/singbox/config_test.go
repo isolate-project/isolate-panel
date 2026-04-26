@@ -3,6 +3,7 @@ package singbox_test
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -16,14 +17,16 @@ import (
 )
 
 func testCtx(db *gorm.DB) *cores.ConfigContext {
-	return &cores.ConfigContext{DB: db}
+	cc := &cores.CoreConfig{}
+	cc.ApplyDefaults()
+	return &cores.ConfigContext{DB: db, CoreConfig: cc}
 }
 
 func setupTestDB(t *testing.T) *gorm.DB {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err, "failed to open database")
 
-	err = db.AutoMigrate(&models.Core{}, &models.Inbound{}, &models.Outbound{}, &models.User{}, &models.UserInboundMapping{})
+	err = db.AutoMigrate(&models.Core{}, &models.Inbound{}, &models.Outbound{}, &models.User{}, &models.UserInboundMapping{}, &models.WarpRoute{}, &models.GeoRule{})
 	require.NoError(t, err, "failed to migrate database")
 
 	return db
@@ -83,6 +86,13 @@ func TestGenerateConfig_Basic(t *testing.T) {
 	assert.Equal(t, "127.0.0.1:9090", config.Experimental.ClashAPI.ExternalController)
 	assert.NotNil(t, config.Route)
 	assert.Equal(t, "direct", config.Route.Final)
+
+	// Check DNS servers (v1.12+ format)
+	assert.NotNil(t, config.DNS)
+	assert.Len(t, config.DNS.Servers, 2)
+	assert.Equal(t, "https", config.DNS.Servers[0].Type)
+	assert.Equal(t, "1.1.1.1", config.DNS.Servers[0].Server)
+	assert.Equal(t, "local", config.DNS.Servers[1].Type)
 
 	// Check inbound
 	require.Len(t, config.Inbounds, 1)
@@ -184,7 +194,49 @@ func TestGenerateConfig_VLESSUsers(t *testing.T) {
 	assert.Len(t, vlessUsers, 3)
 	for i, u := range vlessUsers {
 		assert.Equal(t, fmt.Sprintf("uuid-test-%d", i), u.UUID)
+		assert.Empty(t, u.Flow, "Flow should be empty when Reality is disabled")
 	}
+}
+
+func TestGenerateConfig_VLESSUsersWithReality(t *testing.T) {
+	db := setupTestDB(t)
+	core, users := createCoreAndUsers(t, db, 3)
+
+	inbound := models.Inbound{
+		Name:            "vless-reality-test",
+		Protocol:        "vless",
+		CoreID:          core.ID,
+		Port:            443,
+		RealityEnabled:  true,
+		RealityConfigJSON: `{
+			"dest": "www.microsoft.com",
+			"serverPort": 443,
+			"privateKey": "test-private-key",
+			"shortIds": ["test-short-id"],
+			"serverNames": ["www.microsoft.com"]
+		}`,
+	}
+	require.NoError(t, db.Create(&inbound).Error)
+	assignUsers(t, db, inbound.ID, users)
+
+	config, err := singbox.GenerateConfig(testCtx(db), core.ID)
+	require.NoError(t, err)
+	require.Len(t, config.Inbounds, 1)
+
+	var vlessUsers []singbox.VLESSUser
+	err = json.Unmarshal(config.Inbounds[0].Users, &vlessUsers)
+	require.NoError(t, err)
+	assert.Len(t, vlessUsers, 3)
+	for i, u := range vlessUsers {
+		assert.Equal(t, fmt.Sprintf("uuid-test-%d", i), u.UUID)
+		assert.Equal(t, "xtls-rprx-vision", u.Flow, "Flow should be set to xtls-rprx-vision when Reality is enabled")
+	}
+
+	// Verify Reality settings are also configured
+	assert.NotNil(t, config.Inbounds[0].TLS)
+	assert.True(t, config.Inbounds[0].TLS.Enabled)
+	assert.NotNil(t, config.Inbounds[0].TLS.Reality)
+	assert.True(t, config.Inbounds[0].TLS.Reality.Enabled)
 }
 
 func TestGenerateConfig_TrojanUsers(t *testing.T) {
@@ -283,6 +335,103 @@ func TestGenerateConfig_Hysteria2WithSettings(t *testing.T) {
 	assert.NotNil(t, raw["obfs"])
 }
 
+func TestGenerateConfig_Hysteria2CongestionControl(t *testing.T) {
+	db := setupTestDB(t)
+	core, users := createCoreAndUsers(t, db, 1)
+
+	inbound := models.Inbound{
+		Name:       "hy2-cc-test",
+		Protocol:   "hysteria2",
+		CoreID:     core.ID,
+		Port:       443,
+		TLSEnabled: true,
+		ConfigJSON: `{"congestion_control": "cubic"}`,
+	}
+	require.NoError(t, db.Create(&inbound).Error)
+	assignUsers(t, db, inbound.ID, users)
+
+	config, err := singbox.GenerateConfig(testCtx(db), core.ID)
+	require.NoError(t, err)
+	require.Len(t, config.Inbounds, 1)
+
+	// Marshal and check extra fields
+	data, err := json.Marshal(config.Inbounds[0])
+	require.NoError(t, err)
+
+	var raw map[string]interface{}
+	err = json.Unmarshal(data, &raw)
+	require.NoError(t, err)
+
+	assert.Equal(t, "cubic", raw["congestion_control"])
+}
+
+func TestGenerateConfig_Hysteria2BrutalMode(t *testing.T) {
+	db := setupTestDB(t)
+	core, users := createCoreAndUsers(t, db, 1)
+
+	inbound := models.Inbound{
+		Name:       "hy2-brutal-test",
+		Protocol:   "hysteria2",
+		CoreID:     core.ID,
+		Port:       443,
+		TLSEnabled: true,
+		ConfigJSON: `{"brutal_mode": true, "up_mbps": 200, "down_mbps": 500}`,
+	}
+	require.NoError(t, db.Create(&inbound).Error)
+	assignUsers(t, db, inbound.ID, users)
+
+	config, err := singbox.GenerateConfig(testCtx(db), core.ID)
+	require.NoError(t, err)
+	require.Len(t, config.Inbounds, 1)
+
+	// Marshal and check extra fields
+	data, err := json.Marshal(config.Inbounds[0])
+	require.NoError(t, err)
+
+	var raw map[string]interface{}
+	err = json.Unmarshal(data, &raw)
+	require.NoError(t, err)
+
+	// Check brutal object exists and has correct structure
+	brutal, ok := raw["brutal"].(map[string]interface{})
+	require.True(t, ok, "brutal should be a map")
+	assert.Equal(t, true, brutal["enabled"])
+	assert.Equal(t, float64(200), brutal["send_mbps"])
+	assert.Equal(t, float64(500), brutal["receive_mbps"])
+}
+
+func TestGenerateConfig_Hysteria2CongestionControlDefault(t *testing.T) {
+	db := setupTestDB(t)
+	core, users := createCoreAndUsers(t, db, 1)
+
+	inbound := models.Inbound{
+		Name:       "hy2-default-test",
+		Protocol:   "hysteria2",
+		CoreID:     core.ID,
+		Port:       443,
+		TLSEnabled: true,
+		ConfigJSON: `{}`,
+	}
+	require.NoError(t, db.Create(&inbound).Error)
+	assignUsers(t, db, inbound.ID, users)
+
+	config, err := singbox.GenerateConfig(testCtx(db), core.ID)
+	require.NoError(t, err)
+	require.Len(t, config.Inbounds, 1)
+
+	// Marshal and check extra fields
+	data, err := json.Marshal(config.Inbounds[0])
+	require.NoError(t, err)
+
+	var raw map[string]interface{}
+	err = json.Unmarshal(data, &raw)
+	require.NoError(t, err)
+
+	// congestion_control should NOT be auto-set if not in ConfigJSON
+	_, exists := raw["congestion_control"]
+	assert.False(t, exists, "congestion_control should not be auto-set when not in ConfigJSON")
+}
+
 func TestGenerateConfig_DefaultOutbound(t *testing.T) {
 	db := setupTestDB(t)
 	core, _ := createCoreAndUsers(t, db, 0)
@@ -320,7 +469,7 @@ func TestGenerateConfig_WithOutbounds(t *testing.T) {
 		Name:       "block-ads",
 		Protocol:   "block",
 		CoreID:     core.ID,
-		ConfigJSON: "{}",
+		ConfigJSON: `{"domain_suffix": ["ads.com", "tracker.com"]}`,
 		IsEnabled:  true,
 	}
 	require.NoError(t, db.Create(&outbound).Error)
@@ -328,8 +477,72 @@ func TestGenerateConfig_WithOutbounds(t *testing.T) {
 	config, err := singbox.GenerateConfig(testCtx(db), core.ID)
 	require.NoError(t, err)
 
+	// Block protocol should NOT create an outbound entry
 	require.Len(t, config.Outbounds, 1)
-	assert.Equal(t, "block", config.Outbounds[0].Type)
+	assert.Equal(t, "direct", config.Outbounds[0].Type)
+
+	// Instead, it should create a route rule with action="block"
+	require.Len(t, config.Route.Rules, 1)
+	assert.Equal(t, "block", config.Route.Rules[0].Action)
+	assert.Equal(t, []string{"ads.com", "tracker.com"}, config.Route.Rules[0].DomainSuffix)
+}
+
+func TestGenerateConfig_WIREndpoint(t *testing.T) {
+	db := setupTestDB(t)
+	core, _ := createCoreAndUsers(t, db, 0)
+
+	inbound := models.Inbound{
+		Name:     "test",
+		Protocol: "http",
+		CoreID:   core.ID,
+		Port:     8080,
+	}
+	require.NoError(t, db.Create(&inbound).Error)
+
+	// Create WARP account file
+	tmpDir := t.TempDir()
+	account := cores.WARPAccount{
+		AccountID:   "test-account-id",
+		DeviceID:    "test-device-id",
+		PrivateKey:  "eCtXsJZ27+4PbhDkHnB923tkUn2Gj59wZw5wFA75MnU=",
+		PublicKey:   "Cr8hWlKvtDt7nrvf+f0brNQQzabAqrjfBvas9pmowjo=",
+		Token:       "test-token",
+		IPv4Address: "172.16.0.2",
+		IPv6Address: "2606:4700:110:8f77::1",
+		ClientID:    "dGVzdA==",
+	}
+	accountData, err := json.MarshalIndent(account, "", "  ")
+	require.NoError(t, err)
+	err = os.WriteFile(tmpDir+"/warp_account.json", accountData, 0600)
+	require.NoError(t, err)
+
+	// Add WARP route
+	route := models.WarpRoute{
+		CoreID:        core.ID,
+		ResourceType:  "domain",
+		ResourceValue: "openai.com",
+		Priority:      100,
+		IsEnabled:     true,
+	}
+	require.NoError(t, db.Create(&route).Error)
+
+	ctx := &cores.ConfigContext{
+		DB:      db,
+		WarpDir: tmpDir,
+	}
+
+	config, err := singbox.GenerateConfig(ctx, core.ID)
+	require.NoError(t, err)
+
+	// WARP should be in endpoints, not outbounds
+	require.Len(t, config.Endpoints, 1)
+	assert.Equal(t, "wireguard", config.Endpoints[0].Type)
+	assert.Equal(t, "warp-out", config.Endpoints[0].Tag)
+
+	// Verify route rule references warp-out
+	require.Len(t, config.Route.Rules, 1)
+	assert.Equal(t, "warp-out", config.Route.Rules[0].Outbound)
+	assert.Equal(t, []string{"openai.com"}, config.Route.Rules[0].DomainSuffix)
 }
 
 func TestValidateConfig(t *testing.T) {
@@ -456,4 +669,233 @@ func TestInboundMarshalJSON_ExtraFields(t *testing.T) {
 	assert.Equal(t, "2022-blake3-aes-128-gcm", raw["method"])
 	assert.Equal(t, "server-key", raw["password"])
 	assert.Equal(t, float64(8388), raw["listen_port"])
+}
+
+func TestDNSServerMarshalJSON(t *testing.T) {
+	t.Run("new format with type and server", func(t *testing.T) {
+		server := singbox.DNSServer{
+			Tag:    "google",
+			Type:   "https",
+			Server: "dns.google",
+		}
+
+		data, err := json.Marshal(server)
+		require.NoError(t, err)
+
+		var raw map[string]interface{}
+		err = json.Unmarshal(data, &raw)
+		require.NoError(t, err)
+
+		assert.Equal(t, "google", raw["tag"])
+		assert.Equal(t, "https", raw["type"])
+		assert.Equal(t, "dns.google", raw["server"])
+	})
+
+	t.Run("local type without server", func(t *testing.T) {
+		server := singbox.DNSServer{
+			Tag:  "local",
+			Type: "local",
+		}
+
+		data, err := json.Marshal(server)
+		require.NoError(t, err)
+
+		var raw map[string]interface{}
+		err = json.Unmarshal(data, &raw)
+		require.NoError(t, err)
+
+		assert.Equal(t, "local", raw["tag"])
+		assert.Equal(t, "local", raw["type"])
+		_, hasServer := raw["server"]
+		assert.False(t, hasServer)
+	})
+
+	t.Run("backward compatibility with address field", func(t *testing.T) {
+		server := singbox.DNSServer{
+			Tag:     "google",
+			Address: "https://dns.google/dns-query",
+		}
+
+		data, err := json.Marshal(server)
+		require.NoError(t, err)
+
+		var raw map[string]interface{}
+		err = json.Unmarshal(data, &raw)
+		require.NoError(t, err)
+
+		// Should be converted to new format
+		assert.Equal(t, "google", raw["tag"])
+		assert.Equal(t, "https", raw["type"])
+		assert.Equal(t, "dns.google", raw["server"])
+	})
+
+	t.Run("backward compatibility with local address", func(t *testing.T) {
+		server := singbox.DNSServer{
+			Tag:     "local",
+			Address: "local",
+		}
+
+		data, err := json.Marshal(server)
+		require.NoError(t, err)
+
+		var raw map[string]interface{}
+		err = json.Unmarshal(data, &raw)
+		require.NoError(t, err)
+
+		assert.Equal(t, "local", raw["tag"])
+		assert.Equal(t, "local", raw["type"])
+	})
+
+	t.Run("with extra fields", func(t *testing.T) {
+		server := singbox.DNSServer{
+			Tag:    "custom",
+			Type:   "https",
+			Server: "custom.dns",
+			Extra: map[string]interface{}{
+				"detour": "warp-out",
+			},
+		}
+
+		data, err := json.Marshal(server)
+		require.NoError(t, err)
+
+		var raw map[string]interface{}
+		err = json.Unmarshal(data, &raw)
+		require.NoError(t, err)
+
+		assert.Equal(t, "custom", raw["tag"])
+		assert.Equal(t, "https", raw["type"])
+		assert.Equal(t, "custom.dns", raw["server"])
+		assert.Equal(t, "warp-out", raw["detour"])
+	})
+}
+
+func TestOutboundConfig_DomainResolver(t *testing.T) {
+	outbound := singbox.OutboundConfig{
+		Type:           "direct",
+		Tag:            "direct-out",
+		DomainResolver: "google",
+		Extra: map[string]interface{}{
+			"detour": "warp-out",
+		},
+	}
+
+	data, err := json.Marshal(outbound)
+	require.NoError(t, err)
+
+	var raw map[string]interface{}
+	err = json.Unmarshal(data, &raw)
+	require.NoError(t, err)
+
+	assert.Equal(t, "direct", raw["type"])
+	assert.Equal(t, "direct-out", raw["tag"])
+	assert.Equal(t, "google", raw["domain_resolver"])
+	assert.Equal(t, "warp-out", raw["detour"])
+}
+
+func TestOutboundConfig_DomainResolverEmpty(t *testing.T) {
+	outbound := singbox.OutboundConfig{
+		Type:  "direct",
+		Tag:   "direct-out",
+		Extra: map[string]interface{}{
+			"detour": "warp-out",
+		},
+	}
+
+	data, err := json.Marshal(outbound)
+	require.NoError(t, err)
+
+	var raw map[string]interface{}
+	err = json.Unmarshal(data, &raw)
+	require.NoError(t, err)
+
+	assert.Equal(t, "direct", raw["type"])
+	assert.Equal(t, "direct-out", raw["tag"])
+	_, hasDomainResolver := raw["domain_resolver"]
+	assert.False(t, hasDomainResolver, "domain_resolver should be omitted when empty")
+	assert.Equal(t, "warp-out", raw["detour"])
+}
+
+func TestGenerateConfig_OutboundWithDomainResolver(t *testing.T) {
+	db := setupTestDB(t)
+	core, _ := createCoreAndUsers(t, db, 0)
+
+	inbound := models.Inbound{
+		Name:     "test",
+		Protocol: "http",
+		CoreID:   core.ID,
+		Port:     8080,
+	}
+	require.NoError(t, db.Create(&inbound).Error)
+
+	outbound := models.Outbound{
+		Name:       "proxy-out",
+		Protocol:   "direct",
+		CoreID:     core.ID,
+		ConfigJSON: `{"domain_resolver": "google"}`,
+		IsEnabled:  true,
+	}
+	require.NoError(t, db.Create(&outbound).Error)
+
+	config, err := singbox.GenerateConfig(testCtx(db), core.ID)
+	require.NoError(t, err)
+
+	require.Len(t, config.Outbounds, 1)
+	assert.Equal(t, "direct", config.Outbounds[0].Type)
+	assert.Equal(t, "google", config.Outbounds[0].DomainResolver)
+
+	data, err := json.Marshal(config.Outbounds[0])
+	require.NoError(t, err)
+
+	var raw map[string]interface{}
+	err = json.Unmarshal(data, &raw)
+	require.NoError(t, err)
+
+	assert.Equal(t, "google", raw["domain_resolver"])
+}
+
+func TestGenerateConfig_DNSOutboundAsAction(t *testing.T) {
+	db := setupTestDB(t)
+	core, _ := createCoreAndUsers(t, db, 0)
+
+	inbound := models.Inbound{
+		Name:     "test",
+		Protocol: "http",
+		CoreID:   core.ID,
+		Port:     8080,
+	}
+	require.NoError(t, db.Create(&inbound).Error)
+
+	outbound := models.Outbound{
+		Name:       "dns-outbound",
+		Protocol:   "dns",
+		CoreID:     core.ID,
+		ConfigJSON: `{"ip_cidr": ["1.1.1.0/24", "8.8.8.0/24"]}`,
+		IsEnabled:  true,
+	}
+	require.NoError(t, db.Create(&outbound).Error)
+
+	config, err := singbox.GenerateConfig(testCtx(db), core.ID)
+	require.NoError(t, err)
+
+	// DNS protocol should NOT create an outbound entry
+	require.Len(t, config.Outbounds, 1)
+	assert.Equal(t, "direct", config.Outbounds[0].Type)
+
+	// Instead, it should create a route rule with action="dns"
+	require.Len(t, config.Route.Rules, 1)
+	assert.Equal(t, "dns", config.Route.Rules[0].Action)
+	assert.Equal(t, []string{"1.1.1.0/24", "8.8.8.0/24"}, config.Route.Rules[0].IPCIDR)
+}
+
+func TestMapSingboxOutboundProtocol_BlockRejected(t *testing.T) {
+	_, err := singbox.MapSingboxOutboundProtocol("block")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "must use route rule action instead of outbound type")
+}
+
+func TestMapSingboxOutboundProtocol_DNSRejected(t *testing.T) {
+	_, err := singbox.MapSingboxOutboundProtocol("dns")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "must use route rule action instead of outbound type")
 }

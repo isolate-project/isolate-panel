@@ -58,12 +58,12 @@ export function useWebSocket<T = unknown>(
           setLastMessage(data)
           onMessageRef.current?.(data)
         } catch (error) {
-          console.error('Failed to parse WebSocket message:', error)
+          if (import.meta.env.DEV) console.error('Failed to parse WebSocket message:', error)
         }
       }
 
       ws.onerror = (error) => {
-        console.error('WebSocket error:', error)
+        if (import.meta.env.DEV) console.error('WebSocket error:', error)
         onErrorRef.current?.(error)
       }
 
@@ -82,7 +82,7 @@ export function useWebSocket<T = unknown>(
 
       wsRef.current = ws
     } catch (error) {
-      console.error('Failed to create WebSocket:', error)
+      if (import.meta.env.DEV) console.error('Failed to create WebSocket:', error)
     }
   }, [url, reconnectInterval, reconnectAttempts])
 

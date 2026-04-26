@@ -313,7 +313,7 @@ func TestConfigService_RegenerateAndReload_CoreRunning(t *testing.T) {
 	srv := newSupervisorStubForConfig(t, true)
 	defer srv.Close()
 
-	coreMgr := cores.NewCoreManager(db, srv.URL, nil)
+	coreMgr := cores.NewCoreManager(db, srv.URL, nil, "", "", "", "", "")
 	configDir := t.TempDir()
 	svc := NewConfigService(db, coreMgr, configDir, "test-secret")
 
@@ -337,7 +337,7 @@ func TestConfigService_RegenerateAndReload_CoreNotRunning(t *testing.T) {
 	srv := newSupervisorStubForConfig(t, false)
 	defer srv.Close()
 
-	coreMgr := cores.NewCoreManager(db, srv.URL, nil)
+	coreMgr := cores.NewCoreManager(db, srv.URL, nil, "", "", "", "", "")
 	configDir := t.TempDir()
 	svc := NewConfigService(db, coreMgr, configDir, "test-secret")
 
@@ -354,7 +354,7 @@ func TestConfigService_RegenerateAndReload_CoreNotFound(t *testing.T) {
 	srv := newSupervisorStubForConfig(t, false)
 	defer srv.Close()
 
-	coreMgr := cores.NewCoreManager(db, srv.URL, nil)
+	coreMgr := cores.NewCoreManager(db, srv.URL, nil, "", "", "", "", "")
 	svc := NewConfigService(db, coreMgr, t.TempDir(), "secret")
 
 	err := svc.RegenerateAndReload("nonexistent")

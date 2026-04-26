@@ -56,7 +56,7 @@ func TestCoreLifecycleManager_InitializeCores(t *testing.T) {
 	srv := newSupervisorStub(t, 20)
 	defer srv.Close()
 
-	coreMgr := cores.NewCoreManager(db, srv.URL, nil)
+	coreMgr := cores.NewCoreManager(db, srv.URL, nil, "", "", "", "", "")
 	clm := NewCoreLifecycleManager(db, coreMgr)
 
 	err := clm.InitializeCores()
@@ -70,7 +70,7 @@ func TestCoreLifecycleManager_InitializeCores_NoInbounds(t *testing.T) {
 	srv := newSupervisorStub(t, 20)
 	defer srv.Close()
 
-	coreMgr := cores.NewCoreManager(db, srv.URL, nil)
+	coreMgr := cores.NewCoreManager(db, srv.URL, nil, "", "", "", "", "")
 	clm := NewCoreLifecycleManager(db, coreMgr)
 
 	err := clm.InitializeCores()
@@ -84,7 +84,7 @@ func TestCoreLifecycleManager_OnInboundCreated_CoreNotFound(t *testing.T) {
 	srv := newSupervisorStub(t, 20)
 	defer srv.Close()
 
-	coreMgr := cores.NewCoreManager(db, srv.URL, nil)
+	coreMgr := cores.NewCoreManager(db, srv.URL, nil, "", "", "", "", "")
 	clm := NewCoreLifecycleManager(db, coreMgr)
 
 	inbound := &models.Inbound{Name: "new-in", Protocol: "vmess", CoreID: 9999, Port: 443, IsEnabled: true}
@@ -102,7 +102,7 @@ func TestCoreLifecycleManager_ShouldCoreBeRunning(t *testing.T) {
 	srv := newSupervisorStub(t, 20)
 	defer srv.Close()
 
-	coreMgr := cores.NewCoreManager(db, srv.URL, nil)
+	coreMgr := cores.NewCoreManager(db, srv.URL, nil, "", "", "", "", "")
 	clm := NewCoreLifecycleManager(db, coreMgr)
 
 	should, err := clm.shouldCoreBeRunning("xray")
@@ -129,7 +129,7 @@ func TestCoreLifecycleManager_ShouldCoreBeRunning_NotFound(t *testing.T) {
 	srv := newSupervisorStub(t, 20)
 	defer srv.Close()
 
-	coreMgr := cores.NewCoreManager(db, srv.URL, nil)
+	coreMgr := cores.NewCoreManager(db, srv.URL, nil, "", "", "", "", "")
 	clm := NewCoreLifecycleManager(db, coreMgr)
 
 	_, err := clm.shouldCoreBeRunning("nonexistent")
@@ -158,7 +158,7 @@ func TestCoreLifecycleManager_OnInboundDeleted_NotLastInbound(t *testing.T) {
 	srv := newSupervisorStub(t, 20)
 	defer srv.Close()
 
-	coreMgr := cores.NewCoreManager(db, srv.URL, nil)
+	coreMgr := cores.NewCoreManager(db, srv.URL, nil, "", "", "", "", "")
 	clm := NewCoreLifecycleManager(db, coreMgr)
 
 	err := clm.OnInboundDeleted(in1)
@@ -172,7 +172,7 @@ func TestCoreLifecycleManager_OnInboundDeleted_CoreNotFound(t *testing.T) {
 	srv := newSupervisorStub(t, 20)
 	defer srv.Close()
 
-	coreMgr := cores.NewCoreManager(db, srv.URL, nil)
+	coreMgr := cores.NewCoreManager(db, srv.URL, nil, "", "", "", "", "")
 	clm := NewCoreLifecycleManager(db, coreMgr)
 
 	inbound := &models.Inbound{Name: "orphan", Protocol: "vmess", CoreID: 9999, Port: 443, IsEnabled: true}
@@ -187,7 +187,7 @@ func TestCoreLifecycleManager_OnInboundUpdated_CoreNotFound(t *testing.T) {
 	srv := newSupervisorStub(t, 20)
 	defer srv.Close()
 
-	coreMgr := cores.NewCoreManager(db, srv.URL, nil)
+	coreMgr := cores.NewCoreManager(db, srv.URL, nil, "", "", "", "", "")
 	clm := NewCoreLifecycleManager(db, coreMgr)
 
 	inbound := &models.Inbound{Name: "orphan", Protocol: "vmess", CoreID: 9999, Port: 443, IsEnabled: true}

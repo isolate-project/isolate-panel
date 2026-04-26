@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 
 	"gorm.io/gorm"
@@ -50,7 +51,7 @@ func (clm *CoreLifecycleManager) InitializeCores() error {
 
 		if shouldStart {
 			logger.Log.Info().Str("core", coreName).Msg("Starting core (has active inbounds)")
-			if err := clm.coreManager.StartCore(coreName); err != nil {
+			if err := clm.coreManager.StartCore(context.Background(), coreName); err != nil {
 				logger.Log.Error().Err(err).Str("core", coreName).Msg("Failed to start core")
 				// Don't return error, continue with other cores
 			}
@@ -103,10 +104,10 @@ func (clm *CoreLifecycleManager) OnInboundCreated(inbound *models.Inbound) error
 		return err
 	}
 
-	if !isRunning {
-		logger.Log.Info().Str("core", coreModel.Name).Uint("inbound_id", inbound.ID).Msg("Starting core (first inbound created)")
+if !isRunning {
+			logger.Log.Info().Str("core", coreModel.Name).Uint("inbound_id", inbound.ID).Msg("Starting core (first inbound created)")
 
-		if err := clm.coreManager.StartCore(coreModel.Name); err != nil {
+			if err := clm.coreManager.StartCore(context.Background(), coreModel.Name); err != nil {
 			// Send notification about core error
 			if clm.notificationService != nil {
 				clm.notificationService.NotifyCoreError(coreModel.Name, err)
@@ -116,7 +117,7 @@ func (clm *CoreLifecycleManager) OnInboundCreated(inbound *models.Inbound) error
 	} else {
 		// Core is already running, reload it to apply new config
 		logger.Log.Info().Str("core", coreModel.Name).Uint("inbound_id", inbound.ID).Msg("Reloading core (inbound created)")
-		if err := clm.coreManager.RestartCore(coreModel.Name); err != nil {
+		if err := clm.coreManager.RestartCore(context.Background(), coreModel.Name); err != nil {
 			logger.Log.Warn().Err(err).Str("core", coreModel.Name).Msg("Failed to reload core")
 			// Send notification about core error
 			if clm.notificationService != nil {
@@ -154,10 +155,10 @@ func (clm *CoreLifecycleManager) OnInboundDeleted(inbound *models.Inbound) error
 	}
 
 	// If this was the last inbound, stop the core
-	if count == 0 {
-		logger.Log.Info().Str("core", coreModel.Name).Uint("inbound_id", inbound.ID).Msg("Stopping core (last inbound deleted)")
+if count == 0 {
+			logger.Log.Info().Str("core", coreModel.Name).Uint("inbound_id", inbound.ID).Msg("Stopping core (last inbound deleted)")
 
-		if err := clm.coreManager.StopCore(coreModel.Name); err != nil {
+			if err := clm.coreManager.StopCore(context.Background(), coreModel.Name); err != nil {
 			logger.Log.Error().Err(err).Str("core", coreModel.Name).Msg("Failed to stop core")
 			// Don't return error, this is not critical
 		}
@@ -166,7 +167,7 @@ func (clm *CoreLifecycleManager) OnInboundDeleted(inbound *models.Inbound) error
 		isRunning, _ := clm.coreManager.IsCoreRunning(coreModel.Name)
 		if isRunning {
 			logger.Log.Info().Str("core", coreModel.Name).Uint("inbound_id", inbound.ID).Msg("Reloading core (inbound deleted)")
-			if err := clm.coreManager.RestartCore(coreModel.Name); err != nil {
+			if err := clm.coreManager.RestartCore(context.Background(), coreModel.Name); err != nil {
 				logger.Log.Warn().Err(err).Str("core", coreModel.Name).Msg("Failed to reload core")
 			}
 		}
@@ -206,7 +207,7 @@ func (clm *CoreLifecycleManager) OnInboundUpdated(inbound *models.Inbound, wasEn
 		isRunning, _ := clm.coreManager.IsCoreRunning(coreModel.Name)
 		if isRunning {
 			logger.Log.Info().Str("core", coreModel.Name).Uint("inbound_id", inbound.ID).Msg("Reloading core (inbound updated)")
-			if err := clm.coreManager.RestartCore(coreModel.Name); err != nil {
+			if err := clm.coreManager.RestartCore(context.Background(), coreModel.Name); err != nil {
 				logger.Log.Warn().Err(err).Str("core", coreModel.Name).Msg("Failed to reload core")
 			}
 		}

@@ -9,17 +9,12 @@ import (
 )
 
 // AuditAction returns a post-handler middleware that writes an audit entry
-// when the handler completes successfully (status < 400).
+// for all operations (both successful and failed).
 // action and resource are constants like "user.delete" / "user".
 // The resource ID is read from the "id" route param when present.
 func AuditAction(auditSvc *services.AuditService, action, resource string) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		err := c.Next()
-
-		// Only log on success
-		if err != nil || c.Response().StatusCode() >= 400 {
-			return err
-		}
 
 		adminID, _ := c.Locals("admin_id").(uint)
 
@@ -31,8 +26,17 @@ func AuditAction(auditSvc *services.AuditService, action, resource string) fiber
 			}
 		}
 
-		auditSvc.Log(adminID, action, resource, resourceID, nil, c.IP())
-		return nil
+		// Log both successful and failed operations
+		statusCode := c.Response().StatusCode()
+		details := map[string]interface{}{
+			"status_code": statusCode,
+		}
+		if err != nil {
+			details["error"] = err.Error()
+		}
+
+		auditSvc.Log(adminID, action, resource, resourceID, details, c.IP())
+		return err
 	}
 }
 

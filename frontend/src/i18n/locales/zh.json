@@ -26,7 +26,8 @@
     "active": "活跃",
     "inactive": "不活跃",
     "clearFilters": "清除筛选",
-    "days": "天"
+    "days": "天",
+    "back": "返回"
   },
   "nav": {
     "dashboard": "仪表板",
@@ -55,7 +56,19 @@
     "sessionExpired": "您的会话已过期。请重新登录。",
     "welcome": "欢迎使用 Isolate Panel",
     "superAdmin": "超级管理员",
-    "admin": "管理员"
+    "admin": "管理员",
+    "changePassword": "更改密码",
+    "changePasswordDescription": "请更改密码以继续",
+    "currentPassword": "当前密码",
+    "newPassword": "新密码",
+    "confirmPassword": "确认新密码",
+    "changePasswordButton": "更改密码",
+    "passwordsDoNotMatch": "密码不匹配",
+    "passwordTooShort": "密码至少需要8个字符",
+    "passwordChanged": "密码更改成功",
+    "changePasswordError": "密码错误",
+    "totpCode": "验证码",
+    "verify": "验证"
   },
   "dashboard": {
     "title": "仪表板",
@@ -172,6 +185,17 @@
     "tuic": "TUIC",
     "portConflict": "此端口已被其他入站占用。",
     "bulkAssignSuccess": "用户分配已成功更新",
+    "allProtocols": "所有协议",
+    "manageAccess": "管理访问",
+    "noCoreAssigned": "未分配核心",
+    "active": "活跃",
+    "disabled": "已禁用",
+    "createDescription": "配置新的入站代理节点。",
+    "editDescription": "更新入站连接设置。",
+    "createHint": "创建入站连接以开始路由流量。",
+    "deleteConfirmation": "您确定要永久删除入站吗"
+  },
+  "cores": {
     "tlsCertificate": "TLS 证书",
     "noCertificate": "无证书（使用默认）",
     "selectCertificate": "选择证书...",
@@ -229,7 +253,13 @@
     "monitoringModeLiteDesc": "精简模式每 60 秒收集一次流量统计。使用约 30MB 内存。适用于低资源服务器。",
     "monitoringModeFullDesc": "完整模式每 10 秒收集一次流量统计。使用约 100MB 内存。提供更准确的实时统计。",
     "monitoringModeUpdated": "监控模式已更新",
-    "currentInterval": "当前收集间隔"
+    "currentInterval": "当前收集间隔",
+    "trafficManagement": "流量管理",
+    "trafficResetSchedule": "自动重置流量计划",
+    "trafficResetDisabled": "已禁用",
+    "trafficResetWeekly": "每周（每周一）",
+    "trafficResetMonthly": "每月（每月1号）",
+    "trafficResetHint": "按指定计划自动重置所有用户流量计数器"
   },
   "errors": {
     "networkError": "网络错误。请检查您的连接。",

@@ -38,8 +38,38 @@ func AuthMiddleware(tokenService *auth.TokenService) fiber.Handler {
 		c.Locals("admin_id", claims.AdminID)
 		c.Locals("username", claims.Username)
 		c.Locals("is_super_admin", claims.IsSuperAdmin)
+		c.Locals("must_change_password", claims.MustChangePassword)
 
 		return c.Next()
+	}
+}
+
+// MustChangePasswordGuard blocks access when the admin must change their password.
+// Only allows /auth/change-password, /auth/refresh, /auth/logout, and /me endpoints.
+func MustChangePasswordGuard() fiber.Handler {
+	return func(c fiber.Ctx) error {
+		mustChange, ok := c.Locals("must_change_password").(bool)
+		if !ok || !mustChange {
+			return c.Next()
+		}
+
+		path := c.Path()
+		allowedSuffixes := []string{
+			"/auth/change-password",
+			"/auth/refresh",
+			"/auth/logout",
+			"/me",
+		}
+		for _, suffix := range allowedSuffixes {
+			if strings.HasSuffix(path, suffix) {
+				return c.Next()
+			}
+		}
+
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error":             "Password change required",
+			"must_change_password": true,
+		})
 	}
 }
 

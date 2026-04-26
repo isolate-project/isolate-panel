@@ -97,69 +97,102 @@ func (dr *DataRetentionService) cleanupOldData() {
 
 	totalDeleted := int64(0)
 
-	// Raw stats: keep N days (default 7)
-	rawCutoff := now.AddDate(0, 0, -rawDays)
-	result := dr.db.Where("granularity = ? AND recorded_at < ?", "raw", rawCutoff).
-		Delete(&models.TrafficStats{})
-	if result.Error != nil {
-		dr.log.Error().Err(result.Error).Msg("Failed to cleanup raw traffic stats")
-	} else if result.RowsAffected > 0 {
-		dr.log.Info().Int64("deleted", result.RowsAffected).Int("older_than_days", rawDays).Msg("Cleaned up raw traffic stats")
-		totalDeleted += result.RowsAffected
-	}
+	err := dr.db.Transaction(func(tx *gorm.DB) error {
+		// Raw stats: keep N days (default 7)
+		rawCutoff := now.AddDate(0, 0, -rawDays)
+		dr.log.Debug().Time("raw_cutoff", rawCutoff).Msg("Deleting raw stats")
+		result := tx.Where("granularity = ? AND recorded_at < ?", "raw", rawCutoff).
+			Delete(&models.TrafficStats{})
+		if result.Error != nil {
+			dr.log.Debug().Err(result.Error).Msg("Raw stats delete error")
+			if !isTableNotFoundError(result.Error) {
+				return result.Error
+			}
+		}
+		if result.RowsAffected > 0 {
+			dr.log.Info().Int64("deleted", result.RowsAffected).Int("older_than_days", rawDays).Msg("Cleaned up raw traffic stats")
+			totalDeleted += result.RowsAffected
+		}
 
-	// Hourly stats: keep N days (default 90)
-	hourlyCutoff := now.AddDate(0, 0, -hourlyDays)
-	result = dr.db.Where("granularity = ? AND recorded_at < ?", "hourly", hourlyCutoff).
-		Delete(&models.TrafficStats{})
-	if result.Error != nil {
-		dr.log.Error().Err(result.Error).Msg("Failed to cleanup hourly traffic stats")
-	} else if result.RowsAffected > 0 {
-		dr.log.Info().Int64("deleted", result.RowsAffected).Int("older_than_days", hourlyDays).Msg("Cleaned up hourly traffic stats")
-		totalDeleted += result.RowsAffected
-	}
+		// Hourly stats: keep N days (default 90)
+		hourlyCutoff := now.AddDate(0, 0, -hourlyDays)
+		result = tx.Where("granularity = ? AND recorded_at < ?", "hourly", hourlyCutoff).
+			Delete(&models.TrafficStats{})
+		if result.Error != nil {
+			dr.log.Debug().Err(result.Error).Msg("Hourly stats delete error")
+			if !isTableNotFoundError(result.Error) {
+				return result.Error
+			}
+		}
+		if result.RowsAffected > 0 {
+			dr.log.Info().Int64("deleted", result.RowsAffected).Int("older_than_days", hourlyDays).Msg("Cleaned up hourly traffic stats")
+			totalDeleted += result.RowsAffected
+		}
 
-	// Daily stats: keep indefinitely (no cleanup)
+		// Daily stats: keep indefinitely (no cleanup)
 
-	// Active connections: cleanup stale (default 60 minutes without activity)
-	connCutoff := now.Add(-time.Duration(connStaleMinutes) * time.Minute)
-	result = dr.db.Where("last_activity < ?", connCutoff).
-		Delete(&models.ActiveConnection{})
-	if result.Error != nil {
-		dr.log.Error().Err(result.Error).Msg("Failed to cleanup stale connections")
-	} else if result.RowsAffected > 0 {
-		dr.log.Info().Int64("deleted", result.RowsAffected).Int("older_than_minutes", connStaleMinutes).Msg("Cleaned up stale connections")
-		totalDeleted += result.RowsAffected
-	}
+		// Active connections: cleanup stale (default 60 minutes without activity)
+		connCutoff := now.Add(-time.Duration(connStaleMinutes) * time.Minute)
+		result = tx.Where("last_activity < ?", connCutoff).
+			Delete(&models.ActiveConnection{})
+		if result.Error != nil {
+			dr.log.Debug().Err(result.Error).Msg("Active connections delete error")
+			if !isTableNotFoundError(result.Error) {
+				return result.Error
+			}
+		}
+		if result.RowsAffected > 0 {
+			dr.log.Info().Int64("deleted", result.RowsAffected).Int("older_than_minutes", connStaleMinutes).Msg("Cleaned up stale connections")
+			totalDeleted += result.RowsAffected
+		}
 
-	// Notification logs: cleanup read/resolved notifications older than 30 days
-	notifCutoff := now.AddDate(0, 0, -30)
-	result = dr.db.Where("created_at < ? AND status = ?", notifCutoff, "read").
-		Delete(&models.Notification{})
-	if result.Error != nil {
-		dr.log.Debug().Err(result.Error).Msg("Failed to cleanup notification logs (table may not exist)")
-	} else if result.RowsAffected > 0 {
-		dr.log.Info().Int64("deleted", result.RowsAffected).Msg("Cleaned up old notification logs")
-		totalDeleted += result.RowsAffected
-	}
+		// Notification logs: cleanup read/resolved notifications older than 30 days
+		notifCutoff := now.AddDate(0, 0, -30)
+		result = tx.Where("created_at < ? AND status = ?", notifCutoff, "read").
+			Delete(&models.Notification{})
+		if result.Error != nil {
+			dr.log.Debug().Err(result.Error).Msg("Notification logs delete error")
+			if !isTableNotFoundError(result.Error) {
+				return result.Error
+			}
+		}
+		if result.RowsAffected > 0 {
+			dr.log.Info().Int64("deleted", result.RowsAffected).Msg("Cleaned up old notification logs")
+			totalDeleted += result.RowsAffected
+		}
 
-	// Expired refresh tokens: cleanup tokens past their expiry
-	result = dr.db.Where("expires_at < ?", now).Delete(&models.RefreshToken{})
-	if result.Error != nil {
-		dr.log.Debug().Err(result.Error).Msg("Failed to cleanup expired refresh tokens (table may not exist)")
-	} else if result.RowsAffected > 0 {
-		dr.log.Info().Int64("deleted", result.RowsAffected).Msg("Cleaned up expired refresh tokens")
-		totalDeleted += result.RowsAffected
-	}
+		// Expired refresh tokens: cleanup tokens past their expiry
+		result = tx.Where("expires_at < ?", now).Delete(&models.RefreshToken{})
+		if result.Error != nil {
+			dr.log.Debug().Err(result.Error).Msg("Refresh tokens delete error")
+			if !isTableNotFoundError(result.Error) {
+				return result.Error
+			}
+		}
+		if result.RowsAffected > 0 {
+			dr.log.Info().Int64("deleted", result.RowsAffected).Msg("Cleaned up expired refresh tokens")
+			totalDeleted += result.RowsAffected
+		}
 
-	// Subscription access logs: keep 90 days
-	subAccessCutoff := now.AddDate(0, 0, -90)
-	result = dr.db.Where("created_at < ?", subAccessCutoff).Delete(&models.SubscriptionAccess{})
-	if result.Error != nil {
-		dr.log.Debug().Err(result.Error).Msg("Failed to cleanup subscription access logs (table may not exist)")
-	} else if result.RowsAffected > 0 {
-		dr.log.Info().Int64("deleted", result.RowsAffected).Msg("Cleaned up old subscription access logs")
-		totalDeleted += result.RowsAffected
+		// Subscription access logs: keep 90 days
+		subAccessCutoff := now.AddDate(0, 0, -90)
+		result = tx.Where("created_at < ?", subAccessCutoff).Delete(&models.SubscriptionAccess{})
+		if result.Error != nil {
+			dr.log.Debug().Err(result.Error).Msg("Subscription access logs delete error")
+			if !isTableNotFoundError(result.Error) {
+				return result.Error
+			}
+		}
+		if result.RowsAffected > 0 {
+			dr.log.Info().Int64("deleted", result.RowsAffected).Msg("Cleaned up old subscription access logs")
+			totalDeleted += result.RowsAffected
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		dr.log.Error().Err(err).Msg("Failed to cleanup expired data")
 	}
 
 	if totalDeleted > 0 {
@@ -167,6 +200,27 @@ func (dr *DataRetentionService) cleanupOldData() {
 	} else {
 		dr.log.Debug().Msg("Data retention cleanup completed — nothing to delete")
 	}
+}
+
+func isTableNotFoundError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	return contains(errStr, "no such table") || contains(errStr, "table") && contains(errStr, "does not exist") || contains(errStr, "no such column")
+}
+
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && findSubstring(s, substr))
+}
+
+func findSubstring(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
 }
 
 // getRetentionDays reads a retention setting from SettingsService with a fallback default.

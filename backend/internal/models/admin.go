@@ -14,8 +14,9 @@ type Admin struct {
 	IsSuperAdmin bool       `gorm:"default:false" json:"is_super_admin"`
 	CreatedAt    time.Time  `json:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`
-	LastLoginAt  *time.Time `json:"last_login_at"`
-	IsActive     bool       `gorm:"default:true" json:"is_active"`
+	LastLoginAt      *time.Time `json:"last_login_at"`
+	IsActive         bool       `gorm:"default:true" json:"is_active"`
+	MustChangePassword bool      `gorm:"default:false" json:"must_change_password"`
 }
 
 func (Admin) TableName() string {

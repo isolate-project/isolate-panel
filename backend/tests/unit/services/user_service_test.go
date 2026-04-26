@@ -21,7 +21,7 @@ func TestUserService_CreateUser(t *testing.T) {
 			request: &services.CreateUserRequest{
 				Username:          "newuser",
 				Email:             "new@example.com",
-				Password:          "password123",
+				Password:          "password12345",
 				TrafficLimitBytes: nil,
 			},
 			wantErr: false,
@@ -31,7 +31,7 @@ func TestUserService_CreateUser(t *testing.T) {
 			request: &services.CreateUserRequest{
 				Username:          "testuser1", // Already exists in seed data
 				Email:             "another@example.com",
-				Password:          "password123",
+				Password:          "password12345",
 				TrafficLimitBytes: nil,
 			},
 			wantErr: true,
@@ -42,7 +42,7 @@ func TestUserService_CreateUser(t *testing.T) {
 			request: &services.CreateUserRequest{
 				Username:          "user3",
 				Email:             "invalid-email",
-				Password:          "password123",
+				Password:          "password12345",
 				TrafficLimitBytes: nil,
 			},
 			wantErr: true,
@@ -53,7 +53,7 @@ func TestUserService_CreateUser(t *testing.T) {
 			request: &services.CreateUserRequest{
 				Username:          "ab",
 				Email:             "short@example.com",
-				Password:          "password123",
+				Password:          "password12345",
 				TrafficLimitBytes: nil,
 			},
 			wantErr: true,

@@ -1,7 +1,6 @@
 package cache
 
 import (
-	"fmt"
 	"time"
 )
 
@@ -118,14 +117,10 @@ func (m *CacheManager) ClearConfig() {
 	m.configCache.Clear()
 }
 
-// ClearSubscription clears subscription cache for a specific user
+// ClearSubscription clears the entire subscription cache.
+// Ristretto lacks prefix-based deletion, so per-key deletion misses filtered variants
+// (sub:{uid}:{format}:{hash}). Full cache clear is correct for limited-user panels.
 func (m *CacheManager) ClearSubscription(userID uint) {
-	// Clear all subscription-related keys for this user
-	m.subscriptionCache.Delete(getSubscriptionKey(userID, "v2ray"))
-	m.subscriptionCache.Delete(getSubscriptionKey(userID, "clash"))
-	m.subscriptionCache.Delete(getSubscriptionKey(userID, "singbox"))
+	m.subscriptionCache.Clear()
 }
 
-func getSubscriptionKey(userID uint, format string) string {
-	return fmt.Sprintf("subscription:%d:%s", userID, format)
-}

@@ -26,7 +26,7 @@ func NewCoresHandler(coreManager *cores.CoreManager) *CoresHandler {
 // @Router       /cores [get]
 // @Security     BearerAuth
 func (h *CoresHandler) ListCores(c fiber.Ctx) error {
-	cores, err := h.coreManager.ListCores()
+	cores, err := h.coreManager.ListCores(c.Context())
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to list cores",
@@ -55,7 +55,7 @@ func (h *CoresHandler) GetCore(c fiber.Ctx) error {
 		})
 	}
 
-	coreInfo, err := h.coreManager.GetCoreStatus(name)
+	coreInfo, err := h.coreManager.GetCoreStatus(c.Context(), name)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "Core not found",
@@ -84,7 +84,7 @@ func (h *CoresHandler) StartCore(c fiber.Ctx) error {
 		})
 	}
 
-	if err := h.coreManager.StartCore(name); err != nil {
+	if err := h.coreManager.StartCore(c.Context(), name); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
 		})
@@ -115,7 +115,7 @@ func (h *CoresHandler) StopCore(c fiber.Ctx) error {
 		})
 	}
 
-	if err := h.coreManager.StopCore(name); err != nil {
+	if err := h.coreManager.StopCore(c.Context(), name); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
 		})
@@ -146,7 +146,7 @@ func (h *CoresHandler) RestartCore(c fiber.Ctx) error {
 		})
 	}
 
-	if err := h.coreManager.RestartCore(name); err != nil {
+	if err := h.coreManager.RestartCore(c.Context(), name); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
 		})
@@ -177,7 +177,7 @@ func (h *CoresHandler) GetCoreStatus(c fiber.Ctx) error {
 		})
 	}
 
-	coreInfo, err := h.coreManager.GetCoreStatus(name)
+	coreInfo, err := h.coreManager.GetCoreStatus(c.Context(), name)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "Core not found",

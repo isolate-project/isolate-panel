@@ -3,11 +3,18 @@ package services
 import (
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
+	"github.com/isolate-project/isolate-panel/internal/logger"
 	"github.com/isolate-project/isolate-panel/internal/models"
 	"gorm.io/gorm"
 )
+
+type notificationJob struct {
+	notification *models.Notification
+	cleanup      bool
+}
 
 // NotificationService manages system notifications
 type NotificationService struct {
@@ -16,6 +23,9 @@ type NotificationService struct {
 	telegramNotifier *TelegramNotifier
 	settings         *models.NotificationSettings
 	maxNotifications int
+	jobChan          chan notificationJob
+	wg               sync.WaitGroup
+	quit             chan struct{}
 }
 
 // NewNotificationService creates a new notification service
@@ -69,6 +79,68 @@ func (s *NotificationService) Initialize() error {
 	return nil
 }
 
+func (s *NotificationService) Start() {
+	s.jobChan = make(chan notificationJob, 100)
+	s.quit = make(chan struct{})
+	s.wg.Add(1)
+	go s.worker()
+	s.wg.Add(1)
+	go s.startRetryWorker()
+}
+
+func (s *NotificationService) worker() {
+	defer s.wg.Done()
+	for {
+		select {
+		case job := <-s.jobChan:
+			s.processJob(job)
+		case <-s.quit:
+			for {
+				select {
+				case job := <-s.jobChan:
+					s.processJob(job)
+				default:
+					return
+				}
+			}
+		}
+	}
+}
+
+func (s *NotificationService) startRetryWorker() {
+	defer s.wg.Done()
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-s.quit:
+			return
+		case <-ticker.C:
+			var pending []models.Notification
+			s.db.Where("status = ? AND next_retry_at <= ?", "failed", time.Now()).Find(&pending)
+			for _, n := range pending {
+				select {
+				case s.jobChan <- notificationJob{notification: &n, cleanup: false}:
+					logger.Log.Debug().Uint("id", n.ID).Msg("Retrying notification")
+				default:
+				}
+			}
+		}
+	}
+}
+
+func (s *NotificationService) processJob(job notificationJob) {
+	if job.cleanup {
+		s.cleanupOldNotifications()
+	}
+	s.sendNotification(job.notification)
+}
+
+func (s *NotificationService) Stop() {
+	close(s.quit)
+	s.wg.Wait()
+}
+
 // Send sends a notification
 func (s *NotificationService) Send(eventType models.NotificationEventType, severity models.NotificationSeverity, title, message string, metadata map[string]interface{}) error {
 	// Check if event type is enabled
@@ -98,13 +170,13 @@ func (s *NotificationService) Send(eventType models.NotificationEventType, sever
 		return fmt.Errorf("failed to create notification: %w", err)
 	}
 
-	// Send notification asynchronously
-	go func() {
-		s.sendNotification(notification)
-	}()
-
-	// Cleanup old notifications
-	go s.cleanupOldNotifications()
+	if s.jobChan != nil {
+		select {
+		case s.jobChan <- notificationJob{notification: notification, cleanup: true}:
+		default:
+			logger.Log.Warn().Str("type", string(notification.EventType)).Msg("Notification channel full, dropping job")
+		}
+	}
 
 	return nil
 }

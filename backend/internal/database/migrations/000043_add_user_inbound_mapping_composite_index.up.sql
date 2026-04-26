@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS idx_user_inbound_mapping_user_inbound ON user_inbound_mapping(user_id, inbound_id);

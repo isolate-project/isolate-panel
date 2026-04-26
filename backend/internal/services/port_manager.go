@@ -39,6 +39,9 @@ func NewPortManager(db *gorm.DB) *PortManager {
 // IsPortAvailable checks if a port is available globally (across all cores)
 // Allows any port from 1-65535 except reserved ports and conflicts
 func (pm *PortManager) IsPortAvailable(port int, excludeInboundID *uint) (bool, string, error) {
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
+
 	// Check if port is in valid range (1024-65535)
 	if port < 1024 || port > 65535 {
 		return false, "Port must be between 1024 and 65535", nil

@@ -140,13 +140,13 @@ func TestTokenService_GenerateAccessToken(t *testing.T) {
 	accessTTL := 15 * time.Minute
 	refreshTTL := 7 * 24 * time.Hour
 
-	service := auth.NewTokenService(secret, accessTTL, refreshTTL)
+	service := auth.NewTokenService(secret, accessTTL, refreshTTL, nil, nil)
 
 	adminID := uint(1)
 	username := "testadmin"
 	isSuperAdmin := true
 
-	token, err := service.GenerateAccessToken(adminID, username, isSuperAdmin)
+	token, err := service.GenerateAccessToken(adminID, username, isSuperAdmin, false)
 	if err != nil {
 		t.Fatalf("GenerateAccessToken() error = %v", err)
 	}
@@ -161,14 +161,14 @@ func TestTokenService_ValidateAccessToken(t *testing.T) {
 	accessTTL := 15 * time.Minute
 	refreshTTL := 7 * 24 * time.Hour
 
-	service := auth.NewTokenService(secret, accessTTL, refreshTTL)
+	service := auth.NewTokenService(secret, accessTTL, refreshTTL, nil, nil)
 
 	adminID := uint(1)
 	username := "testadmin"
 	isSuperAdmin := true
 
 	// Generate token
-	token, err := service.GenerateAccessToken(adminID, username, isSuperAdmin)
+	token, err := service.GenerateAccessToken(adminID, username, isSuperAdmin, false)
 	if err != nil {
 		t.Fatalf("GenerateAccessToken() error = %v", err)
 	}
@@ -197,7 +197,7 @@ func TestTokenService_ValidateAccessToken_Invalid(t *testing.T) {
 	accessTTL := 15 * time.Minute
 	refreshTTL := 7 * 24 * time.Hour
 
-	service := auth.NewTokenService(secret, accessTTL, refreshTTL)
+	service := auth.NewTokenService(secret, accessTTL, refreshTTL, nil, nil)
 
 	tests := []struct {
 		name    string
@@ -236,7 +236,7 @@ func TestTokenService_GenerateRefreshToken(t *testing.T) {
 	accessTTL := 15 * time.Minute
 	refreshTTL := 7 * 24 * time.Hour
 
-	service := auth.NewTokenService(secret, accessTTL, refreshTTL)
+	service := auth.NewTokenService(secret, accessTTL, refreshTTL, nil, nil)
 
 	token, err := service.GenerateRefreshToken()
 	if err != nil {
@@ -258,7 +258,7 @@ func TestTokenService_GetRefreshTokenTTL(t *testing.T) {
 	accessTTL := 15 * time.Minute
 	refreshTTL := 7 * 24 * time.Hour
 
-	service := auth.NewTokenService(secret, accessTTL, refreshTTL)
+	service := auth.NewTokenService(secret, accessTTL, refreshTTL, nil, nil)
 
 	ttl := service.GetRefreshTokenTTL()
 	if ttl != refreshTTL {
@@ -272,15 +272,15 @@ func TestTokenService_DifferentSecrets(t *testing.T) {
 	accessTTL := 15 * time.Minute
 	refreshTTL := 7 * 24 * time.Hour
 
-	service1 := auth.NewTokenService(secret1, accessTTL, refreshTTL)
-	service2 := auth.NewTokenService(secret2, accessTTL, refreshTTL)
+	service1 := auth.NewTokenService(secret1, accessTTL, refreshTTL, nil, nil)
+	service2 := auth.NewTokenService(secret2, accessTTL, refreshTTL, nil, nil)
 
 	adminID := uint(1)
 	username := "testadmin"
 	isSuperAdmin := false
 
 	// Generate token with service1
-	token, err := service1.GenerateAccessToken(adminID, username, isSuperAdmin)
+	token, err := service1.GenerateAccessToken(adminID, username, isSuperAdmin, false)
 	if err != nil {
 		t.Fatalf("GenerateAccessToken() error = %v", err)
 	}
@@ -297,14 +297,14 @@ func TestTokenService_ExpiredToken(t *testing.T) {
 	accessTTL := 1 * time.Millisecond // Very short TTL
 	refreshTTL := 7 * 24 * time.Hour
 
-	service := auth.NewTokenService(secret, accessTTL, refreshTTL)
+	service := auth.NewTokenService(secret, accessTTL, refreshTTL, nil, nil)
 
 	adminID := uint(1)
 	username := "testadmin"
 	isSuperAdmin := false
 
 	// Generate token
-	token, err := service.GenerateAccessToken(adminID, username, isSuperAdmin)
+	token, err := service.GenerateAccessToken(adminID, username, isSuperAdmin, false)
 	if err != nil {
 		t.Fatalf("GenerateAccessToken() error = %v", err)
 	}

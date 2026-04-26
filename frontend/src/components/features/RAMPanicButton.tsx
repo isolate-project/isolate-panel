@@ -7,6 +7,7 @@ import { AlertTriangle, Zap } from 'lucide-preact'
 import { useSystemResources } from '../../hooks/useSystem'
 import { useMutation } from '../../hooks/useMutation'
 import { systemApi } from '../../api/endpoints'
+import { sanitizeError } from '../../utils/errorHandler'
 import { useToastStore } from '../../stores/toastStore'
 import { useTranslation } from 'react-i18next'
 
@@ -32,10 +33,11 @@ export function RAMPanicButton() {
         })
       },
       onError: (error) => {
-        setResult(`${t('common.error')}: ${error.message}`)
+        const { message } = sanitizeError(error)
+        setResult(`${t('common.error')}: ${message}`)
         addToast({
           type: 'error',
-          message: `${t('ramPanic.cleanupFailed')}: ${error.message}`,
+          message: `${t('ramPanic.cleanupFailed')}: ${message}`,
         })
       },
     }

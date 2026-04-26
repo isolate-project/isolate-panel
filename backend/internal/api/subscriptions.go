@@ -32,6 +32,25 @@ func isValidSubscriptionToken(token string) bool {
 	return true
 }
 
+// parseSubscriptionFilter parses query parameters to create a subscription filter
+func parseSubscriptionFilter(c fiber.Ctx) *services.SubscriptionFilter {
+	protocol := c.Query("protocol")
+	core := c.Query("core")
+	coreRegex := c.Query("core_regex")
+	tag := c.Query("tag")
+
+	if protocol == "" && core == "" && coreRegex == "" && tag == "" {
+		return nil
+	}
+
+	return &services.SubscriptionFilter{
+		ProtocolRegex: protocol,
+		CoreName:      core,
+		CoreNameRegex: coreRegex,
+		TagRegex:      tag,
+	}
+}
+
 type SubscriptionsHandler struct {
 	subscriptionService *services.SubscriptionService
 }
@@ -72,6 +91,8 @@ func (h *SubscriptionsHandler) GetV2RaySubscription(c fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).SendString("Not Found")
 	}
 
+	data.Filter = parseSubscriptionFilter(c)
+
 	result, err := h.subscriptionService.GenerateV2Ray(data)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).SendString("Internal Server Error")
@@ -105,6 +126,8 @@ func (h *SubscriptionsHandler) GetClashSubscription(c fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).SendString("Not Found")
 	}
 
+	data.Filter = parseSubscriptionFilter(c)
+
 	result, err := h.subscriptionService.GenerateClash(data)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).SendString("Internal Server Error")
@@ -136,6 +159,8 @@ func (h *SubscriptionsHandler) GetSingboxSubscription(c fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).SendString("Not Found")
 	}
 
+	data.Filter = parseSubscriptionFilter(c)
+
 	result, err := h.subscriptionService.GenerateSingbox(data)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).SendString("Internal Server Error")
@@ -166,6 +191,8 @@ func (h *SubscriptionsHandler) GetIsolateSubscription(c fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).SendString("Not Found")
 	}
+
+	data.Filter = parseSubscriptionFilter(c)
 
 	result, err := h.subscriptionService.GenerateIsolate(data)
 	if err != nil {

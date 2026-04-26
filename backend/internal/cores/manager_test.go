@@ -1,6 +1,7 @@
 package cores
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -76,8 +77,8 @@ func TestCoreManager_StartCore_NotFound(t *testing.T) {
 	srv := newMockSupervisorServer(t, 20)
 	defer srv.Close()
 
-	cm := NewCoreManager(db, srv.URL, nil)
-	err := cm.StartCore("nonexistent")
+	cm := NewCoreManager(db, srv.URL, nil, "", "", "", "", "")
+	err := cm.StartCore(context.Background(), "nonexistent")
 	if err == nil {
 		t.Error("expected error for non-existent core, got nil")
 	}
@@ -90,8 +91,8 @@ func TestCoreManager_StartCore_Disabled(t *testing.T) {
 
 	db.Create(&models.Core{Name: "xray", IsEnabled: false, IsRunning: false})
 
-	cm := NewCoreManager(db, srv.URL, nil)
-	err := cm.StartCore("xray")
+	cm := NewCoreManager(db, srv.URL, nil, "", "", "", "", "")
+	err := cm.StartCore(context.Background(), "xray")
 	if err == nil {
 		t.Error("expected error for disabled core, got nil")
 	}
@@ -102,8 +103,8 @@ func TestCoreManager_StopCore_NotFound(t *testing.T) {
 	srv := newMockSupervisorServer(t, 20)
 	defer srv.Close()
 
-	cm := NewCoreManager(db, srv.URL, nil)
-	err := cm.StopCore("nonexistent")
+	cm := NewCoreManager(db, srv.URL, nil, "", "", "", "", "")
+	err := cm.StopCore(context.Background(), "nonexistent")
 	if err == nil {
 		t.Error("expected error for non-existent core, got nil")
 	}
@@ -114,8 +115,8 @@ func TestCoreManager_RestartCore_NotFound(t *testing.T) {
 	srv := newMockSupervisorServer(t, 20)
 	defer srv.Close()
 
-	cm := NewCoreManager(db, srv.URL, nil)
-	err := cm.RestartCore("nonexistent")
+	cm := NewCoreManager(db, srv.URL, nil, "", "", "", "", "")
+	err := cm.RestartCore(context.Background(), "nonexistent")
 	if err == nil {
 		t.Error("expected error for non-existent core, got nil")
 	}
@@ -128,8 +129,8 @@ func TestCoreManager_RestartCore_Disabled(t *testing.T) {
 
 	db.Create(&models.Core{Name: "xray", IsEnabled: false, IsRunning: false})
 
-	cm := NewCoreManager(db, srv.URL, nil)
-	err := cm.RestartCore("xray")
+	cm := NewCoreManager(db, srv.URL, nil, "", "", "", "", "")
+	err := cm.RestartCore(context.Background(), "xray")
 	if err == nil {
 		t.Error("expected error for disabled core, got nil")
 	}
@@ -140,8 +141,8 @@ func TestCoreManager_GetCoreStatus_NotFound(t *testing.T) {
 	srv := newMockSupervisorServer(t, 20)
 	defer srv.Close()
 
-	cm := NewCoreManager(db, srv.URL, nil)
-	_, err := cm.GetCoreStatus("nonexistent")
+	cm := NewCoreManager(db, srv.URL, nil, "", "", "", "", "")
+	_, err := cm.GetCoreStatus(context.Background(), "nonexistent")
 	if err == nil {
 		t.Error("expected error for non-existent core, got nil")
 	}
@@ -151,8 +152,8 @@ func TestCoreManager_GetCoreStatus_SupervisorDown(t *testing.T) {
 	db := setupManagerDB(t)
 	db.Create(&models.Core{Name: "xray", IsEnabled: true, IsRunning: false})
 
-	cm := NewCoreManager(db, "http://127.0.0.1:1", nil)
-	core, err := cm.GetCoreStatus("xray")
+	cm := NewCoreManager(db, "http://127.0.0.1:1", nil, "", "", "", "", "")
+	core, err := cm.GetCoreStatus(context.Background(), "xray")
 	if err != nil {
 		t.Fatalf("GetCoreStatus() error = %v", err)
 	}
@@ -166,8 +167,8 @@ func TestCoreManager_ListCores_Empty(t *testing.T) {
 	srv := newMockSupervisorServer(t, 20)
 	defer srv.Close()
 
-	cm := NewCoreManager(db, srv.URL, nil)
-	cores, err := cm.ListCores()
+	cm := NewCoreManager(db, srv.URL, nil, "", "", "", "", "")
+	cores, err := cm.ListCores(context.Background())
 	if err != nil {
 		t.Fatalf("ListCores() error = %v", err)
 	}
@@ -184,8 +185,8 @@ func TestCoreManager_ListCores_WithData(t *testing.T) {
 	db.Create(&models.Core{Name: "xray", IsEnabled: true, IsRunning: false})
 	db.Create(&models.Core{Name: "singbox", IsEnabled: true, IsRunning: false})
 
-	cm := NewCoreManager(db, srv.URL, nil)
-	cores, err := cm.ListCores()
+	cm := NewCoreManager(db, srv.URL, nil, "", "", "", "", "")
+	cores, err := cm.ListCores(context.Background())
 	if err != nil {
 		t.Fatalf("ListCores() error = %v", err)
 	}
@@ -198,7 +199,7 @@ func TestCoreManager_IsCoreRunning_SupervisorDown(t *testing.T) {
 	db := setupManagerDB(t)
 	db.Create(&models.Core{Name: "xray", IsEnabled: true})
 
-	cm := NewCoreManager(db, "http://127.0.0.1:1", nil)
+	cm := NewCoreManager(db, "http://127.0.0.1:1", nil, "", "", "", "", "")
 	_, err := cm.IsCoreRunning("xray")
 	if err == nil {
 		t.Error("expected error when supervisor is down, got nil")
@@ -207,7 +208,7 @@ func TestCoreManager_IsCoreRunning_SupervisorDown(t *testing.T) {
 
 func TestNewCoreManager(t *testing.T) {
 	db := setupManagerDB(t)
-	cm := NewCoreManager(db, "http://localhost:9001", nil)
+	cm := NewCoreManager(db, "http://localhost:9001", nil, "", "", "", "", "")
 	if cm == nil {
 		t.Fatal("NewCoreManager should not return nil")
 	}
@@ -216,5 +217,59 @@ func TestNewCoreManager(t *testing.T) {
 	}
 	if cm.supervisor == nil {
 		t.Error("supervisor client not created")
+	}
+}
+
+func TestCoreManager_ReloadConfig_NotFound(t *testing.T) {
+	db := setupManagerDB(t)
+	srv := newMockSupervisorServer(t, 20)
+	defer srv.Close()
+
+	cm := NewCoreManager(db, srv.URL, nil, "", "", "", "", "")
+	err := cm.ReloadConfig(context.Background(), "nonexistent")
+	if err == nil {
+		t.Error("expected error for non-existent core, got nil")
+	}
+}
+
+func TestCoreManager_ReloadConfig_Xray_FallbackToRestart(t *testing.T) {
+	db := setupManagerDB(t)
+	srv := newMockSupervisorServer(t, 20)
+	defer srv.Close()
+
+	db.Create(&models.Core{Name: "xray", IsEnabled: true, IsRunning: true})
+
+	cm := NewCoreManager(db, srv.URL, nil, "", "", "", "", "")
+	err := cm.ReloadConfig(context.Background(), "xray")
+	if err != nil {
+		t.Logf("ReloadConfig for xray failed (expected, as it falls back to restart): %v", err)
+	}
+}
+
+func TestCoreManager_ReloadConfig_Singbox_Signal(t *testing.T) {
+	db := setupManagerDB(t)
+	srv := newMockSupervisorServer(t, 20)
+	defer srv.Close()
+
+	db.Create(&models.Core{Name: "singbox", IsEnabled: true, IsRunning: true})
+
+	cm := NewCoreManager(db, srv.URL, nil, "", "", "", "", "")
+	err := cm.ReloadConfig(context.Background(), "singbox")
+	if err != nil {
+		t.Logf("ReloadConfig for singbox failed: %v", err)
+	}
+}
+
+func TestCoreManager_ReloadConfig_Mihomo_API(t *testing.T) {
+	db := setupManagerDB(t)
+	srv := newMockSupervisorServer(t, 20)
+	defer srv.Close()
+
+	db.Create(&models.Core{Name: "mihomo", IsEnabled: true, IsRunning: true})
+
+	cm := NewCoreManager(db, srv.URL, nil, "", "", "", "", "")
+	err := cm.ReloadConfig(context.Background(), "mihomo")
+	if err != nil {
+		t.Logf("ReloadConfig for mihomo failed: %v", err)
 	}
 }

@@ -1,5 +1,6 @@
 import { Component, ComponentChildren } from 'preact'
 import { AlertCircle } from 'lucide-preact'
+import { sanitizeError } from '../../utils/errorHandler'
 
 interface Props {
   children: ComponentChildren
@@ -22,7 +23,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: unknown) {
-    console.error('ErrorBoundary caught an error:', error, errorInfo)
+    if (import.meta.env.DEV) console.error('ErrorBoundary caught an error:', error, errorInfo)
   }
 
   resetError = () => {
@@ -42,7 +43,7 @@ export class ErrorBoundary extends Component<Props, State> {
             </div>
             <h2 className="mb-2 text-2xl font-bold text-text-primary">Something went wrong</h2>
             <p className="mb-6 text-sm text-text-secondary">
-              {this.state.error.message || "An unexpected error occurred while rendering this component."}
+              {sanitizeError(this.state.error).message}
             </p>
             <button
               onClick={this.resetError}

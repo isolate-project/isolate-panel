@@ -150,12 +150,13 @@ func TestXrayWARPOutbound(t *testing.T) {
 		IPv4Address: "10.0.0.1",
 	}
 
-	tag, protocol, settings := cores.XrayWARPOutbound(account)
+	tag, protocol, settings, err := cores.XrayWARPOutbound(account)
+	require.NoError(t, err)
 	assert.Equal(t, "warp-out", tag)
 	assert.Equal(t, "wireguard", protocol)
 
 	var s map[string]interface{}
-	err := json.Unmarshal(settings, &s)
+	err = json.Unmarshal(settings, &s)
 	require.NoError(t, err)
 	assert.Equal(t, "test-key", s["secretKey"])
 
@@ -255,9 +256,11 @@ func TestSingboxGeoRouteRules(t *testing.T) {
 	routeRules := cores.SingboxGeoRouteRules(rules, "/data/geo")
 	assert.Len(t, routeRules, 2)
 	assert.Equal(t, "direct", routeRules[0]["outbound"])
-	assert.Equal(t, "US", routeRules[0]["geoip"])
+	assert.Equal(t, "route", routeRules[0]["action"])
+	assert.Equal(t, []string{"geoip-US"}, routeRules[0]["rule_set"])
 	assert.Equal(t, "warp-out", routeRules[1]["outbound"])
-	assert.Equal(t, "google", routeRules[1]["geosite"])
+	assert.Equal(t, "route", routeRules[1]["action"])
+	assert.Equal(t, []string{"geosite-google"}, routeRules[1]["rule_set"])
 }
 
 func TestXrayGeoRoutingRules(t *testing.T) {
@@ -306,12 +309,4 @@ func TestInjectGeo_GracefulSkip(t *testing.T) {
 	assert.Nil(t, data)
 }
 
-func TestSingboxGeoAssets(t *testing.T) {
-	assets := cores.SingboxGeoAssets("/data/geo")
-	require.NotNil(t, assets)
-	assert.Equal(t, "/data/geo/geoip.db", assets["geoip"])
-	assert.Equal(t, "/data/geo/geosite.db", assets["geosite"])
 
-	// Empty dir returns nil
-	assert.Nil(t, cores.SingboxGeoAssets(""))
-}

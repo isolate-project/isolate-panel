@@ -26,7 +26,8 @@
     "active": "Active",
     "inactive": "Inactive",
     "clearFilters": "Clear Filters",
-    "days": "days"
+    "days": "days",
+    "back": "Back"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -55,7 +56,19 @@
     "sessionExpired": "Your session has expired. Please login again.",
     "welcome": "Welcome to Isolate Panel",
     "superAdmin": "Super Admin",
-    "admin": "Admin"
+    "admin": "Admin",
+    "changePassword": "Change Password",
+    "changePasswordDescription": "Please change your password to continue",
+    "currentPassword": "Current Password",
+    "newPassword": "New Password",
+    "confirmPassword": "Confirm New Password",
+    "changePasswordButton": "Change Password",
+    "passwordsDoNotMatch": "Passwords do not match",
+    "passwordTooShort": "Password must be at least 8 characters",
+    "passwordChanged": "Password changed successfully",
+    "changePasswordError": "Invalid password",
+    "totpCode": "Authentication Code",
+    "verify": "Verify"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -171,7 +184,16 @@
     "hysteria2": "Hysteria2",
     "tuic": "TUIC",
     "portConflict": "This port is already in use by another inbound.",
-    "bulkAssignSuccess": "User assignments updated successfully"
+    "bulkAssignSuccess": "User assignments updated successfully",
+    "allProtocols": "All Protocols",
+    "manageAccess": "Manage Access",
+    "noCoreAssigned": "No core assigned",
+    "active": "Active",
+    "disabled": "Disabled",
+    "createDescription": "Configure a new incoming proxy node.",
+    "editDescription": "Update inbound connection settings.",
+    "createHint": "Create an inbound connection to start routing traffic.",
+    "deleteConfirmation": "Are you sure you want to permanently delete inbound"
   },
   "settings": {
     "title": "Settings",
@@ -206,7 +228,13 @@
     "monitoringModeLiteDesc": "Lite mode collects traffic statistics every 60 seconds. Uses ~30MB RAM. Suitable for low-resource servers.",
     "monitoringModeFullDesc": "Full mode collects traffic statistics every 10 seconds. Uses ~100MB RAM. Provides more accurate real-time stats.",
     "monitoringModeUpdated": "Monitoring mode updated successfully",
-    "currentInterval": "Current Collection Interval"
+    "currentInterval": "Current Collection Interval",
+    "trafficManagement": "Traffic Management",
+    "trafficResetSchedule": "Traffic Reset Schedule",
+    "trafficResetDisabled": "Disabled",
+    "trafficResetWeekly": "Weekly (every Monday)",
+    "trafficResetMonthly": "Monthly (1st of each month)",
+    "trafficResetHint": "Automatically reset traffic counters for all users on schedule"
   },
   "errors": {
     "networkError": "Network error. Please check your connection.",

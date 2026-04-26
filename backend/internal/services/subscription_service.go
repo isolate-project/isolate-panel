@@ -6,7 +6,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"hash/fnv"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -41,10 +43,85 @@ func NewSubscriptionService(db *gorm.DB, panelURL string, cacheManager ...*cache
 	}
 }
 
+// SubscriptionFilter defines filtering criteria for subscription inbounds
+type SubscriptionFilter struct {
+	ProtocolRegex string // regex to match inbound.Protocol (e.g., "vless|vmess|trojan")
+	CoreName      string // exact match on inbound.Core.Name (e.g., "xray", "singbox", "mihomo")
+	CoreNameRegex string // regex to match inbound.Core.Name
+	TagRegex      string // regex to match inbound.Name (e.g., "US*", ".*-ws")
+}
+
+// FilterInbounds filters inbounds based on the filter criteria
+func (f *SubscriptionFilter) FilterInbounds(inbounds []models.Inbound) []models.Inbound {
+	if f == nil || (f.ProtocolRegex == "" && f.CoreName == "" && f.CoreNameRegex == "" && f.TagRegex == "") {
+		return inbounds
+	}
+
+	var result []models.Inbound
+	for _, inbound := range inbounds {
+		// Apply ProtocolRegex filter
+		if f.ProtocolRegex != "" {
+			re, err := regexp.Compile(f.ProtocolRegex)
+			if err != nil {
+				// Invalid regex, log warning and skip this filter
+				logger.Log.Warn().Err(err).Str("regex", f.ProtocolRegex).Msg("Invalid protocol regex, skipping filter")
+			} else if !re.MatchString(inbound.Protocol) {
+				continue
+			}
+		}
+
+		// Apply CoreName exact match filter
+		if f.CoreName != "" {
+			if inbound.Core == nil || inbound.Core.Name != f.CoreName {
+				continue
+			}
+		}
+
+		// Apply CoreNameRegex filter
+		if f.CoreNameRegex != "" {
+			if inbound.Core == nil {
+				continue
+			}
+			re, err := regexp.Compile(f.CoreNameRegex)
+			if err != nil {
+				// Invalid regex, log warning and skip this filter
+				logger.Log.Warn().Err(err).Str("regex", f.CoreNameRegex).Msg("Invalid core name regex, skipping filter")
+			} else if !re.MatchString(inbound.Core.Name) {
+				continue
+			}
+		}
+
+		// Apply TagRegex filter
+		if f.TagRegex != "" {
+			re, err := regexp.Compile(f.TagRegex)
+			if err != nil {
+				// Invalid regex, log warning and skip this filter
+				logger.Log.Warn().Err(err).Str("regex", f.TagRegex).Msg("Invalid tag regex, skipping filter")
+			} else if !re.MatchString(inbound.Name) {
+				continue
+			}
+		}
+
+		result = append(result, inbound)
+	}
+
+	return result
+}
+
+func (f *SubscriptionFilter) Hash() string {
+	if f == nil {
+		return ""
+	}
+	h := fnv.New32a()
+	fmt.Fprintf(h, "p:%s c:%s cr:%s t:%s", f.ProtocolRegex, f.CoreName, f.CoreNameRegex, f.TagRegex)
+	return fmt.Sprintf("%08x", h.Sum32())
+}
+
 // UserSubscriptionData holds the data needed to generate a subscription
 type UserSubscriptionData struct {
 	User     models.User
 	Inbounds []models.Inbound
+	Filter   *SubscriptionFilter
 }
 
 // GetUserBySubscriptionToken retrieves a user by their subscription token
@@ -93,14 +170,23 @@ func (s *SubscriptionService) GetUserSubscriptionData(token string) (*UserSubscr
 }
 
 func (s *SubscriptionService) GenerateV2Ray(data *UserSubscriptionData) (string, error) {
-	if cached, ok := s.GetCachedSubscription(data.User.ID, "v2ray"); ok {
+	filterHash := ""
+	if data.Filter != nil {
+		filterHash = data.Filter.Hash()
+	}
+	if cached, ok := s.GetCachedSubscription(data.User.ID, "v2ray", filterHash); ok {
 		return cached, nil
 	}
 
 	certsByIDs := s.loadCertsByIDs(data.Inbounds)
 	var links []string
 
-	for _, inbound := range data.Inbounds {
+	inbounds := data.Inbounds
+	if data.Filter != nil {
+		inbounds = data.Filter.FilterInbounds(data.Inbounds)
+	}
+
+	for _, inbound := range inbounds {
 		link := generateProxyLink(data.User, inbound, s.panelURL, certsByIDs)
 		if link != "" {
 			links = append(links, link)
@@ -110,13 +196,17 @@ func (s *SubscriptionService) GenerateV2Ray(data *UserSubscriptionData) (string,
 	result := strings.Join(links, "\n")
 	encoded := base64.StdEncoding.EncodeToString([]byte(result))
 
-	s.SetCachedSubscription(data.User.ID, "v2ray", encoded)
+	s.SetCachedSubscription(data.User.ID, "v2ray", filterHash, encoded)
 
 	return encoded, nil
 }
 
 func (s *SubscriptionService) GenerateClash(data *UserSubscriptionData) (string, error) {
-	if cached, ok := s.GetCachedSubscription(data.User.ID, "clash"); ok {
+	filterHash := ""
+	if data.Filter != nil {
+		filterHash = data.Filter.Hash()
+	}
+	if cached, ok := s.GetCachedSubscription(data.User.ID, "clash", filterHash); ok {
 		return cached, nil
 	}
 
@@ -124,7 +214,12 @@ func (s *SubscriptionService) GenerateClash(data *UserSubscriptionData) (string,
 	var proxies []clashProxy
 	var proxyNames []string
 
-	for _, inbound := range data.Inbounds {
+	inbounds := data.Inbounds
+	if data.Filter != nil {
+		inbounds = data.Filter.FilterInbounds(data.Inbounds)
+	}
+
+	for _, inbound := range inbounds {
 		var config map[string]interface{}
 		if inbound.ConfigJSON != "" {
 			if err := json.Unmarshal([]byte(inbound.ConfigJSON), &config); err != nil {
@@ -164,20 +259,29 @@ func (s *SubscriptionService) GenerateClash(data *UserSubscriptionData) (string,
 		return "", fmt.Errorf("failed to marshal Clash config: %w", err)
 	}
 
-	s.SetCachedSubscription(data.User.ID, "clash", result)
+	s.SetCachedSubscription(data.User.ID, "clash", filterHash, result)
 
 	return result, nil
 }
 
 func (s *SubscriptionService) GenerateSingbox(data *UserSubscriptionData) (string, error) {
-	if cached, ok := s.GetCachedSubscription(data.User.ID, "singbox"); ok {
+	filterHash := ""
+	if data.Filter != nil {
+		filterHash = data.Filter.Hash()
+	}
+	if cached, ok := s.GetCachedSubscription(data.User.ID, "singbox", filterHash); ok {
 		return cached, nil
 	}
 
 	certsByIDs := s.loadCertsByIDs(data.Inbounds)
 	outbounds := []map[string]interface{}{}
 
-	for _, inbound := range data.Inbounds {
+	inbounds := data.Inbounds
+	if data.Filter != nil {
+		inbounds = data.Filter.FilterInbounds(data.Inbounds)
+	}
+
+	for _, inbound := range inbounds {
 		ob := generateSingboxOutbound(data.User, inbound, s.panelURL, certsByIDs)
 		if ob != nil {
 			outbounds = append(outbounds, ob)
@@ -215,7 +319,7 @@ func (s *SubscriptionService) GenerateSingbox(data *UserSubscriptionData) (strin
 
 	result := string(jsonData)
 
-	s.SetCachedSubscription(data.User.ID, "singbox", result)
+	s.SetCachedSubscription(data.User.ID, "singbox", filterHash, result)
 
 	return result, nil
 }
@@ -255,14 +359,23 @@ type IsolateInbound struct {
 }
 
 func (s *SubscriptionService) GenerateIsolate(data *UserSubscriptionData) (string, error) {
-	if cached, ok := s.GetCachedSubscription(data.User.ID, "isolate"); ok {
+	filterHash := ""
+	if data.Filter != nil {
+		filterHash = data.Filter.Hash()
+	}
+	if cached, ok := s.GetCachedSubscription(data.User.ID, "isolate", filterHash); ok {
 		return cached, nil
 	}
 
 	certsByIDs := s.loadCertsByIDs(data.Inbounds)
 
 	cores := make(map[string]IsolateCore)
-	for _, inbound := range data.Inbounds {
+	inbounds := data.Inbounds
+	if data.Filter != nil {
+		inbounds = data.Filter.FilterInbounds(data.Inbounds)
+	}
+
+	for _, inbound := range inbounds {
 		coreName := coreNameForInbound(inbound)
 		if coreName == "" {
 			continue
@@ -392,7 +505,7 @@ func (s *SubscriptionService) GenerateIsolate(data *UserSubscriptionData) (strin
 	}
 
 	result := string(jsonData)
-	s.SetCachedSubscription(data.User.ID, "isolate", result)
+	s.SetCachedSubscription(data.User.ID, "isolate", filterHash, result)
 
 	return result, nil
 }
@@ -468,11 +581,11 @@ func buildIsolateTransport(transport string, config map[string]interface{}, inbo
 	return t
 }
 
-func (s *SubscriptionService) GetCachedSubscription(userID uint, format string) (string, bool) {
+func (s *SubscriptionService) GetCachedSubscription(userID uint, format string, filterHash string) (string, bool) {
 	if s.cache == nil {
 		return "", false
 	}
-	key := fmt.Sprintf("sub:%d:%s", userID, format)
+	key := fmt.Sprintf("sub:%d:%s:%s", userID, format, filterHash)
 	if cached, found := s.cache.GetString(key); found {
 		return cached, true
 	}
@@ -480,21 +593,20 @@ func (s *SubscriptionService) GetCachedSubscription(userID uint, format string) 
 }
 
 // SetCachedSubscription sets cached subscription content
-func (s *SubscriptionService) SetCachedSubscription(userID uint, format string, content string) {
+func (s *SubscriptionService) SetCachedSubscription(userID uint, format string, filterHash string, content string) {
 	if s.cache != nil {
-		key := fmt.Sprintf("sub:%d:%s", userID, format)
+		key := fmt.Sprintf("sub:%d:%s:%s", userID, format, filterHash)
 		s.cache.Set(key, content)
 	}
 }
 
-// InvalidateUserCache invalidates all cached subscriptions for a user
+// InvalidateUserCache invalidates all cached subscriptions for a user.
+// Ristretto does not support prefix-based deletion, so filtered keys like
+// sub:{uid}:{format}:{hash} cannot be individually targeted. Clearing the
+// entire subscription cache is safe for a panel with limited concurrent users.
 func (s *SubscriptionService) InvalidateUserCache(userID uint) {
 	if s.cache != nil {
-		formats := []string{"v2ray", "clash", "singbox", "isolate"}
-		for _, format := range formats {
-			key := fmt.Sprintf("sub:%d:%s", userID, format)
-			s.cache.Delete(key)
-		}
+		s.cache.Clear()
 	}
 }
 
@@ -1432,4 +1544,3 @@ func generateSubscriptionToken() string {
 	rand.Read(bytes)
 	return base64.URLEncoding.EncodeToString(bytes)
 }
-

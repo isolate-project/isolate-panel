@@ -3,6 +3,8 @@ package singbox
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"time"
 
 	"github.com/isolate-project/isolate-panel/internal/cores"
 	"github.com/isolate-project/isolate-panel/internal/stats"
@@ -15,9 +17,14 @@ func init() {
 type Adapter struct {
 	APIKey       string
 	V2RayAPIAddr string
+	coreCfg      *cores.CoreConfig
 }
 
 func NewAdapter() *Adapter { return &Adapter{} }
+
+func (a *Adapter) SetCoreConfig(cfg *cores.CoreConfig) {
+	a.coreCfg = cfg
+}
 
 func (a *Adapter) ConfigFilename() string { return "config.json" }
 
@@ -42,7 +49,33 @@ func (a *Adapter) WriteConfig(config any, path string) error {
 }
 
 func (a *Adapter) GetHealthCheckEndpoint() string {
+	if a.coreCfg != nil {
+		return "http://" + a.coreCfg.ClashAPIAddr() + "/version"
+	}
 	return "http://127.0.0.1:9090/version"
+}
+
+func (a *Adapter) CheckHealth(ctx context.Context, timeout time.Duration) error {
+	checkCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	addr := "127.0.0.1:9090"
+	if a.coreCfg != nil {
+		addr = a.coreCfg.ClashAPIAddr()
+	}
+	req, err := http.NewRequestWithContext(checkCtx, http.MethodGet, "http://"+addr+"/version", nil)
+	if err != nil {
+		return fmt.Errorf("failed to create health check request: %w", err)
+	}
+	client := &http.Client{Timeout: timeout}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("singbox API not reachable: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("singbox API returned status %d", resp.StatusCode)
+	}
+	return nil
 }
 
 func (a *Adapter) GetDefaultLogPaths() (string, string) {
@@ -98,4 +131,16 @@ func (a *Adapter) WriteConfigToDir(config any, configDir string, coreName string
 func (a *Adapter) NewStatsClient(config cores.StatsClientConfig) cores.StatsClient {
 	client := NewStatsClient(config.ClashBaseURL, config.APIKey)
 	return &singboxStatsClientWrapper{client: client}
+}
+
+func (a *Adapter) HotReloadInfo() (cores.HotReloadMethod, string, string) {
+	return cores.HotReloadSignal, "USR1", ""
+}
+
+func (a *Adapter) SupportsHotReload() bool {
+	return true
+}
+
+	func (a *Adapter) ReloadConfig(ctx context.Context) error {
+	return fmt.Errorf("sing-box reload should use SIGUSR1 via supervisor (SignalProcess), not adapter direct reload")
 }

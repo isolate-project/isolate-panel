@@ -18,6 +18,9 @@ export const authApi = {
     apiClient.post('/auth/logout', { refresh_token: refreshToken }),
 
   me: () => apiClient.get('/me'),
+
+  changePassword: (data: { current_password: string; new_password: string }) =>
+    apiClient.post('/auth/change-password', data),
 }
 
 // User endpoints
@@ -90,7 +93,7 @@ export const inboundApi = {
     protocol: string
     transport?: string
     core_type: string
-  }) => apiClient.post('/api/inbounds/check-port', data),
+  }) => apiClient.post('/inbounds/check-port', data),
 }
 
 // Outbound endpoints

@@ -13,6 +13,7 @@ type CoreConfig struct {
 	ClashAPIPort  int    `mapstructure:"clash_api_port" json:"clash_api_port" yaml:"clash_api_port"`     // default: 9090
 	MihomoAPIPort int    `mapstructure:"mihomo_api_port" json:"mihomo_api_port" yaml:"mihomo_api_port"` // default: 9091
 	V2RayAPIPort  int    `mapstructure:"v2ray_api_port" json:"v2ray_api_port" yaml:"v2ray_api_port"`   // default: 10086
+	DNSServer     string `mapstructure:"dns_server" json:"dns_server" yaml:"dns_server"`           // default: 1.1.1.1
 }
 
 // ApplyDefaults fills zero-value fields with production defaults.
@@ -31,6 +32,9 @@ func (c *CoreConfig) ApplyDefaults() {
 	}
 	if c.V2RayAPIPort == 0 {
 		c.V2RayAPIPort = 10086
+	}
+	if c.DNSServer == "" {
+		c.DNSServer = "1.1.1.1"
 	}
 }
 
@@ -87,6 +91,9 @@ func CoreConfigFromEnv() *CoreConfig {
 	}
 	if v := envInt("ISOLATE_CORE_V2RAY_API_PORT"); v != 0 {
 		cfg.V2RayAPIPort = v
+	}
+	if v := os.Getenv("ISOLATE_CORE_DNS_SERVER"); v != "" {
+		cfg.DNSServer = v
 	}
 	cfg.ApplyDefaults()
 	return cfg

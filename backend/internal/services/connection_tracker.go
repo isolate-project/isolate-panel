@@ -97,6 +97,12 @@ func (ct *ConnectionTracker) Stop() {
 	if ct.xrayClient != nil {
 		ct.xrayClient.Close()
 	}
+	if ct.singboxClient != nil {
+		ct.singboxClient.Close()
+	}
+	if ct.mihomoClient != nil {
+		ct.mihomoClient.Close()
+	}
 }
 
 // updateConnections updates the connection list from all cores

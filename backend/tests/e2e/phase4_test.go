@@ -1,6 +1,7 @@
 package e2e_test
 
 import (
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"testing"
@@ -8,10 +9,19 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/isolate-project/isolate-panel/internal/auth"
 	"github.com/isolate-project/isolate-panel/internal/models"
 	"github.com/isolate-project/isolate-panel/internal/services"
 	"github.com/isolate-project/isolate-panel/tests/testutil"
 )
+
+func init() {
+	key := make([]byte, 32)
+	if _, err := rand.Read(key); err != nil {
+		panic("failed to generate test encryption key: " + err.Error())
+	}
+	auth.SetTestEncryptionKey(key)
+}
 
 // TestPasswordNotLeakedInResponse verifies that the Password field
 // is absent from UserResponse but present in CreateUserResponse.
@@ -35,22 +45,28 @@ func TestPasswordNotLeakedInResponse(t *testing.T) {
 	}
 	user, err := userService.CreateUser(req, 1)
 	require.NoError(t, err)
-	assert.Equal(t, "supersecret123", user.Password, "Password should be set on DB model")
+	assert.NotEmpty(t, user.Password, "Password field should be set (encrypted)")
+	assert.NotEqual(t, "supersecret123", user.Password, "Password should be encrypted, not plaintext")
 
-	// Simulate what the API does for Create response
+	// Verify the password can be decrypted back to the original
+	decrypted, err := auth.DecryptCredential(user.Password)
+	require.NoError(t, err)
+	assert.Equal(t, "supersecret123", decrypted, "Decrypted password should match original")
+
+	// Simulate what the API does for Create response (decrypts password)
 	createResp := services.CreateUserResponse{
 		UserResponse: services.UserResponse{
 			ID:       user.ID,
 			Username: user.Username,
 			UUID:     user.UUID,
 		},
-		Password: user.Password,
+		Password: decrypted,
 	}
 
 	// CreateUserResponse should include password in JSON
 	createJSON, err := json.Marshal(createResp)
 	require.NoError(t, err)
-	assert.Contains(t, string(createJSON), "supersecret", "CreateUserResponse must contain password")
+	assert.Contains(t, string(createJSON), "supersecret", "CreateUserResponse must contain decrypted password")
 
 	// UserResponse alone should NOT include password in JSON
 	getResp := services.UserResponse{

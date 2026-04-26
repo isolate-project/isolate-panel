@@ -28,7 +28,7 @@ func TestCompleteUserFlow(t *testing.T) {
 		req := &services.CreateUserRequest{
 			Username: "e2euser",
 			Email:    "e2e@example.com",
-			Password: "password123",
+			Password: "password12345",
 		}
 
 		user, err := userService.CreateUser(req, 1)
@@ -119,7 +119,7 @@ func TestQuotaEnforcement(t *testing.T) {
 		req := &services.CreateUserRequest{
 			Username:          "unlimited",
 			Email:             "unlimited@example.com",
-			Password:          "password123",
+			Password:          "password12345",
 			TrafficLimitBytes: &limit,
 		}
 

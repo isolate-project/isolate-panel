@@ -27,10 +27,12 @@ type Parameter struct {
 	Options      []string      `json:"options,omitempty"`
 	Description  string        `json:"description,omitempty"`
 	Example      string        `json:"example,omitempty"`
+	Placeholder  string        `json:"placeholder,omitempty"`
 	Min          *int          `json:"min,omitempty"`
 	Max          *int          `json:"max,omitempty"`
 	DependsOn    []Dependency  `json:"depends_on,omitempty"`
 	Group        string        `json:"group,omitempty"` // UI grouping: "basic", "transport", "tls", "advanced"
+	Widget       string        `json:"widget,omitempty"` // UI widget: "input", "select", "textarea", "checkbox", "slider", "password", "tags"
 }
 
 // Dependency defines a conditional dependency between parameters
@@ -214,4 +216,26 @@ func ValidateProtocolForCore(protocolName, coreName string) bool {
 // intPtr is a helper to create *int values for Min/Max
 func intPtr(v int) *int {
 	return &v
+}
+
+// DefaultWidget returns the default UI widget for a given parameter type
+func DefaultWidget(t ParameterType) string {
+	switch t {
+	case TypeString:
+		return "input"
+	case TypeInteger:
+		return "number"
+	case TypeBoolean:
+		return "checkbox"
+	case TypeSelect:
+		return "select"
+	case TypeUUID:
+		return "input"
+	case TypeArray:
+		return "tags"
+	case TypeObject:
+		return "textarea"
+	default:
+		return "input"
+	}
 }

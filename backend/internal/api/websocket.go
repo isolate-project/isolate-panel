@@ -216,23 +216,13 @@ func validateAndConsumeTicket(ticket string) bool {
 
 // DashboardWS is the Fiber handler for GET /api/ws/dashboard
 // Auth is done via ?ticket=<one-time-ticket> issued by IssueWSTicket.
-// Falls back to ?token=<access_token> for backward compatibility.
 func (h *DashboardHub) DashboardWS(c fiber.Ctx) error {
-	// Prefer one-time ticket
 	ticket := c.Query("ticket")
-	if ticket != "" {
-		if !validateAndConsumeTicket(ticket) {
-			return c.Status(fiber.StatusUnauthorized).SendString("invalid or expired ticket")
-		}
-	} else {
-		// Backward compatibility: accept JWT token directly
-		token := c.Query("token")
-		if token == "" {
-			return c.Status(fiber.StatusUnauthorized).SendString("ticket or token required")
-		}
-		if _, err := h.tokenService.ValidateAccessToken(token); err != nil {
-			return c.Status(fiber.StatusUnauthorized).SendString("invalid or expired token")
-		}
+	if ticket == "" {
+		return c.Status(fiber.StatusUnauthorized).SendString("ticket required")
+	}
+	if !validateAndConsumeTicket(ticket) {
+		return c.Status(fiber.StatusUnauthorized).SendString("invalid or expired ticket")
 	}
 
 	// Upgrade the fasthttp connection to WebSocket (use RequestCtx, not Context)

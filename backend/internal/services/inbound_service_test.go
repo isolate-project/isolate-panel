@@ -196,13 +196,13 @@ func TestInboundService_CreateInbound_ValidConfigJSON(t *testing.T) {
 		Protocol:   "vless",
 		CoreID:     core.ID,
 		Port:       443,
-		ConfigJSON: `{"users":[{"uuid":"abc"}]}`,
+		ConfigJSON: `{"uuid":"abc-def-123","users":[{"uuid":"abc"}]}`,
 	})
 	require.NoError(t, err)
 
 	var fetched models.Inbound
 	require.NoError(t, db.Where("name = ?", "good-config").First(&fetched).Error)
-	assert.Equal(t, `{"users":[{"uuid":"abc"}]}`, fetched.ConfigJSON)
+	assert.Equal(t, `{"uuid":"abc-def-123","users":[{"uuid":"abc"}]}`, fetched.ConfigJSON)
 }
 
 func TestInboundService_CreateInbound_TLSDisabledClearsCert(t *testing.T) {
@@ -520,13 +520,13 @@ func TestInboundService_UpdateInbound_ConfigJSON(t *testing.T) {
 	svc, db := newInboundSvc(t)
 	core := seedInboundCore(t, db)
 
-	require.NoError(t, svc.CreateInbound(&models.Inbound{Name: "in", Protocol: "vless", CoreID: core.ID, Port: 443, ConfigJSON: `{}`}))
+	require.NoError(t, svc.CreateInbound(&models.Inbound{Name: "in", Protocol: "vless", CoreID: core.ID, Port: 443, ConfigJSON: `{"uuid":"test-uuid-123"}`}))
 	var created models.Inbound
 	require.NoError(t, db.Where("name = ?", "in").First(&created).Error)
 
-	updated, err := svc.UpdateInbound(created.ID, map[string]interface{}{"config_json": `{"tag":"updated"}`})
+	updated, err := svc.UpdateInbound(created.ID, map[string]interface{}{"config_json": `{"uuid":"test-uuid-123","tag":"updated"}`})
 	require.NoError(t, err)
-	assert.Equal(t, `{"tag":"updated"}`, updated.ConfigJSON)
+	assert.Equal(t, `{"uuid":"test-uuid-123","tag":"updated"}`, updated.ConfigJSON)
 }
 
 func TestInboundService_UpdateInbound_InvalidConfigJSON(t *testing.T) {
@@ -928,7 +928,7 @@ func TestInboundService_ValidateInboundConfig_Empty(t *testing.T) {
 func TestInboundService_ValidateInboundConfig_ValidJSON(t *testing.T) {
 	svc, _ := newInboundSvc(t)
 
-	err := svc.ValidateInboundConfig("vless", `{"users":[{"uuid":"abc"}]}`)
+	err := svc.ValidateInboundConfig("vless", `{"uuid":"abc-def-123","users":[{"uuid":"abc"}]}`)
 	assert.NoError(t, err)
 }
 

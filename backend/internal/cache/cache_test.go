@@ -55,12 +55,12 @@ func TestCacheManager(t *testing.T) {
 
 	// Test ClearSubscription
 	subCache := manager.GetSubscriptionCache()
-	subCache.Set(getSubscriptionKey(1, "v2ray"), "sub_data")
-	time.Sleep(10 * time.Millisecond) // Wait for sync
+	subCache.Set("sub:1:v2ray:abc123", "sub_data")
+	time.Sleep(10 * time.Millisecond)
 	manager.ClearSubscription(1)
-	time.Sleep(10 * time.Millisecond) // Wait for sync
+	time.Sleep(10 * time.Millisecond)
 
-	if _, found := subCache.Get(getSubscriptionKey(1, "v2ray")); found {
+	if _, found := subCache.Get("sub:1:v2ray:abc123"); found {
 		t.Error("expected subscription to be cleared")
 	}
 

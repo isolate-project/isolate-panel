@@ -116,7 +116,8 @@ func TestCacheManager_ClearSubscription(t *testing.T) {
 	sc := cm.GetSubscriptionCache()
 	var userID uint = 7
 	for _, format := range []string{"v2ray", "clash", "singbox"} {
-		sc.Set(getSubscriptionKey(userID, format), "data:"+format)
+		key := fmt.Sprintf("sub:%d:%s:abc123", userID, format)
+		sc.Set(key, "data:"+format)
 	}
 	time.Sleep(10 * time.Millisecond)
 
@@ -124,7 +125,8 @@ func TestCacheManager_ClearSubscription(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 
 	for _, format := range []string{"v2ray", "clash", "singbox"} {
-		_, ok := sc.Get(getSubscriptionKey(userID, format))
+		key := fmt.Sprintf("sub:%d:%s:abc123", userID, format)
+		_, ok := sc.Get(key)
 		assert.False(t, ok, "key for format %s should be cleared", format)
 	}
 }
@@ -144,23 +146,5 @@ func TestCacheManager_GetMetrics(t *testing.T) {
 func TestCacheManager_Close(t *testing.T) {
 	cm, err := NewCacheManager()
 	require.NoError(t, err)
-	// Should not panic
 	assert.NotPanics(t, func() { cm.Close() })
-}
-
-func TestGetSubscriptionKey(t *testing.T) {
-	tests := []struct {
-		userID uint
-		format string
-	}{
-		{1, "v2ray"},
-		{42, "clash"},
-		{100, "singbox"},
-	}
-	for _, tc := range tests {
-		key := getSubscriptionKey(tc.userID, tc.format)
-		assert.Contains(t, key, "subscription:")
-		assert.Contains(t, key, tc.format)
-		_ = fmt.Sprintf("key=%s", key) // use key
-	}
 }

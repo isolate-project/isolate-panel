@@ -6,6 +6,7 @@ import (
 
 	"github.com/robfig/cron/v3"
 
+	"github.com/isolate-project/isolate-panel/internal/logger"
 	"github.com/isolate-project/isolate-panel/internal/services"
 )
 
@@ -80,8 +81,14 @@ func (s *TrafficResetScheduler) scheduleReset(schedule string) error {
 
 // runReset is called by the cron runner and performs the actual reset.
 func (s *TrafficResetScheduler) runReset() {
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Log.Error().Interface("panic", r).Msg("Scheduled traffic reset panicked, recovered")
+		}
+	}()
+
 	if err := s.quotaEnforcer.ResetAllTraffic(); err != nil {
-		fmt.Printf("Scheduled traffic reset failed: %v\n", err)
+		logger.Log.Error().Err(err).Str("scheduler", "traffic_reset").Msg("Scheduled traffic reset failed")
 	}
 }
 

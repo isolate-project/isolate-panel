@@ -48,33 +48,58 @@ func mapGeoAction(action string) string {
 // Sing-box Geo helpers
 // ============================================================
 
-// SingboxGeoRouteRules converts GeoRules to Sing-box route rules
+// SingboxGeoRouteRules converts GeoRules to Sing-box route rules (v1.12+ format)
 func SingboxGeoRouteRules(rules []models.GeoRule, geoDir string) []map[string]interface{} {
 	routeRules := make([]map[string]interface{}, 0, len(rules))
 	for _, rule := range rules {
 		rr := map[string]interface{}{
+			"action":   "route",
 			"outbound": mapGeoAction(rule.Action),
 		}
 		switch rule.Type {
 		case "geoip":
-			rr["geoip"] = rule.Code
+			rr["rule_set"] = []string{"geoip-" + rule.Code}
 		case "geosite":
-			rr["geosite"] = rule.Code
+			rr["rule_set"] = []string{"geosite-" + rule.Code}
 		}
 		routeRules = append(routeRules, rr)
 	}
 	return routeRules
 }
 
-// SingboxGeoAssets returns the geo asset paths for Sing-box route config
-func SingboxGeoAssets(geoDir string) map[string]string {
-	if geoDir == "" {
-		return nil
+// SingboxGeoRuleSets returns rule-set definitions for Sing-box route config (v1.12+ format)
+// Uses remote rule-sets from GitHub since we can't parse .db files at runtime
+func SingboxGeoRuleSets(rules []models.GeoRule) []map[string]interface{} {
+	seen := make(map[string]bool)
+	ruleSets := make([]map[string]interface{}, 0)
+
+	for _, rule := range rules {
+		var tag string
+		var url string
+		switch rule.Type {
+		case "geoip":
+			tag = "geoip-" + rule.Code
+			url = fmt.Sprintf("https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/%s.json", tag)
+		case "geosite":
+			tag = "geosite-" + rule.Code
+			url = fmt.Sprintf("https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/%s.json", tag)
+		default:
+			continue
+		}
+
+		if !seen[tag] {
+			seen[tag] = true
+			ruleSets = append(ruleSets, map[string]interface{}{
+				"tag":             tag,
+				"type":            "remote",
+				"url":             url,
+				"download_detour": "direct",
+				"update_interval": "7d",
+			})
+		}
 	}
-	return map[string]string{
-		"geoip":   fmt.Sprintf("%s/geoip.db", geoDir),
-		"geosite": fmt.Sprintf("%s/geosite.db", geoDir),
-	}
+
+	return ruleSets
 }
 
 // ============================================================

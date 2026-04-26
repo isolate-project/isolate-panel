@@ -20,10 +20,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"gorm.io/gorm/logger"
@@ -65,16 +67,8 @@ func main() {
 	log.Info().Str("version", version.Version).Msg("Starting Isolate Panel")
 	log.Info().Str("env", cfg.App.Env).Msg("Environment")
 
-	// Validate configuration (production only)
-	if cfg.IsProduction() {
-		if err := cfg.Validate(); err != nil {
-			log.Fatal().Err(err).Msg("Configuration validation failed")
-		}
-	} else {
-		log.Warn().Msg("Running in development mode - some validations are skipped")
-		if cfg.JWT.Secret == "change-this-in-production-use-env-var" {
-			log.Warn().Msg("Using default JWT secret - set JWT_SECRET in production!")
-		}
+	if err := cfg.Validate(); err != nil {
+		log.Fatal().Err(err).Msg("Configuration validation failed")
 	}
 
 	// Initialize database
@@ -107,6 +101,7 @@ func main() {
 	fiberApp := fiber.New(fiber.Config{
 		AppName:      fmt.Sprintf("%s %s", cfg.App.Name, version.Version),
 		ErrorHandler: middleware.ErrorHandler,
+		BodyLimit:    cfg.App.BodyLimit * 1024, // Convert KB to bytes
 	})
 	fiberApp.Use(middleware.SecurityHeaders())
 	fiberApp.Use(middleware.Recovery())
@@ -133,22 +128,38 @@ func main() {
 	sig := <-quit
 	log.Info().Str("signal", sig.String()).Msg("Gracefully shutting down server...")
 
-	// 1. Stop accepting new requests
-	log.Info().Msg("Stopping HTTP server...")
-	if err := fiberApp.Shutdown(); err != nil {
-		log.Error().Err(err).Msg("Server shutdown error")
-	}
+	// Wrap shutdown in context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
-	// 2. Stop background services
-	isolateapp.StopWorkers(application)
-
-	// 3. Close database connection
-	log.Info().Msg("Closing database connection...")
-	if sqlDB, err := db.DB.DB(); err == nil {
-		if err := sqlDB.Close(); err != nil {
-			log.Error().Err(err).Msg("Failed to close database")
+	done := make(chan struct{})
+	go func() {
+		// 1. Stop accepting new requests
+		log.Info().Msg("Stopping HTTP server...")
+		if err := fiberApp.Shutdown(); err != nil {
+			log.Error().Err(err).Msg("Server shutdown error")
 		}
-	}
 
-	log.Info().Msg("Server stopped")
+		// 2. Stop background services
+		isolateapp.StopWorkers(application)
+		isolateapp.StopSubscriptionListener(application)
+
+		// 3. Close database connection
+		log.Info().Msg("Closing database connection...")
+		if sqlDB, err := db.DB.DB(); err == nil {
+			if err := sqlDB.Close(); err != nil {
+				log.Error().Err(err).Msg("Failed to close database")
+			}
+		}
+
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		log.Info().Msg("Server stopped gracefully")
+	case <-ctx.Done():
+		log.Error().Msg("Shutdown timeout exceeded, forcing exit")
+		os.Exit(0)
+	}
 }

@@ -97,7 +97,8 @@ func loadWARPAccount(warpDir string) (*WARPAccount, error) {
 // Sing-box WARP helpers
 // ============================================================
 
-// SingboxWARPOutbound returns Sing-box WireGuard outbound JSON map
+// SingboxWARPOutbound returns Sing-box WireGuard endpoint JSON map (v1.13+ format)
+// WireGuard is now an endpoint, not an outbound
 func SingboxWARPOutbound(account *WARPAccount) map[string]interface{} {
 	localAddresses := []string{}
 	if account.IPv4Address != "" {
@@ -112,22 +113,23 @@ func SingboxWARPOutbound(account *WARPAccount) map[string]interface{} {
 	}
 
 	return map[string]interface{}{
-		"type":           "wireguard",
-		"tag":            warpTag,
-		"server":         warpEndpoint,
-		"server_port":    warpPort,
-		"local_address":  localAddresses,
-		"private_key":    account.PrivateKey,
+		"type":            "wireguard",
+		"tag":             warpTag,
+		"server":          warpEndpoint,
+		"server_port":     warpPort,
+		"local_address":   localAddresses,
+		"private_key":     account.PrivateKey,
 		"peer_public_key": warpPublicKey,
-		"mtu":            1280,
+		"mtu":             1280,
 	}
 }
 
-// SingboxWARPRouteRules converts WARP routes to Sing-box route rules
+// SingboxWARPRouteRules converts WARP routes to Sing-box route rules (v1.13+ format)
 func SingboxWARPRouteRules(routes []models.WarpRoute) []map[string]interface{} {
 	rules := make([]map[string]interface{}, 0, len(routes))
 	for _, route := range routes {
 		rule := map[string]interface{}{
+			"action":   "route",
 			"outbound": warpTag,
 		}
 		switch route.ResourceType {
@@ -148,7 +150,7 @@ func SingboxWARPRouteRules(routes []models.WarpRoute) []map[string]interface{} {
 // ============================================================
 
 // XrayWARPOutbound returns Xray WireGuard outbound config
-func XrayWARPOutbound(account *WARPAccount) (tag string, protocol string, settings json.RawMessage) {
+func XrayWARPOutbound(account *WARPAccount) (tag string, protocol string, settings json.RawMessage, err error) {
 	addresses := []string{}
 	if account.IPv4Address != "" {
 		addresses = append(addresses, account.IPv4Address+"/32")
@@ -172,8 +174,11 @@ func XrayWARPOutbound(account *WARPAccount) (tag string, protocol string, settin
 		"mtu": 1280,
 	}
 
-	data, _ := json.Marshal(settingsMap)
-	return warpTag, "wireguard", data
+	data, err := json.Marshal(settingsMap)
+	if err != nil {
+		return "", "", nil, fmt.Errorf("failed to marshal WARP wireguard settings: %w", err)
+	}
+	return warpTag, "wireguard", data, nil
 }
 
 // XrayWARPRoutingRules converts WARP routes to Xray routing rules

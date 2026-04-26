@@ -139,3 +139,78 @@ func TestProtocolsHandler_GetDefaults_NotFound(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 }
+
+// --- Widget Hints Tests ---
+
+func TestGetProtocol_ContainsWidgetHints(t *testing.T) {
+	app := setupProtocolsApp()
+
+	req, _ := http.NewRequest(http.MethodGet, "/protocols/vless", nil)
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	var result map[string]interface{}
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&result))
+
+	parameters, ok := result["parameters"].(map[string]interface{})
+	require.True(t, ok, "parameters should be a map")
+
+	// Check that uuid parameter has widget field
+	uuidParam, ok := parameters["uuid"].(map[string]interface{})
+	require.True(t, ok, "uuid parameter should exist")
+	widget, ok := uuidParam["widget"].(string)
+	require.True(t, ok, "uuid parameter should have widget field")
+	assert.Equal(t, "input", widget, "uuid should have input widget")
+
+	// Check that flow parameter has widget field
+	flowParam, ok := parameters["flow"].(map[string]interface{})
+	require.True(t, ok, "flow parameter should exist")
+	widget, ok = flowParam["widget"].(string)
+	require.True(t, ok, "flow parameter should have widget field")
+	assert.Equal(t, "select", widget, "flow should have select widget")
+}
+
+func TestGetProtocol_PasswordWidget(t *testing.T) {
+	app := setupProtocolsApp()
+
+	req, _ := http.NewRequest(http.MethodGet, "/protocols/trojan", nil)
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	var result map[string]interface{}
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&result))
+
+	parameters, ok := result["parameters"].(map[string]interface{})
+	require.True(t, ok, "parameters should be a map")
+
+	// Check that password parameter has password widget
+	passwordParam, ok := parameters["password"].(map[string]interface{})
+	require.True(t, ok, "password parameter should exist")
+	widget, ok := passwordParam["widget"].(string)
+	require.True(t, ok, "password parameter should have widget field")
+	assert.Equal(t, "password", widget, "password should have password widget")
+}
+
+func TestGetProtocol_ObfuscationPasswordWidget(t *testing.T) {
+	app := setupProtocolsApp()
+
+	req, _ := http.NewRequest(http.MethodGet, "/protocols/hysteria2", nil)
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	var result map[string]interface{}
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&result))
+
+	parameters, ok := result["parameters"].(map[string]interface{})
+	require.True(t, ok, "parameters should be a map")
+
+	// Check that obfs_password parameter has password widget
+	obfsPasswordParam, ok := parameters["obfs_password"].(map[string]interface{})
+	require.True(t, ok, "obfs_password parameter should exist")
+	widget, ok := obfsPasswordParam["widget"].(string)
+	require.True(t, ok, "obfs_password parameter should have widget field")
+	assert.Equal(t, "password", widget, "obfs_password should have password widget")
+}

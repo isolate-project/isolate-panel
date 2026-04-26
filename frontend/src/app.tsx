@@ -26,6 +26,7 @@ function retryLazy<T extends ComponentType<Record<string, unknown>>>(
 }
 
 const Login = lazy(retryLazy(() => import('./pages/Login'), 'Login'))
+const ChangePassword = lazy(retryLazy(() => import('./pages/ChangePassword'), 'ChangePassword'))
 const Dashboard = lazy(retryLazy(() => import('./pages/Dashboard'), 'Dashboard'))
 const Users = lazy(retryLazy(() => import('./pages/Users'), 'Users'))
 const Cores = lazy(retryLazy(() => import('./pages/Cores'), 'Cores'))
@@ -73,6 +74,7 @@ export function App() {
         <Suspense fallback={<PageSkeleton />}>
           <Router>
             <Route path="/login" component={Login} />
+            <Route path="/change-password" component={() => <Protected Component={ChangePassword} />} />
             <Route path="/" component={() => <Protected Component={Dashboard} />} />
             <Route path="/users" component={() => <Protected Component={Users} />} />
             <Route path="/cores" component={() => <Protected Component={Cores} />} />
