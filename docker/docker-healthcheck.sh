@@ -1,6 +1,6 @@
 #!/bin/sh
 # Isolate Panel Docker Health Check
-# Checks: 1) Panel HTTP health  2) Core process status (FATAL/BACKOFF = unhealthy)
+# Checks: 1) Panel HTTP health  2) Core process status (FATAL/BACKOFF = unhealthy) 3) Subscription listener (soft check)
 
 # 1. Check panel HTTP endpoint
 wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
@@ -16,5 +16,10 @@ for prog in xray mihomo singbox; do
         exit 1
     fi
 done
+
+# 3. Check subscription listener (port 443) - soft check, doesn't fail healthcheck
+if [ -f /app/data/subscriptions/.enabled ]; then
+    wget --no-verbose --tries=1 --spider http://localhost:443/ 2>/dev/null || true
+fi
 
 exit 0

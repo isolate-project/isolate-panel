@@ -1,3 +1,4 @@
+# NOTE: Default credentials are for TEST ONLY. Override via .env.test or environment variables.
 name: isolate-panel-test
 
 services:
@@ -13,12 +14,14 @@ services:
       - PORT=8080
       - DATABASE_PATH=/app/data/isolate-panel.db
       - LOG_LEVEL=debug
-      - JWT_SECRET=test-jwt-secret-for-e2e-tests-only
+      - JWT_SECRET=${JWT_SECRET:-test-jwt-secret-for-e2e-tests-only}
       - JWT_EXPIRY_HOURS=720
       - ADMIN_USERNAME=admin
-      - ADMIN_PASSWORD=admin
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
       - MONITORING_MODE=lite
       - TZ=UTC
+    env_file:
+      - .env.test
     volumes:
       # Override supervisord config to autostart all cores
       - ./supervisord.test.conf:/etc/supervisord.conf:ro
@@ -32,6 +35,7 @@ services:
       start_period: 30s
       retries: 10
     restart: "no"
+    stop_signal: SIGTERM
     networks:
       - test-network
 

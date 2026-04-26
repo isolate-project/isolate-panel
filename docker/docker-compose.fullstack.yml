@@ -1,3 +1,4 @@
+# NOTE: Default credentials are for TEST ONLY. Override via .env.test or environment variables.
 name: isolate-panel-fullstack
 
 services:
@@ -17,16 +18,18 @@ services:
       - PORT=8080
       - DATABASE_PATH=/app/data/isolate-panel.db
       - LOG_LEVEL=debug
-      - JWT_SECRET=test-jwt-secret-for-fullstack-tests-only
+      - JWT_SECRET=${JWT_SECRET:-test-jwt-secret-for-fullstack-tests-only}
       - JWT_EXPIRY_HOURS=720
       - ADMIN_USERNAME=admin
-      - ADMIN_PASSWORD=admin
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
       - MONITORING_MODE=full
       - TZ=UTC
       - XRAY_CONFIG_PATH=/shared-configs/xray.json
       - SINGBOX_CONFIG_PATH=/shared-configs/singbox.json
       - MIHOMO_CONFIG_PATH=/shared-configs/mihomo.yaml
       - SUPERVISORD_SOCKET=/var/run/supervisor.sock
+    env_file:
+      - .env.test
     volumes:
       # Shared volume for core configs (panel writes, cores read)
       - fullstack-configs:/shared-configs
@@ -44,6 +47,7 @@ services:
       start_period: 60s
       retries: 20
     restart: "no"
+    stop_signal: SIGTERM
     networks:
       - fullstack-network
     depends_on:
@@ -70,6 +74,7 @@ services:
       start_period: 30s
       retries: 5
     restart: "no"
+    stop_signal: SIGTERM
     networks:
       - fullstack-network
     profiles:
@@ -99,6 +104,7 @@ services:
       start_period: 30s
       retries: 5
     restart: "no"
+    stop_signal: SIGTERM
     networks:
       - fullstack-network
     profiles:
@@ -127,6 +133,7 @@ services:
       start_period: 30s
       retries: 5
     restart: "no"
+    stop_signal: SIGTERM
     networks:
       - fullstack-network
     profiles:
@@ -150,6 +157,7 @@ services:
       start_period: 5s
       retries: 3
     restart: "no"
+    stop_signal: SIGTERM
     networks:
       - fullstack-network
 
@@ -175,6 +183,7 @@ services:
       start_period: 5s
       retries: 3
     restart: "no"
+    stop_signal: SIGTERM
     networks:
       - fullstack-network
     profiles:

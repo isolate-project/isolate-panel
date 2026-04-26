@@ -1,21 +1,46 @@
+# =============================================================================
+# Isolate Panel — Docker Compose (Production)
+# =============================================================================
+# This is the DEFAULT compose file (docker compose up uses this automatically).
+# It runs the production image with security hardening and resource limits.
+#
+# For local development (building from source), use:
+#   docker compose -f docker-compose.build.yml up
+#
+# For CI/testing, use:
+#   docker compose -f docker-compose.test.yml up
+# =============================================================================
+
 name: isolate-panel
 
 services:
   isolate-panel:
-    image: isolate-panel:latest
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
+    image: ghcr.io/isolate-project/isolate-panel:latest
     container_name: isolate-panel
     restart: unless-stopped
+    stop_signal: SIGTERM
 
     ports:
+      # ── Panel ──────────────────────────────────────────────
       - "127.0.0.1:8080:8080"     # Admin panel (SSH tunnel only)
-      - "443:443/tcp"              # Subscriptions + TLS inbounds
+
+      # ── Subscription listener ──────────────────────────────
+      - "443:443/tcp"              # HTTPS subscriptions + TLS inbounds
       - "443:443/udp"              # QUIC (Hysteria2, TUIC)
-      # Inbound port range — adjust as needed:
-      - "2000-2050:2000-2050/tcp"
-      - "2000-2050:2000-2050/udp"
+
+      # ── Inbound ports ─────────────────────────────────────
+      # Add your inbound ports here. Examples:
+      # - "8443:8443/tcp"          # VLESS/VMess/Trojan
+      # - "8443:8443/udp"          # Hysteria2/TUIC
+      # - "2053:2053/tcp"          # Alternative port
+      #
+      # Or use a port range for flexibility:
+      - "2000-2050:2000-2050/tcp"  # Inbound port range (TCP)
+      - "2000-2050:2000-2050/udp"  # Inbound port range (UDP)
+      #
+      # ⚠️ Don't forget to open these ports in your firewall:
+      #    ufw allow 2000:2050/tcp
+      #    ufw allow 2000:2050/udp
 
     volumes:
       - ./data:/app/data
@@ -34,16 +59,30 @@ services:
       - JWT_SECRET=${JWT_SECRET:-}
       - TZ=${TZ:-UTC}
       - MONITORING_MODE=${MONITORING_MODE:-lite}
+      - DOCKER_CONTENT_TRUST=1
 
     security_opt:
       - no-new-privileges:true
 
     cap_drop:
       - ALL
+
     cap_add:
       - NET_BIND_SERVICE
-      - SYS_PTRACE
-      - NET_ADMIN
+      - NET_ADMIN  # Required for WARP WireGuard and TUN mode. Remove if not using WARP/TUN features.
+
+    deploy:
+      resources:
+        limits:
+          memory: 896M
+          cpus: '0.9'
+        reservations:
+          memory: 256M
+
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
 
     networks:
       - isolate-network

@@ -96,7 +96,10 @@ COPY docker/docker-healthcheck.sh /docker-healthcheck.sh
 RUN mkdir -p /app/data /var/log/isolate-panel /var/log/supervisor && \
     chmod +x /docker-entrypoint.sh && \
     chmod +x /docker-healthcheck.sh && \
-    chown -R root:root /app /var/log/isolate-panel
+    chown -R isolate:isolate /app /var/www/html /var/log/isolate-panel /var/log/supervisor /var/run
+
+# Switch to non-root user
+USER isolate
 
 # Expose ports
 EXPOSE 8080 443 8443
@@ -104,6 +107,9 @@ EXPOSE 8080 443 8443
 # Health check (panel + core process status)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD /docker-healthcheck.sh
+
+# Ensure graceful shutdown via SIGTERM (handled in main.go)
+STOPSIGNAL SIGTERM
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]

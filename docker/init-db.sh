@@ -18,9 +18,9 @@ CREATE TABLE IF NOT EXISTS admins (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Insert default admin (password: admin)
+-- Insert default admin
 INSERT INTO admins (username, password_hash, is_super_admin) 
-VALUES ('admin', '\$2a\$10\$X.vZKHCpS7kDqJjJzJh8W.FqQxQxQxQxQxQxQxQxQxQxQxQxQxQxQ', 1);
+VALUES ('admin', '\$PLACEHOLDER_HASH\$', 1);
 
 -- Cores table
 CREATE TABLE IF NOT EXISTS cores (

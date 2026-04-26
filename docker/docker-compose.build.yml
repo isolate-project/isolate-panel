@@ -1,0 +1,76 @@
+# Build from source — NOT for production deployment.
+# Use: docker compose -f docker-compose.build.yml up --build
+
+name: isolate-panel
+
+services:
+  isolate-panel:
+    image: isolate-panel:latest
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: isolate-panel
+    restart: unless-stopped
+    stop_signal: SIGTERM
+
+    ports:
+      - "127.0.0.1:8080:8080"     # Admin panel (SSH tunnel only)
+      - "443:443/tcp"              # Subscriptions + TLS inbounds
+      - "443:443/udp"              # QUIC (Hysteria2, TUIC)
+      # Inbound port range — adjust as needed:
+      - "2000-2050:2000-2050/tcp"
+      - "2000-2050:2000-2050/udp"
+
+    volumes:
+      - ./data:/app/data
+      - ./logs:/var/log/supervisor
+      - ./logs/isolate-panel:/var/log/isolate-panel
+
+    env_file:
+      - .env
+
+    environment:
+      - PORT=8080
+      - CONFIG_PATH=/app/configs/config.yaml
+      - DATABASE_PATH=/app/data/isolate-panel.db
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - APP_ENV=${APP_ENV:-production}
+      - JWT_SECRET=${JWT_SECRET:-}
+      - TZ=${TZ:-UTC}
+      - MONITORING_MODE=${MONITORING_MODE:-lite}
+
+    security_opt:
+      - no-new-privileges:true
+
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+      - NET_ADMIN
+
+    deploy:
+      resources:
+        limits:
+          memory: 896M
+          cpus: '0.9'
+        reservations:
+          memory: 256M
+
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+
+    networks:
+      - isolate-network
+
+    healthcheck:
+      test: ["CMD", "/docker-healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+networks:
+  isolate-network:
+    driver: bridge

@@ -27,6 +27,7 @@ services:
       - MONITORING_MODE=lite
       - TZ=UTC
     restart: unless-stopped
+    stop_signal: SIGTERM
     stdin_open: true
     tty: true
     networks:

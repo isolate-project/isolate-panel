@@ -52,10 +52,15 @@ frontend/playwright.fullstack.config.ts
 # CLI binary
 cli/cli
 
-# Environment variables
+# Environment variables — NEVER commit real .env files!
 .env
 .env.local
 .env.*.local
+# Allow test and example env files
+!.env.example
+!.env.test
+!docker/.env.example
+!docker/.env.test
 
 # IDE
 .vscode/
@@ -69,6 +74,13 @@ cli/cli
 .dockerignore
 docker/.env
 docker/data/
+
+# Private keys and certificates — NEVER commit these
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
 
 # Temporary files
 tmp/

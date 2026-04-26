@@ -181,13 +181,13 @@ download_files() {
     # Check if we're running from a cloned repository
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     
-    if [ -f "$SCRIPT_DIR/docker-compose.production.yml" ]; then
+    if [ -f "$SCRIPT_DIR/docker-compose.yml" ]; then
         log_info "Copying from local repository..."
-        cp "$SCRIPT_DIR/docker-compose.production.yml" "$INSTALL_DIR/docker-compose.yml"
+        cp "$SCRIPT_DIR/docker-compose.yml" "$INSTALL_DIR/docker-compose.yml"
         cp "$SCRIPT_DIR/.env.example" "$INSTALL_DIR/.env.example"
     else
         log_info "Downloading from GitHub..."
-        curl -sL "${GITHUB_RAW}/docker/docker-compose.production.yml" -o "$INSTALL_DIR/docker-compose.yml"
+        curl -sL "${GITHUB_RAW}/docker/docker-compose.yml" -o "$INSTALL_DIR/docker-compose.yml"
         curl -sL "${GITHUB_RAW}/docker/.env.example" -o "$INSTALL_DIR/.env.example"
     fi
     
@@ -300,7 +300,7 @@ update_panel() {
     
     # Download latest docker-compose
     log_info "Downloading latest configuration..."
-    curl -sL "${GITHUB_RAW}/docker/docker-compose.production.yml" -o "$INSTALL_DIR/docker-compose.yml.new"
+    curl -sL "${GITHUB_RAW}/docker/docker-compose.yml" -o "$INSTALL_DIR/docker-compose.yml.new"
     mv "$INSTALL_DIR/docker-compose.yml.new" "$INSTALL_DIR/docker-compose.yml"
     
     # Pull and restart

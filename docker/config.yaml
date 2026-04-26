@@ -10,10 +10,10 @@ app:
 database:
   path: /app/data/isolate-panel.db
   max_open_conns: 100
-  max_idle_conns: 10
+  max_idle_conns: 1
 
 jwt:
-  secret: "change-this-in-production-use-env-var"
+  secret: ""  # REQUIRED: set via JWT_SECRET env var; app will refuse to start if empty
   access_token_ttl: 900       # 15 minutes
   refresh_token_ttl: 604800    # 7 days
 
@@ -29,7 +29,7 @@ logging:
 
 security:
   argon2:
-    time: 1
+    time: 3
     memory: 65536
     threads: 4
     key_length: 32
