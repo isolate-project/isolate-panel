@@ -6,9 +6,15 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v3"
+
+	"github.com/isolate-project/isolate-panel/internal/validators"
 )
 
 var validate = validator.New()
+
+func init() {
+	validators.RegisterCustomValidators(validate)
+}
 
 // BindAndValidate binds the request JSON body into T and validates it using
 // the struct's `validate` tags. Returns a fiber.Error on bind or validation

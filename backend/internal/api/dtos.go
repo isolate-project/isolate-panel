@@ -232,3 +232,8 @@ type PortConflictDTO struct {
 	Action      string                `json:"action"`
 	Conflicts   []PortConflictItemDTO `json:"conflicts,omitempty"`
 }
+
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"current_password" validate:"required"`
+	NewPassword     string `json:"new_password" validate:"required,min=12,max=128,alphanum_special"`
+}
