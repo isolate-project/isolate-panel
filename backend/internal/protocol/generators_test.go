@@ -44,7 +44,10 @@ func TestGeneratePassword_Length(t *testing.T) {
 
 	for _, length := range tests {
 		t.Run(string(rune(length)), func(t *testing.T) {
-			password := GeneratePassword(length)
+			password, err := GeneratePassword(length)
+			if err != nil {
+				t.Fatalf("GeneratePassword(%d) failed: %v", length, err)
+			}
 			if len(password) != length {
 				t.Errorf("Expected password length %d, got %d", length, len(password))
 			}
@@ -57,7 +60,10 @@ func TestGeneratePassword_Uniqueness(t *testing.T) {
 
 	// Generate 100 passwords and ensure they're all unique
 	for i := 0; i < 100; i++ {
-		password := GeneratePassword(32)
+		password, err := GeneratePassword(32)
+		if err != nil {
+			t.Fatalf("GeneratePassword(32) failed at iteration %d: %v", i, err)
+		}
 		if generated[password] {
 			t.Errorf("Duplicate password generated at iteration %d", i)
 		}
@@ -78,7 +84,10 @@ func TestGenerateBase64Token_ValidChars(t *testing.T) {
 
 func TestGenerateRandomPath_Prefix(t *testing.T) {
 	for i := 0; i < 10; i++ {
-		path := GenerateRandomPath("")
+		path, err := GenerateRandomPath("")
+		if err != nil {
+			t.Fatalf("GenerateRandomPath failed: %v", err)
+		}
 		if len(path) == 0 {
 			t.Error("Expected non-empty path")
 		}

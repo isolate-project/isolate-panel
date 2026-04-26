@@ -5,7 +5,10 @@ import (
 	"encoding/pem"
 	"fmt"
 	"os"
+	"path/filepath"
+	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/isolate-project/isolate-panel/internal/acme"
@@ -304,6 +307,24 @@ func (h *CertificatesHandler) UploadCertificate(c fiber.Ctx) error {
 		})
 	}
 
+	const MaxPEMSize = 64 * 1024
+
+	if len(req.Certificate) > MaxPEMSize {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Certificate data exceeds maximum size (64KB)",
+		})
+	}
+	if len(req.PrivateKey) > MaxPEMSize {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Private key data exceeds maximum size (64KB)",
+		})
+	}
+	if len(req.Issuer) > MaxPEMSize {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Issuer certificate data exceeds maximum size (64KB)",
+		})
+	}
+
 	// Validate PEM format
 	certBlock, err := parsePEM(req.Certificate)
 	if err != nil {
@@ -326,8 +347,21 @@ func (h *CertificatesHandler) UploadCertificate(c fiber.Ctx) error {
 		})
 	}
 
+	// Sanitize domain to prevent path traversal
+	safeDomain := filepath.Base(req.Domain)
+	domainRegex := regexp.MustCompile(`^([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$`)
+
+	// Allow wildcard domains like *.example.com
+	checkDomain := safeDomain
+	if strings.HasPrefix(safeDomain, "*.") {
+		checkDomain = safeDomain[2:]
+	}
+	if !domainRegex.MatchString(checkDomain) && checkDomain != "localhost" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid domain format"})
+	}
+
 	// Create certificate directory
-	certDir := "/etc/isolate-panel/certs/" + req.Domain
+	certDir := filepath.Join("/etc/isolate-panel/certs", safeDomain)
 	if err := os.MkdirAll(certDir, 0700); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to create certificate directory",
@@ -379,8 +413,12 @@ func (h *CertificatesHandler) UploadCertificate(c fiber.Ctx) error {
 	if err := h.db.Create(cert).Error; err != nil {
 		os.RemoveAll(certDir)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to save certificate record: " + err.Error(),
+			"error": "Internal server error",
 		})
+	}
+
+	if h.certService.OnCertChange != nil {
+		h.certService.OnCertChange()
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{

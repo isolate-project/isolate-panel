@@ -15,8 +15,8 @@ import (
 
 // SetupRoutes registers all application routes on the Fiber app.
 func SetupRoutes(fiberApp *fiber.App, a *App) {
-	// Swagger UI — disabled in production
-	if os.Getenv("APP_ENV") != "production" {
+	// Swagger UI — only enabled in development
+	if os.Getenv("APP_ENV") == "development" {
 		fiberApp.Get("/api/docs", func(c fiber.Ctx) error {
 			c.Set("Content-Type", "text/html; charset=utf-8")
 			return c.SendString(`<!DOCTYPE html>
@@ -130,22 +130,27 @@ func registerV1Routes(router fiber.Router, a *App) {
 	// Auth routes (public)
 	authGrp := router.Group("/auth")
 	authGrp.Post("/login", middleware.LoginRateLimiter(a.LoginRL), a.AuthH.Login)
-	authGrp.Post("/refresh", a.AuthH.Refresh)
-	authGrp.Post("/logout", a.AuthH.Logout)
+	authGrp.Post("/refresh", middleware.LoginRateLimiter(a.RefreshLogoutRL), a.AuthH.Refresh)
+	authGrp.Post("/logout", middleware.LoginRateLimiter(a.RefreshLogoutRL), a.AuthH.Logout)
 
 	// TOTP routes (protected)
-	totpGrp := router.Group("/auth/totp", middleware.AuthMiddleware(a.TokenSvc))
+	totpGrp := router.Group("/auth/totp",
+		middleware.AuthMiddleware(a.TokenSvc),
+		middleware.MustChangePasswordGuard(),
+	)
 	totpGrp.Get("/status", a.AuthH.TOTPStatus)
 	totpGrp.Post("/setup", a.AuthH.TOTPSetup)
 	totpGrp.Post("/verify", a.AuthH.TOTPVerify)
 	totpGrp.Post("/disable", a.AuthH.TOTPDisable)
 
-	// Protected routes (JWT required + rate limit + password change check)
+	// Protected routes (JWT required + must-change-password guard + rate limit)
 	protected := router.Group("/",
 		middleware.AuthMiddleware(a.TokenSvc),
+		middleware.MustChangePasswordGuard(),
 		middleware.AuthRateLimiter(a.ProtectedRL),
 	)
 	protected.Get("/me", a.AuthH.Me)
+	protected.Post("/auth/change-password", a.AuthH.ChangePassword)
 
 	// System
 	systemGrp := protected.Group("/system")

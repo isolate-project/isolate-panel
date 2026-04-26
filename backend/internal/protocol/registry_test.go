@@ -25,14 +25,19 @@ func TestGenerateUUIDv4(t *testing.T) {
 }
 
 func TestGeneratePassword(t *testing.T) {
-	password := GeneratePassword(32)
+	password, err := GeneratePassword(32)
+	if err != nil {
+		t.Fatalf("GeneratePassword(32) failed: %v", err)
+	}
 
 	if len(password) != 32 {
 		t.Errorf("Expected password length 32, got %d", len(password))
 	}
 
-	// Generate another and ensure they're different
-	password2 := GeneratePassword(32)
+	password2, err := GeneratePassword(32)
+	if err != nil {
+		t.Fatalf("GeneratePassword(32) failed: %v", err)
+	}
 	if password == password2 {
 		t.Error("Generated passwords should be different")
 	}
@@ -57,7 +62,10 @@ func TestGenerateBase64Token(t *testing.T) {
 }
 
 func TestGenerateRandomPath(t *testing.T) {
-	path := GenerateRandomPath("")
+	path, err := GenerateRandomPath("")
+	if err != nil {
+		t.Fatalf("GenerateRandomPath failed: %v", err)
+	}
 
 	if len(path) == 0 {
 		t.Error("Expected non-empty path")
@@ -67,21 +75,28 @@ func TestGenerateRandomPath(t *testing.T) {
 		t.Error("Expected path to start with /")
 	}
 
-	// Generate another and ensure they're different
-	path2 := GenerateRandomPath("")
+	path2, err := GenerateRandomPath("")
+	if err != nil {
+		t.Fatalf("GenerateRandomPath failed: %v", err)
+	}
 	if path == path2 {
 		t.Error("Generated paths should be different")
 	}
 
-	// Test with prefix
-	pathWithPrefix := GenerateRandomPath("test")
+	pathWithPrefix, err := GenerateRandomPath("test")
+	if err != nil {
+		t.Fatalf("GenerateRandomPath with prefix failed: %v", err)
+	}
 	if !strings.Contains(pathWithPrefix, "/test/") {
 		t.Errorf("Expected path to contain /test/, got %s", pathWithPrefix)
 	}
 }
 
 func TestGenerateShortID(t *testing.T) {
-	id := GenerateShortID(8)
+	id, err := GenerateShortID(8)
+	if err != nil {
+		t.Fatalf("GenerateShortID(8) failed: %v", err)
+	}
 
 	if len(id) != 8 {
 		t.Errorf("Expected ID length 8, got %d", len(id))
@@ -286,5 +301,31 @@ func TestProtocolDirections(t *testing.T) {
 		if !validDirections[string(p.Direction)] {
 			t.Errorf("Protocol %s has invalid direction: %s", p.Protocol, p.Direction)
 		}
+	}
+}
+
+func TestDefaultWidget_Mapping(t *testing.T) {
+	tests := []struct {
+		name     string
+		paramType ParameterType
+		expected string
+	}{
+		{"String to input", TypeString, "input"},
+		{"Integer to number", TypeInteger, "number"},
+		{"Boolean to checkbox", TypeBoolean, "checkbox"},
+		{"Select to select", TypeSelect, "select"},
+		{"UUID to input", TypeUUID, "input"},
+		{"Array to tags", TypeArray, "tags"},
+		{"Object to textarea", TypeObject, "textarea"},
+		{"Unknown to input", ParameterType("unknown"), "input"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := DefaultWidget(tt.paramType)
+			if result != tt.expected {
+				t.Errorf("DefaultWidget(%v) = %v, want %v", tt.paramType, result, tt.expected)
+			}
+		})
 	}
 }

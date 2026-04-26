@@ -6,6 +6,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
+	"github.com/isolate-project/isolate-panel/internal/auth"
 	"github.com/isolate-project/isolate-panel/internal/middleware"
 	"github.com/isolate-project/isolate-panel/internal/models"
 	"github.com/isolate-project/isolate-panel/internal/services"
@@ -47,7 +48,7 @@ func (h *UsersHandler) CreateUser(c fiber.Ctx) error {
 	user, err := h.userService.CreateUser(&req, adminID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error: " + err.Error(),
+			"error": "Internal server error",
 		})
 	}
 
@@ -277,8 +278,17 @@ func (h *UsersHandler) formatUserResponse(user *models.User) services.UserRespon
 func (h *UsersHandler) formatUserResponseWithCredentials(user *models.User) services.CreateUserResponse {
 	response := h.formatUserResponse(user)
 	response.Token = user.Token
+
+	decryptedPassword, err := auth.DecryptCredential(user.Password)
+	if err != nil {
+		return services.CreateUserResponse{
+			UserResponse: response,
+			Password:     "",
+		}
+	}
+
 	return services.CreateUserResponse{
 		UserResponse: response,
-		Password:     user.Password,
+		Password:     decryptedPassword,
 	}
 }
