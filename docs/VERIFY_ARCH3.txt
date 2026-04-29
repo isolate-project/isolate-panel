@@ -1,0 +1,38 @@
+Question: Is this event bus Unsubscribe implementation correct?
+
+Code:
+type SubscriptionID uint64
+
+type BusImpl struct {
+    subscribers map[string]map[SubscriptionID]Handler
+    nextID      SubscriptionID
+    mu          sync.RWMutex
+}
+
+func (b *BusImpl) Subscribe(eventType Event, handler Handler) (SubscriptionID, error) {
+    b.mu.Lock()
+    defer b.mu.Unlock()
+    eventName := eventType.EventName()
+    if b.subscribers[eventName] == nil {
+        b.subscribers[eventName] = make(map[SubscriptionID]Handler)
+    }
+    id := b.nextID
+    b.nextID++
+    b.subscribers[eventName][id] = handler
+    return id, nil
+}
+
+func (b *BusImpl) Unsubscribe(eventType Event, id SubscriptionID) error {
+    b.mu.Lock()
+    defer b.mu.Unlock()
+    eventName := eventType.EventName()
+    delete(b.subscribers[eventName], id)
+    return nil
+}
+
+Specific concerns:
+1. Is the non-atomic nextID increment safe? (it's under mutex lock)
+2. Is delete() on a nil map safe? 
+3. Should Unsubscribe return error if ID not found?
+
+Output ONLY: <promise>VERIFIED</promise> if correct, or list issues.

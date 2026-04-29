@@ -40,7 +40,7 @@ func setupDashboardHub(t *testing.T) *DashboardHub {
 	t.Helper()
 	db := setupWSDB(t)
 	ct := services.NewConnectionTracker(db, 10*time.Second, "", "", "", "", "")
-	ts := auth.NewTokenService("test-secret", 15*time.Minute, 7*24*time.Hour, nil, nil)
+	ts , _ := auth.NewTokenService("this-is-a-very-long-test-secret-that-exceeds-the-minimum-64-byte-requirement-for-jwt-hs256", 15*time.Minute, 7*24*time.Hour, nil, nil)
 	return NewDashboardHub(db, ct, ts)
 }
 
@@ -197,7 +197,7 @@ func TestPurgeExpiredTickets_NoExpiredTickets(t *testing.T) {
 func TestDashboardHub_NewHub_CreatedSuccessfully(t *testing.T) {
 	db := setupWSDB(t)
 	ct := services.NewConnectionTracker(db, 10*time.Second, "", "", "", "", "")
-	ts := auth.NewTokenService("test-secret", 15*time.Minute, 7*24*time.Hour, nil, nil)
+	ts , _ := auth.NewTokenService("this-is-a-very-long-test-secret-that-exceeds-the-minimum-64-byte-requirement-for-jwt-hs256", 15*time.Minute, 7*24*time.Hour, nil, nil)
 
 	hub := NewDashboardHub(db, ct, ts)
 
@@ -273,7 +273,7 @@ func TestDashboardHub_CollectStats_ReturnsPayload(t *testing.T) {
 
 func TestDashboardHub_CollectStats_DBError(t *testing.T) {
 	db := setupWSDB(t)
-	ts := auth.NewTokenService("test-secret", 15*time.Minute, 7*24*time.Hour, nil, nil)
+	ts , _ := auth.NewTokenService("this-is-a-very-long-test-secret-that-exceeds-the-minimum-64-byte-requirement-for-jwt-hs256", 15*time.Minute, 7*24*time.Hour, nil, nil)
 	hub := NewDashboardHub(db, nil, ts)
 
 	user := models.User{

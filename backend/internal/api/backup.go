@@ -5,6 +5,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
+	"github.com/isolate-project/isolate-panel/internal/auth"
 	"github.com/isolate-project/isolate-panel/internal/middleware"
 	"github.com/isolate-project/isolate-panel/internal/scheduler"
 	"github.com/isolate-project/isolate-panel/internal/services"
@@ -28,18 +29,14 @@ func NewBackupHandler(backupService *services.BackupService, backupScheduler *sc
 func (h *BackupHandler) RegisterRoutes(router fiber.Router) {
 	backup := router.Group("/backups")
 
-	// Read-only operations (any authenticated admin)
-	backup.Get("/", h.ListBackups)
-	// Static routes MUST be before parameterized /:id
-	backup.Get("/schedule", h.GetSchedule)
-	backup.Get("/:id", h.GetBackup)
-
-	// Destructive operations (super-admin only)
-	backup.Post("/create", middleware.RequireSuperAdmin(), h.CreateBackup)
-	backup.Post("/schedule", middleware.RequireSuperAdmin(), h.SetSchedule)
-	backup.Post("/:id/restore", middleware.RequireSuperAdmin(), h.RestoreBackup)
-	backup.Delete("/:id", middleware.RequireSuperAdmin(), h.DeleteBackup)
-	backup.Get("/:id/download", middleware.RequireSuperAdmin(), h.DownloadBackup)
+	backup.Get("/", middleware.RequirePermission(auth.PermManageBackups), h.ListBackups)
+	backup.Get("/schedule", middleware.RequirePermission(auth.PermManageBackups), h.GetSchedule)
+	backup.Get("/:id", middleware.RequirePermission(auth.PermManageBackups), h.GetBackup)
+	backup.Post("/create", middleware.RequirePermission(auth.PermManageBackups), h.CreateBackup)
+	backup.Post("/schedule", middleware.RequirePermission(auth.PermManageBackups), h.SetSchedule)
+	backup.Post("/:id/restore", middleware.RequirePermission(auth.PermManageBackups), h.RestoreBackup)
+	backup.Delete("/:id", middleware.RequirePermission(auth.PermManageBackups), h.DeleteBackup)
+	backup.Get("/:id/download", middleware.RequirePermission(auth.PermManageBackups), h.DownloadBackup)
 }
 
 // ListBackups returns list of all backups

@@ -20,7 +20,7 @@ func TestConnectionTracker_AddAndGetConnections(t *testing.T) {
 	db := testutil.SetupTestDB(t)
 	defer testutil.TeardownTestDB(t, db)
 
-	ct := services.NewConnectionTracker(db, 10*time.Second, "", "", "", "", "")
+	ct := services.NewConnectionTracker(db, 10*time.Second, "", "", "", func() string { return "" }, func() string { return "" })
 	defer ct.Stop()
 
 	conn := &models.ActiveConnection{
@@ -48,7 +48,7 @@ func TestConnectionTracker_RemoveConnection(t *testing.T) {
 	db := testutil.SetupTestDB(t)
 	defer testutil.TeardownTestDB(t, db)
 
-	ct := services.NewConnectionTracker(db, 10*time.Second, "", "", "", "", "")
+	ct := services.NewConnectionTracker(db, 10*time.Second, "", "", "", func() string { return "" }, func() string { return "" })
 
 	conn := &models.ActiveConnection{
 		UserID:   1,
@@ -69,7 +69,7 @@ func TestConnectionTracker_GetActiveConnectionsCount(t *testing.T) {
 	db := testutil.SetupTestDB(t)
 	defer testutil.TeardownTestDB(t, db)
 
-	ct := services.NewConnectionTracker(db, 10*time.Second, "", "", "", "", "")
+	ct := services.NewConnectionTracker(db, 10*time.Second, "", "", "", func() string { return "" }, func() string { return "" })
 
 	// Initially 0
 	count, err := ct.GetActiveConnectionsCount()
@@ -94,7 +94,7 @@ func TestConnectionTracker_CleanupStaleConnections(t *testing.T) {
 	db := testutil.SetupTestDB(t)
 	defer testutil.TeardownTestDB(t, db)
 
-	ct := services.NewConnectionTracker(db, 10*time.Second, "", "", "", "", "")
+	ct := services.NewConnectionTracker(db, 10*time.Second, "", "", "", func() string { return "" }, func() string { return "" })
 
 	// Create a stale connection (last activity 5 minutes ago)
 	stale := &models.ActiveConnection{

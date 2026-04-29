@@ -394,6 +394,18 @@ func GenerateConfig(ctx *cores.ConfigContext, coreID uint) (*Config, error) {
 		return nil, fmt.Errorf("failed to get outbounds: %w", err)
 	}
 
+	// Get per-core API secret
+	var apiSecret string
+	if ctx.GetCoreAPISecret != nil {
+		secret, err := ctx.GetCoreAPISecret(core.ID)
+		if err != nil {
+			// Log warning but continue with empty secret
+			logger.Log.Warn().Err(err).Uint("core_id", core.ID).Msg("Failed to get API secret for singbox config")
+		} else {
+			apiSecret = secret
+		}
+	}
+
 	// Build base config with Clash API for stats
 	config := &Config{
 		Log: &LogConfig{
@@ -404,7 +416,7 @@ func GenerateConfig(ctx *cores.ConfigContext, coreID uint) (*Config, error) {
 		Experimental: &ExperimentalConfig{
 			ClashAPI: &ClashAPIConfig{
 				ExternalController: "127.0.0.1:9090",
-				Secret:             ctx.CoreAPISecret,
+				Secret:             apiSecret,
 			},
 		},
 		DNS: &DNSConfig{

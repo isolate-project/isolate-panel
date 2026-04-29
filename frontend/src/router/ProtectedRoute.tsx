@@ -16,7 +16,6 @@ const AUTH_CACHE_TTL = 60000
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { isAuthenticated, setUser, logout } = useAuthStore()
   const user = useAuthStore(s => s.user)
-  const accessToken = useAuthStore(s => s.accessToken)
   const [isChecking, setIsChecking] = useState(true)
   const abortControllerRef = useRef<AbortController | null>(null)
 
@@ -34,14 +33,6 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
         abortControllerRef.current.abort()
       }
       abortControllerRef.current = new AbortController()
-
-      const token = localStorage.getItem('accessToken')
-
-      if (!token) {
-        setIsChecking(false)
-        route('/login', true)
-        return
-      }
 
       if (authVerified && Date.now() - authVerifiedAt < AUTH_CACHE_TTL && isAuthenticated) {
         setIsChecking(false)
@@ -71,7 +62,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     }
 
     checkAuth()
-  }, [accessToken])
+  }, [isAuthenticated])
 
   if (isChecking) {
     return (

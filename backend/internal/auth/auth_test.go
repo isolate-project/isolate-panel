@@ -136,11 +136,11 @@ func TestHashPasswordConsistency(t *testing.T) {
 }
 
 func TestTokenService_GenerateAccessToken(t *testing.T) {
-	secret := "test-secret-key-for-jwt-signing"
+	secret := "this-is-a-very-long-test-secret-that-exceeds-the-minimum-64-byte-requirement-for-jwt-hs256-key"
 	accessTTL := 15 * time.Minute
 	refreshTTL := 7 * 24 * time.Hour
 
-	service := auth.NewTokenService(secret, accessTTL, refreshTTL, nil, nil)
+	service , _ := auth.NewTokenService(secret, accessTTL, refreshTTL, nil, nil)
 
 	adminID := uint(1)
 	username := "testadmin"
@@ -157,11 +157,11 @@ func TestTokenService_GenerateAccessToken(t *testing.T) {
 }
 
 func TestTokenService_ValidateAccessToken(t *testing.T) {
-	secret := "test-secret-key-for-jwt-signing"
+	secret := "this-is-a-very-long-test-secret-that-exceeds-the-minimum-64-byte-requirement-for-jwt-hs256-key"
 	accessTTL := 15 * time.Minute
 	refreshTTL := 7 * 24 * time.Hour
 
-	service := auth.NewTokenService(secret, accessTTL, refreshTTL, nil, nil)
+	service , _ := auth.NewTokenService(secret, accessTTL, refreshTTL, nil, nil)
 
 	adminID := uint(1)
 	username := "testadmin"
@@ -193,11 +193,11 @@ func TestTokenService_ValidateAccessToken(t *testing.T) {
 }
 
 func TestTokenService_ValidateAccessToken_Invalid(t *testing.T) {
-	secret := "test-secret-key-for-jwt-signing"
+	secret := "this-is-a-very-long-test-secret-that-exceeds-the-minimum-64-byte-requirement-for-jwt-hs256-key"
 	accessTTL := 15 * time.Minute
 	refreshTTL := 7 * 24 * time.Hour
 
-	service := auth.NewTokenService(secret, accessTTL, refreshTTL, nil, nil)
+	service , _ := auth.NewTokenService(secret, accessTTL, refreshTTL, nil, nil)
 
 	tests := []struct {
 		name    string
@@ -232,11 +232,11 @@ func TestTokenService_ValidateAccessToken_Invalid(t *testing.T) {
 }
 
 func TestTokenService_GenerateRefreshToken(t *testing.T) {
-	secret := "test-secret-key-for-jwt-signing"
+	secret := "this-is-a-very-long-test-secret-that-exceeds-the-minimum-64-byte-requirement-for-jwt-hs256-key"
 	accessTTL := 15 * time.Minute
 	refreshTTL := 7 * 24 * time.Hour
 
-	service := auth.NewTokenService(secret, accessTTL, refreshTTL, nil, nil)
+	service , _ := auth.NewTokenService(secret, accessTTL, refreshTTL, nil, nil)
 
 	token, err := service.GenerateRefreshToken()
 	if err != nil {
@@ -254,11 +254,11 @@ func TestTokenService_GenerateRefreshToken(t *testing.T) {
 }
 
 func TestTokenService_GetRefreshTokenTTL(t *testing.T) {
-	secret := "test-secret-key-for-jwt-signing"
+	secret := "this-is-a-very-long-test-secret-that-exceeds-the-minimum-64-byte-requirement-for-jwt-hs256-key"
 	accessTTL := 15 * time.Minute
 	refreshTTL := 7 * 24 * time.Hour
 
-	service := auth.NewTokenService(secret, accessTTL, refreshTTL, nil, nil)
+	service , _ := auth.NewTokenService(secret, accessTTL, refreshTTL, nil, nil)
 
 	ttl := service.GetRefreshTokenTTL()
 	if ttl != refreshTTL {
@@ -267,13 +267,13 @@ func TestTokenService_GetRefreshTokenTTL(t *testing.T) {
 }
 
 func TestTokenService_DifferentSecrets(t *testing.T) {
-	secret1 := "secret-one"
-	secret2 := "secret-two"
+	secret1 := "this-is-a-very-long-test-secret-one-that-exceeds-the-minimum-64-byte-requirement-for-jwt-hs256-key"
+	secret2 := "this-is-a-very-long-test-secret-two-that-exceeds-the-minimum-64-byte-requirement-for-jwt-hs256-key"
 	accessTTL := 15 * time.Minute
 	refreshTTL := 7 * 24 * time.Hour
 
-	service1 := auth.NewTokenService(secret1, accessTTL, refreshTTL, nil, nil)
-	service2 := auth.NewTokenService(secret2, accessTTL, refreshTTL, nil, nil)
+	service1 , _ := auth.NewTokenService(secret1, accessTTL, refreshTTL, nil, nil)
+	service2 , _ := auth.NewTokenService(secret2, accessTTL, refreshTTL, nil, nil)
 
 	adminID := uint(1)
 	username := "testadmin"
@@ -293,11 +293,11 @@ func TestTokenService_DifferentSecrets(t *testing.T) {
 }
 
 func TestTokenService_ExpiredToken(t *testing.T) {
-	secret := "test-secret-key-for-jwt-signing"
+	secret := "this-is-a-very-long-test-secret-that-exceeds-the-minimum-64-byte-requirement-for-jwt-hs256-key"
 	accessTTL := 1 * time.Millisecond // Very short TTL
 	refreshTTL := 7 * 24 * time.Hour
 
-	service := auth.NewTokenService(secret, accessTTL, refreshTTL, nil, nil)
+	service , _ := auth.NewTokenService(secret, accessTTL, refreshTTL, nil, nil)
 
 	adminID := uint(1)
 	username := "testadmin"

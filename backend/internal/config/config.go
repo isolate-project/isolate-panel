@@ -10,19 +10,33 @@ import (
 	"github.com/spf13/viper"
 )
 
+func readSecretFromEnvOrFile(envName string) string {
+	if val := os.Getenv(envName); val != "" {
+		return val
+	}
+	if filePath := os.Getenv(envName + "_FILE"); filePath != "" {
+		data, err := os.ReadFile(filePath)
+		if err == nil {
+			return strings.TrimSpace(string(data))
+		}
+	}
+	return ""
+}
+
 // Config holds all application configuration
 type Config struct {
-	App           AppConfig           `mapstructure:"app"`
-	Database      DatabaseConfig      `mapstructure:"database"`
-	JWT           JWTConfig           `mapstructure:"jwt"`
-	Logging       LoggingConfig       `mapstructure:"logging"`
-	Security      SecurityConfig      `mapstructure:"security"`
-	Cores         CoresConfig         `mapstructure:"cores"`
-	Data          DataConfig          `mapstructure:"data"`
-	Notifications NotificationsConfig `mapstructure:"notifications"`
-	Traffic       TrafficConfig       `mapstructure:"traffic"`
-	Subscription  SubscriptionConfig  `mapstructure:"subscription"`
-	HAProxy       HAProxyConfig       `mapstructure:"haproxy"`
+	App            AppConfig            `mapstructure:"app"`
+	Database       DatabaseConfig       `mapstructure:"database"`
+	JWT            JWTConfig            `mapstructure:"jwt"`
+	Logging        LoggingConfig        `mapstructure:"logging"`
+	Security       SecurityConfig       `mapstructure:"security"`
+	DataEncryption DataEncryptionConfig `mapstructure:"data_encryption"`
+	Cores          CoresConfig          `mapstructure:"cores"`
+	Data           DataConfig           `mapstructure:"data"`
+	Notifications  NotificationsConfig  `mapstructure:"notifications"`
+	Traffic        TrafficConfig        `mapstructure:"traffic"`
+	Subscription   SubscriptionConfig   `mapstructure:"subscription"`
+	HAProxy        HAProxyConfig        `mapstructure:"haproxy"`
 }
 
 type AppConfig struct {
@@ -59,7 +73,14 @@ type LoggingConfig struct {
 }
 
 type SecurityConfig struct {
-	Argon2 Argon2Config `mapstructure:"argon2"`
+	Argon2         Argon2Config `mapstructure:"argon2"`
+	PasswordPepper string       `mapstructure:"password_pepper"`
+}
+
+// DataEncryptionConfig holds configuration for database field encryption (Phase 5.5)
+type DataEncryptionConfig struct {
+	Key     string `mapstructure:"key"`      // Base64-encoded 32-byte key
+	KeyFile string `mapstructure:"key_file"` // Path to file containing base64-encoded key
 }
 
 type Argon2Config struct {
@@ -153,8 +174,14 @@ func Load(configPath string) (*Config, error) {
 	// Override with specific environment variables (supporting both prefixed and non-prefixed)
 	if jwtSecret := v.GetString("JWT_SECRET"); jwtSecret != "" {
 		config.JWT.Secret = jwtSecret
-	} else if val := os.Getenv("JWT_SECRET"); val != "" {
+	} else if val := readSecretFromEnvOrFile("JWT_SECRET"); val != "" {
 		config.JWT.Secret = val
+	}
+
+	if pepper := v.GetString("PASSWORD_PEPPER"); pepper != "" {
+		config.Security.PasswordPepper = pepper
+	} else if val := readSecretFromEnvOrFile("PASSWORD_PEPPER"); val != "" {
+		config.Security.PasswordPepper = val
 	}
 
 	if dbPath := v.GetString("DATABASE_PATH"); dbPath != "" {
@@ -261,6 +288,18 @@ func Load(configPath string) (*Config, error) {
 	// Apply defaults for subscription configuration
 	if config.Subscription.Host == "" {
 		config.Subscription.Host = "127.0.0.1"
+	}
+
+	// Data encryption key from environment (Phase 5.5)
+	if key := v.GetString("DATA_ENCRYPTION_KEY"); key != "" {
+		config.DataEncryption.Key = key
+	} else if val := readSecretFromEnvOrFile("DATA_ENCRYPTION_KEY"); val != "" {
+		config.DataEncryption.Key = val
+	}
+	if keyFile := v.GetString("DATA_ENCRYPTION_KEY_FILE"); keyFile != "" {
+		config.DataEncryption.KeyFile = keyFile
+	} else if val := os.Getenv("DATA_ENCRYPTION_KEY_FILE"); val != "" {
+		config.DataEncryption.KeyFile = val
 	}
 
 	return &config, nil

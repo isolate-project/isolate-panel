@@ -1,0 +1,152 @@
+# =============================================================================
+# Caddy Reverse Proxy Configuration for Isolate Panel
+# =============================================================================
+# This Caddy configuration provides:
+# - Reverse proxy to admin panel (isolate-panel:8080)
+# - Auto HTTPS with Let's Encrypt
+# - HTTP/3 (QUIC) support
+# - Subscription endpoint on :443 with TLS
+# - Admin endpoint blocked from public (only localhost/SSH tunnel)
+# - Security headers (HSTS, CSP, X-Frame-Options)
+# =============================================================================
+
+{
+    # Global options
+    auto_https off
+    http_port 80
+    https_port 443
+
+    # Enable HTTP/3 (QUIC)
+    servers {
+        protocol {
+            allow_h2c
+            experimental_http3
+        }
+    }
+
+    # Logging
+    log {
+        output file /var/log/caddy/access.log {
+            roll_size 100MB
+            roll_keep 3
+            roll_keep_for 7d
+        }
+        format json
+        level INFO
+    }
+
+    # Admin API (localhost only)
+    admin localhost:2019
+}
+
+# =============================================================================
+# Subscription Endpoint (Public HTTPS on port 443)
+# =============================================================================
+# This handles subscription requests and proxy inbounds on port 443
+:443 {
+    # TLS configuration with Let's Encrypt
+    tls {
+        # Use Let's Encrypt for automatic certificates
+        issuer acme {
+            disable_http_challenge
+            disable_tlsalpn_challenge
+        }
+
+        # Enable OCSP stapling
+        ocsp_stapling
+    }
+
+    # Enable HTTP/3 (QUIC)
+    bind 0.0.0.0
+
+    # Security headers
+    header {
+        # Strict Transport Security (HSTS)
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+
+        # Content Security Policy
+        Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';"
+
+        # X-Frame-Options (clickjacking protection)
+        X-Frame-Options "DENY"
+
+        # X-Content-Type-Options (MIME sniffing protection)
+        X-Content-Type-Options "nosniff"
+
+        # Referrer Policy
+        Referrer-Policy "strict-origin-when-cross-origin"
+
+        # Permissions Policy
+        Permissions-Policy "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()"
+
+        # Remove server identification
+        -Server
+    }
+
+    # Rate limiting (using Caddy's built-in rate limit module if available)
+    # For subscription endpoints, we allow reasonable traffic
+
+    # Health check endpoint for Caddy itself
+    handle /healthz {
+        respond "OK" 200
+    }
+
+    # Proxy to isolate-panel for subscription API
+    # The panel handles subscription links and API on the same port
+    reverse_proxy isolate-panel:8080 {
+        # Health check for backend
+        health_uri /healthz
+        health_interval 30s
+        health_timeout 10s
+
+        # Connection settings
+        transport http {
+            # Enable keepalive
+            keepalive 5m
+            # Connection timeouts
+            dial_timeout 10s
+            response_header_timeout 30s
+        }
+
+        # Header modifications
+        header_up Host {host}
+        header_up X-Real-IP {remote}
+        header_up X-Forwarded-For {remote}
+        header_up X-Forwarded-Proto {scheme}
+        header_up X-Forwarded-Host {host}
+
+        # Retry on failure
+        fail_duration 30s
+        max_fails 3
+        unhealthy_latency 5s
+    }
+}
+
+# =============================================================================
+# HTTP to HTTPS Redirect (Port 80)
+# =============================================================================
+:80 {
+    # Redirect all HTTP to HTTPS
+    redir https://{host}{uri} permanent
+}
+
+# =============================================================================
+# Admin Panel Access (Blocked from Public)
+# =============================================================================
+# This site block is intentionally NOT bound to any public interface.
+# The admin panel is only accessible via:
+# 1. SSH tunnel: ssh -L 8080:localhost:8080 user@server
+# 2. Direct localhost access on the server
+#
+# The isolate-panel container binds to 127.0.0.1:8080 directly,
+# so this Caddy configuration doesn't need to expose it.
+#
+# If you need Caddy to handle admin panel traffic (not recommended),
+# uncomment below and ensure proper IP restrictions:
+#
+# localhost:8080, 127.0.0.1:8080 {
+#     reverse_proxy isolate-panel:8080
+#     # Only allow localhost
+#     @not_localhost not remote_ip 127.0.0.1 ::1
+#     respond @not_localhost "Access Denied" 403
+# }

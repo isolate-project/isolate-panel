@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"strconv"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
 
@@ -10,13 +11,13 @@ import (
 
 // AuditAction returns a post-handler middleware that writes an audit entry
 // for all operations (both successful and failed).
-// action and resource are constants like "user.delete" / "user".
-// The resource ID is read from the "id" route param when present.
 func AuditAction(auditSvc *services.AuditService, action, resource string) fiber.Handler {
 	return func(c fiber.Ctx) error {
+		start := time.Now()
 		err := c.Next()
 
 		adminID, _ := c.Locals("admin_id").(uint)
+		username, _ := c.Locals("username").(string)
 
 		var resourceID *uint
 		if raw := c.Params("id"); raw != "" {
@@ -26,10 +27,14 @@ func AuditAction(auditSvc *services.AuditService, action, resource string) fiber
 			}
 		}
 
-		// Log both successful and failed operations
 		statusCode := c.Response().StatusCode()
 		details := map[string]interface{}{
-			"status_code": statusCode,
+			"status_code":   statusCode,
+			"path":          c.Path(),
+			"method":        c.Method(),
+			"user_agent":    c.Get("User-Agent"),
+			"duration_ms":   time.Since(start).Milliseconds(),
+			"username":      username,
 		}
 		if err != nil {
 			details["error"] = err.Error()
@@ -40,7 +45,6 @@ func AuditAction(auditSvc *services.AuditService, action, resource string) fiber
 	}
 }
 
-// parseUintParam tries to parse a decimal string into a uint.
 func parseUintParam(s string, out *uint) error {
 	v, err := strconv.ParseUint(s, 10, 64)
 	if err != nil {

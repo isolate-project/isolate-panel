@@ -1,21 +1,16 @@
 import apiClient from '../client'
 export { apiClient }
 
-// Auth endpoints
 export const authApi = {
   login: (username: string, password: string, totpCode?: string) =>
-    apiClient.post('/auth/login', { username, password, ...(totpCode ? { totp_code: totpCode } : {}) }),
+    apiClient.post('/auth/session/login', { username, password, ...(totpCode ? { totp_code: totpCode } : {}) }),
 
   totpSetup: () => apiClient.post('/auth/totp/setup'),
   totpVerify: (code: string) => apiClient.post('/auth/totp/verify', { code }),
   totpDisable: (password: string) => apiClient.post('/auth/totp/disable', { password }),
   totpStatus: () => apiClient.get('/auth/totp/status'),
 
-  refresh: (refreshToken: string) =>
-    apiClient.post('/auth/refresh', { refresh_token: refreshToken }),
-
-  logout: (refreshToken: string) =>
-    apiClient.post('/auth/logout', { refresh_token: refreshToken }),
+  logout: () => apiClient.post('/auth/session/logout'),
 
   me: () => apiClient.get('/me'),
 

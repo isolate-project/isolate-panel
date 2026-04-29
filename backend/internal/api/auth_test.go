@@ -38,10 +38,10 @@ func setupAuthTestEnv(t *testing.T) (*fiber.App, *gorm.DB) {
 	db.Create(&admin)
 
 	// Setup token service
-	tokenService := auth.NewTokenService("test-secret", 900*time.Second, 7*24*time.Hour, nil, nil)
+	tokenService , _ := auth.NewTokenService("this-is-a-very-long-test-secret-that-exceeds-the-minimum-64-byte-requirement-for-jwt-hs256", 900*time.Second, 7*24*time.Hour, nil, nil)
 
 	// Setup handler
-	handler := NewAuthHandler(db, tokenService, nil)
+	handler := NewAuthHandler(db, tokenService, nil, nil, nil)
 
 	// Setup fiber app
 	app := fiber.New()

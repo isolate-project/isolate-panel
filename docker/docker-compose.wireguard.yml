@@ -1,0 +1,94 @@
+# =============================================================================
+# Isolate Panel — WireGuard Overlay Network (Optional)
+# =============================================================================
+# Use this file ONLY if you have remote nodes that need secure communication
+# with the panel over the internet.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+#                  -f docker-compose.wireguard.yml up -d
+#
+# This creates an encrypted WireGuard tunnel:
+#   - Panel (server): 10.200.200.1/24
+#   - Remote nodes connect as WireGuard peers
+#   - All panel-to-node API traffic flows through WireGuard (not public internet)
+# =============================================================================
+
+name: isolate-panel
+
+services:
+  # ============================================================================
+  # WireGuard VPN Server (Panel side)
+  # ============================================================================
+  wireguard:
+    image: linuxserver/wireguard:latest
+    container_name: isolate-wireguard
+    restart: unless-stopped
+    init: true
+
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+
+    sysctls:
+      - net.ipv4.conf.all.src_valid_mark=1
+      - net.ipv4.ip_forward=1
+      - net.ipv6.conf.all.forwarding=1
+
+    volumes:
+      - ./wireguard/config:/config
+      - /lib/modules:/lib/modules:ro
+
+    ports:
+      # WireGuard UDP port (change in production)
+      - "51820:51820/udp"
+
+    environment:
+      PUID: 1000
+      PGID: 1000
+      TZ: ${TZ:-UTC}
+      # Server URL (set to your VPS public IP or domain)
+      SERVERURL: ${WIREGUARD_SERVER_URL:-}
+      # Server port
+      SERVERPORT: 51820
+      # Internal network
+      PEERS: ${WIREGUARD_PEERS:-node1,node2,node3}
+      PEERDNS: auto
+      INTERNAL_SUBNET: 10.200.200.0
+      # Allow peers to reach each other
+      ALLOWEDIPS: 10.200.200.0/24
+      # Persistent keepalive for NAT traversal
+      PERSISTENTKEEPALIVE_PEERS: "all"
+
+    networks:
+      - isolate-network
+
+    # Health check: verify WireGuard interface is up
+    healthcheck:
+      test: ["CMD-SHELL", "ip link show wg0 >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+    security_opt:
+      - no-new-privileges:true
+
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: '0.2'
+
+  # ============================================================================
+  # Panel API — Bind to WireGuard interface ONLY when WG is enabled
+  # ============================================================================
+  # When WireGuard is active, cores connect to panel via WG IP (10.200.200.1)
+  # instead of localhost. The panel listens on ALL interfaces but UFW blocks
+  # everything except WireGuard and localhost.
+  isolate-panel:
+    environment:
+      # Override to listen on WireGuard interface too
+      PANEL_BIND_ADDR: "0.0.0.0"
+      # Only accept core API requests from WireGuard subnet
+      CORE_API_ALLOWED_IPS: "10.200.200.0/24,127.0.0.1/8"

@@ -77,7 +77,7 @@ func TestMonitoringFlow(t *testing.T) {
 	})
 
 	// --- Step 4: Verify ConnectionTracker works ---
-	ct := services.NewConnectionTracker(db, 10*time.Second, "", "", "", "", "")
+	ct := services.NewConnectionTracker(db, 10*time.Second, "", "", "", func() string { return "" }, func() string { return "" })
 
 	conn := &models.ActiveConnection{
 		UserID:       user.ID,

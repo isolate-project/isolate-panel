@@ -12,7 +12,7 @@ import (
 
 var validate = validator.New()
 
-func init() {
+func SetupValidation() {
 	validators.RegisterCustomValidators(validate)
 }
 

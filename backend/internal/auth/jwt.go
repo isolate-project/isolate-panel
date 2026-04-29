@@ -12,38 +12,46 @@ import (
 	"gorm.io/gorm"
 )
 
+const minJWTKeyLength = 64
+
 // AdminValidator checks if an admin's claims are still valid against the database
 type AdminValidator func(adminID uint) (isActive bool, isSuperAdmin bool, mustChangePassword bool, err error)
 
 type TokenService struct {
 	secret          []byte
+	kid             string
 	accessTokenTTL  time.Duration
 	refreshTokenTTL time.Duration
 	issuer          string
 
-	// blacklist stores revoked access token hashes with their expiry times
 	blacklist   map[string]time.Time
 	blacklistMu sync.RWMutex
 	done        chan struct{}
 
-	// adminValidator validates admin state from database
 	adminValidator AdminValidator
-
-	// db for blacklist persistence
-	db *gorm.DB
+	db             *gorm.DB
 }
 
 type Claims struct {
-	AdminID           uint   `json:"admin_id"`
-	Username          string `json:"username"`
-	IsSuperAdmin      bool   `json:"is_super_admin"`
+	AdminID            uint   `json:"admin_id"`
+	Username           string `json:"username"`
+	IsSuperAdmin       bool   `json:"is_super_admin"`
 	MustChangePassword bool   `json:"must_change_password"`
+	Permissions        uint64 `json:"permissions"`
 	jwt.RegisteredClaims
 }
 
-func NewTokenService(secret string, accessTTL, refreshTTL time.Duration, validator AdminValidator, db *gorm.DB) *TokenService {
+func NewTokenService(secret string, accessTTL, refreshTTL time.Duration, validator AdminValidator, db *gorm.DB) (*TokenService, error) {
+	if len(secret) < minJWTKeyLength {
+		return nil, fmt.Errorf("JWT secret must be at least %d bytes (512 bits) for HS256 security", minJWTKeyLength)
+	}
+
+	kidHash := sha256.Sum256([]byte(secret))
+	kid := hex.EncodeToString(kidHash[:8])
+
 	ts := &TokenService{
 		secret:          []byte(secret),
+		kid:             kid,
 		accessTokenTTL:  accessTTL,
 		refreshTokenTTL: refreshTTL,
 		issuer:          "isolate-panel",
@@ -54,7 +62,7 @@ func NewTokenService(secret string, accessTTL, refreshTTL time.Duration, validat
 	}
 	ts.loadBlacklistFromDB()
 	go ts.cleanupBlacklist()
-	return ts
+	return ts, nil
 }
 
 func (ts *TokenService) cleanupBlacklist() {
@@ -101,24 +109,51 @@ func (ts *TokenService) loadBlacklistFromDB() {
 	ts.blacklistMu.Unlock()
 }
 
-// GenerateAccessToken generates a new JWT access token
 func (ts *TokenService) GenerateAccessToken(adminID uint, username string, isSuperAdmin bool, mustChangePassword bool) (string, error) {
+	var perms uint64
+	if isSuperAdmin {
+		perms = uint64(NewPermissions(
+			PermViewDashboard,
+			PermManageUsers,
+			PermManageInbounds,
+			PermManageOutbounds,
+			PermManageCores,
+			PermManageSettings,
+			PermViewLogs,
+			PermManageCertificates,
+			PermManageBackups,
+			PermSuperAdmin,
+		))
+	}
+	return ts.GenerateAccessTokenWithPermissions(adminID, username, isSuperAdmin, mustChangePassword, perms)
+}
+
+func (ts *TokenService) GenerateAccessTokenWithPermissions(adminID uint, username string, isSuperAdmin bool, mustChangePassword bool, permissions uint64) (string, error) {
 	now := time.Now()
+
+	jtiBytes := make([]byte, 16)
+	if _, err := rand.Read(jtiBytes); err != nil {
+		return "", fmt.Errorf("failed to generate jti: %w", err)
+	}
+
 	claims := &Claims{
-		AdminID:           adminID,
-		Username:          username,
-		IsSuperAdmin:      isSuperAdmin,
+		AdminID:            adminID,
+		Username:           username,
+		IsSuperAdmin:       isSuperAdmin,
 		MustChangePassword: mustChangePassword,
+		Permissions:        permissions,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(now.Add(ts.accessTokenTTL)),
 			IssuedAt:  jwt.NewNumericDate(now),
 			NotBefore: jwt.NewNumericDate(now),
 			Issuer:    ts.issuer,
 			Subject:   fmt.Sprintf("%d", adminID),
+			ID:        hex.EncodeToString(jtiBytes),
 		},
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	token.Header["kid"] = ts.kid
 	return token.SignedString(ts.secret)
 }
 
@@ -193,12 +228,37 @@ func (ts *TokenService) ValidateAccessToken(tokenString string) (*Claims, error)
 	return nil, fmt.Errorf("invalid token")
 }
 
-// GetAccessTokenTTL returns the access token TTL
 func (ts *TokenService) GetAccessTokenTTL() time.Duration {
 	return ts.accessTokenTTL
 }
 
-// GetRefreshTokenTTL returns the refresh token TTL
 func (ts *TokenService) GetRefreshTokenTTL() time.Duration {
 	return ts.refreshTokenTTL
+}
+
+// JWKSKey represents a JWK Set key entry.
+type JWKSKey struct {
+	Kty string `json:"kty"`
+	Kid string `json:"kid"`
+	Use string `json:"use"`
+	Alg string `json:"alg"`
+	K   string `json:"k"`
+}
+
+// JWKS represents a JSON Web Key Set.
+type JWKS struct {
+	Keys []JWKSKey `json:"keys"`
+}
+
+func (ts *TokenService) GetJWKS() *JWKS {
+	return &JWKS{
+		Keys: []JWKSKey{
+			{
+				Kty: "oct",
+				Kid: ts.kid,
+				Use: "sig",
+				Alg: "HS256",
+			},
+		},
+	}
 }

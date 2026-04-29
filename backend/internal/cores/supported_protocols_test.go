@@ -11,10 +11,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Blank imports to trigger init() functions for core adapter registration
-var _ = mihomo.Adapter{}
-var _ = singbox.Adapter{}
-var _ = xray.Adapter{}
+func init() {
+	mihomo.Register()
+	singbox.Register()
+	xray.Register()
+}
 
 // TestMihomo_SupportedProtocols_Naming tests Mihomo protocol naming conventions
 func TestMihomo_SupportedProtocols_Naming(t *testing.T) {

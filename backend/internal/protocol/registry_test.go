@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"os"
 	"strings"
 	"testing"
 )
@@ -328,4 +329,9 @@ func TestDefaultWidget_Mapping(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMain(m *testing.M) {
+	RegisterAllProtocols()
+	os.Exit(m.Run())
 }

@@ -56,7 +56,7 @@ func TestUsersHandler_ListUsers(t *testing.T) {
 	var body map[string]interface{}
 	err = json.NewDecoder(resp.Body).Decode(&body)
 	require.NoError(t, err)
-	assert.True(t, body["success"].(bool))
+	assert.NotNil(t, body["data"])
 }
 
 func TestSettingsHandler_GetMonitoring(t *testing.T) {
@@ -103,6 +103,6 @@ func TestCoresHandler_Create(t *testing.T) {
 }
 
 func TestAuthHandler_Create(t *testing.T) {
-	handler := api.NewAuthHandler(nil, nil, nil)
+	handler := api.NewAuthHandler(nil, nil, nil, nil, nil)
 	assert.NotNil(t, handler)
 }

@@ -3,9 +3,11 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"os"
 	"testing"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/isolate-project/isolate-panel/internal/protocol"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -213,4 +215,9 @@ func TestGetProtocol_ObfuscationPasswordWidget(t *testing.T) {
 	widget, ok := obfsPasswordParam["widget"].(string)
 	require.True(t, ok, "obfs_password parameter should have widget field")
 	assert.Equal(t, "password", widget, "obfs_password should have password widget")
+}
+
+func TestMain(m *testing.M) {
+	protocol.RegisterAllProtocols()
+	os.Exit(m.Run())
 }

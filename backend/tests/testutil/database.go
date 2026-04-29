@@ -68,7 +68,7 @@ func TeardownTestDB(t testing.TB, db *gorm.DB) {
 }
 
 func runAutoMigrations(db *gorm.DB) error {
-	return db.AutoMigrate(
+	if err := db.AutoMigrate(
 		&models.Admin{},
 		&models.User{},
 		&models.Core{},
@@ -86,7 +86,35 @@ func runAutoMigrations(db *gorm.DB) error {
 		&models.WarpRoute{},
 		&models.SubscriptionAccess{},
 		&models.SubscriptionShortURL{},
-	)
+		&models.RefreshToken{},
+		&models.LoginAttempt{},
+	); err != nil {
+		return err
+	}
+
+	if err := db.Exec(`
+		CREATE TABLE IF NOT EXISTS revoked_tokens (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			token_hash TEXT NOT NULL UNIQUE,
+			expires_at DATETIME NOT NULL
+		)
+	`).Error; err != nil {
+		return err
+	}
+
+	sqliteColumns := []string{
+		"ALTER TABLE admins ADD COLUMN is_active BOOLEAN DEFAULT 1",
+		"ALTER TABLE admins ADD COLUMN must_change_password BOOLEAN DEFAULT 0",
+		"ALTER TABLE admins ADD COLUMN totp_enabled BOOLEAN DEFAULT 0",
+		"ALTER TABLE admins ADD COLUMN totp_secret TEXT",
+		"ALTER TABLE admins ADD COLUMN permissions INTEGER DEFAULT 0",
+		"ALTER TABLE admins ADD COLUMN last_login_at DATETIME",
+	}
+	for _, col := range sqliteColumns {
+		db.Exec(col)
+	}
+
+	return nil
 }
 
 // SeedTestData seeds the database with test data

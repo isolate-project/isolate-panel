@@ -27,6 +27,12 @@ func CORS() fiber.Handler {
 		}
 	}
 
+	if len(filtered) == 0 && os.Getenv("APP_ENV") == "production" {
+		return func(c fiber.Ctx) error {
+			return c.Next()
+		}
+	}
+
 	return cors.New(cors.Config{
 		AllowOrigins:     filtered,
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},

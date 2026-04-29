@@ -1,0 +1,247 @@
+# =============================================================================
+# Isolate Panel — Docker Compose Production Overrides
+# =============================================================================
+# This file extends docker-compose.yml with production-grade services:
+# - Caddy reverse proxy with auto HTTPS
+# - Volume backup service (offen/docker-volume-backup)
+# - Docker image update notifications (Diun)
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Or set COMPOSE_FILE environment variable:
+#   export COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml
+#   docker compose up -d
+# =============================================================================
+
+name: isolate-panel
+
+services:
+  # ============================================================================
+  # Caddy Reverse Proxy
+  # ============================================================================
+  caddy:
+    build:
+      context: ./caddy
+      dockerfile: Dockerfile
+    container_name: isolate-caddy
+    restart: unless-stopped
+    init: true
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+
+    ports:
+      - "80:80/tcp"
+      - "443:443/tcp"
+      - "443:443/udp"  # HTTP/3 (QUIC)
+
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      - ./logs/caddy:/var/log/caddy
+
+    environment:
+      - CADDY_ADMIN=localhost:2019
+
+    networks:
+      - isolate-network
+
+    # Wait for panel to be healthy before starting
+    depends_on:
+      isolate-panel:
+        condition: service_healthy
+
+    # Health check for Caddy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:2019/config/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+    security_opt:
+      - no-new-privileges:true
+
+    cap_drop:
+      - ALL
+
+    cap_add:
+      - NET_BIND_SERVICE
+
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 64M
+
+  # ============================================================================
+  # Volume Backup Service
+  # ============================================================================
+  backup:
+    image: offen/docker-volume-backup:v2
+    container_name: isolate-backup
+    restart: unless-stopped
+    init: true
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+
+    environment:
+      # Backup schedule: daily at 2 AM
+      BACKUP_CRON_EXPRESSION: "0 2 * * *"
+
+      # Backup retention: 7 days
+      BACKUP_RETENTION_DAYS: "7"
+
+      # Backup source: SQLite database and config files
+      BACKUP_FILENAME: "isolate-panel-backup-%Y-%m-%dT%H-%M-%S.tar.gz"
+
+      # Enable encryption
+      BACKUP_ARCHIVE: "/archive"
+      BACKUP_PASSWORD_FILE: /run/secrets/backup_password
+
+      # Notifications (optional - configure in .env)
+      NOTIFICATION_URLS: ${BACKUP_NOTIFICATION_URLS:-}
+
+      # Stop container during backup for consistency
+      BACKUP_STOP_CONTAINER_LABEL: isolate-panel.stop-during-backup
+      BACKUP_FROM_SNAPSHOT: "true"
+
+      # Pre/post backup hooks
+      BACKUP_EXECUTION_HOOK: |
+        echo "Starting backup at $(date)"
+
+      BACKUP_SUCCESS_HOOK: |
+        echo "Backup completed successfully at $(date)"
+
+      BACKUP_FAILURE_HOOK: |
+        echo "Backup failed at $(date)"
+
+    volumes:
+      # Source volumes to backup
+      - ./data:/backup/data:ro
+      - ./logs:/backup/logs:ro
+
+      # Backup archive destination
+      - ./backups:/archive
+
+      # Docker socket for container stop/start during backup
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+    secrets:
+      - backup_password
+
+    networks:
+      - isolate-network
+
+    # Label to identify containers to stop during backup
+    labels:
+      - isolate-panel.stop-during-backup=true
+
+    # Don't start until panel is healthy
+    depends_on:
+      isolate-panel:
+        condition: service_healthy
+
+    security_opt:
+      - no-new-privileges:true
+
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.2'
+        reservations:
+          memory: 32M
+
+  # ============================================================================
+  # Docker Image Update Notifications (Diun)
+  # ============================================================================
+  diun:
+    image: crazymax/diun:latest
+    container_name: isolate-diun
+    restart: unless-stopped
+    init: true
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+
+    environment:
+      # Diun configuration
+      TZ: ${TZ:-UTC}
+
+      # Watch mode: poll for updates daily at 6 AM
+      DIUN_WATCH_SCHEDULE: "0 6 * * *"
+
+      # Watch all containers
+      DIUN_WATCH_WORKERS: "10"
+
+      # Docker provider
+      DIUN_PROVIDERS_DOCKER: "true"
+      DIUN_PROVIDERS_DOCKER_WATCHBYDEFAULT: "true"
+
+      # Notification settings
+      DIUN_NOTIF_DISCORD_WEBHOOKURL: ${DIUN_DISCORD_WEBHOOK:-}
+      DIUN_NOTIF_SLACK_WEBHOOKURL: ${DIUN_SLACK_WEBHOOK:-}
+      DIUN_NOTIF_TELEGRAM_BOTTOKEN: ${DIUN_TELEGRAM_BOT_TOKEN:-}
+      DIUN_NOTIF_TELEGRAM_CHATIDS: ${DIUN_TELEGRAM_CHAT_ID:-}
+      DIUN_NOTIF_WEBHOOK_ENDPOINT: ${DIUN_WEBHOOK_URL:-}
+      DIUN_NOTIF_WEBHOOK_METHOD: POST
+      DIUN_NOTIF_WEBHOOK_HEADERS: |
+        Content-Type: application/json
+        Authorization: Bearer ${DIUN_WEBHOOK_SECRET:-}
+
+      # Log only if no webhook configured
+      DIUN_NOTIF_LOG_ENABLED: "true"
+
+    volumes:
+      # Diun data directory
+      - diun_data:/data
+
+      # Docker socket for container discovery
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+    networks:
+      - isolate-network
+
+    security_opt:
+      - no-new-privileges:true
+
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: '0.1'
+        reservations:
+          memory: 16M
+
+# =============================================================================
+# Additional Secrets
+# =============================================================================
+secrets:
+  backup_password:
+    file: ./secrets/backup_password.txt
+
+# =============================================================================
+# Additional Volumes
+# =============================================================================
+volumes:
+  caddy_data:
+    driver: local
+  caddy_config:
+    driver: local
+  diun_data:
+    driver: local

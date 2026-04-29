@@ -64,6 +64,18 @@ func StopWorkers(a *App) {
 	if a.TrafficResetSched != nil {
 		a.TrafficResetSched.Stop()
 	}
+	if a.LogRetentionSched != nil {
+		a.LogRetentionSched.Stop()
+	}
+	if a.EventBus != nil {
+		a.EventBus.Close()
+	}
+	if a.Warp != nil {
+		a.Warp.StopAutoRefresh()
+	}
+	if a.LogRetentionSched != nil {
+		a.LogRetentionSched.Stop()
+	}
 	if a.Warp != nil {
 		a.Warp.StopAutoRefresh()
 	}

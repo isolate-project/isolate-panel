@@ -4,6 +4,7 @@ import { useThemeStore } from '../../stores/themeStore'
 import { useAuthStore } from '../../stores/authStore'
 import { useSystemResources } from '../../hooks/useSystem'
 import { invalidateAuthCache } from '../../router/ProtectedRoute'
+import { authApi } from '../../api/endpoints'
 import { useTranslation } from 'react-i18next'
 import { Button } from '../ui/Button'
 import { cn } from '../../lib/utils'
@@ -22,7 +23,10 @@ export function Header({ onMenuClick }: HeaderProps) {
     i18n.changeLanguage(lng)
   }
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await authApi.logout()
+    } catch { }
     invalidateAuthCache()
     logout()
     route('/login', true)

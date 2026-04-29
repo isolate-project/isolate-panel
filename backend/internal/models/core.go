@@ -15,6 +15,12 @@ type Core struct {
 	LogPath    string `json:"log_path"`
 	APIPort    int    `gorm:"default:10085" json:"api_port"` // Random port for Xray gRPC API (security)
 
+	// Per-node API key (Phase 5.4)
+	APIKeyHash      string `json:"-"`                      // Argon2id hash for verification
+	APIKeySalt      string `json:"-"`                      // Per-core salt
+	APIKeyHint      string `json:"api_key_hint,omitempty"` // Last 4 chars for display
+	APIKeyEncrypted string `json:"-" gorm:"type:text"`    // AES-256-GCM encrypted plaintext API key
+
 	// Statistics
 	UptimeSeconds int    `gorm:"default:0" json:"uptime_seconds"`
 	RestartCount  int    `gorm:"default:0" json:"restart_count"`

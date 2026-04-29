@@ -21,14 +21,14 @@ type CoreManager struct {
 	configDir          string
 	warpDir            string
 	geoDir             string
-	coreAPISecret      string
+	getCoreAPISecret   func(coreID uint) (string, error)
 	v2rayAPIListenAddr string
 	configMu           map[string]*sync.Mutex
 	configMuMu         sync.RWMutex
 }
 
 // NewCoreManager creates a new core manager
-func NewCoreManager(db *gorm.DB, supervisorURL string, coreCfg *CoreConfig, configDir string, warpDir string, geoDir string, coreAPISecret string, v2rayAPIListenAddr string) *CoreManager {
+func NewCoreManager(db *gorm.DB, supervisorURL string, coreCfg *CoreConfig, configDir string, warpDir string, geoDir string, getCoreAPISecret func(coreID uint) (string, error), v2rayAPIListenAddr string) *CoreManager {
 	if coreCfg == nil {
 		coreCfg = &CoreConfig{}
 		coreCfg.ApplyDefaults()
@@ -49,7 +49,7 @@ func NewCoreManager(db *gorm.DB, supervisorURL string, coreCfg *CoreConfig, conf
 		configDir:          configDir,
 		warpDir:            warpDir,
 		geoDir:             geoDir,
-		coreAPISecret:      coreAPISecret,
+		getCoreAPISecret:   getCoreAPISecret,
 		v2rayAPIListenAddr: v2rayAPIListenAddr,
 		configMu:           make(map[string]*sync.Mutex),
 	}
@@ -386,7 +386,7 @@ func (cm *CoreManager) ReloadConfig(ctx context.Context, name string) error {
 		CoreConfig:         cm.coreCfg,
 		WarpDir:            cm.warpDir,
 		GeoDir:             cm.geoDir,
-		CoreAPISecret:      cm.coreAPISecret,
+		GetCoreAPISecret:   cm.getCoreAPISecret,
 		V2RayAPIListenAddr: cm.v2rayAPIListenAddr,
 	}, core.ID)
 	if err != nil {

@@ -11,36 +11,33 @@ import (
 )
 
 const (
-	// Argon2id parameters (OWASP recommended)
 	ArgonTime       = 3
-	ArgonMemory     = 64 * 1024 // 64 MB
+	ArgonMemory     = 64 * 1024
 	ArgonThreads    = 4
 	ArgonKeyLength  = 32
 	ArgonSaltLength = 16
 
-	// Legacy parameter for backward compatibility with existing hashes
 	legacyArgonTime = 1
 )
 
-// HashPassword hashes a password using Argon2id
+var pepper []byte
+
+func SetPepper(p string) {
+	pepper = []byte(p)
+}
+
 func HashPassword(password string) (string, error) {
-	// Generate random salt
 	salt := make([]byte, ArgonSaltLength)
 	if _, err := rand.Read(salt); err != nil {
 		return "", fmt.Errorf("failed to generate salt: %w", err)
 	}
 
-	// Hash password
-	hash := argon2.IDKey(
-		[]byte(password),
-		salt,
-		ArgonTime,
-		ArgonMemory,
-		ArgonThreads,
-		ArgonKeyLength,
-	)
+	pwd := []byte(password)
+	if len(pepper) > 0 {
+		pwd = append(pwd, pepper...)
+	}
 
-	// Encode as: salt:hash (both hex encoded)
+	hash := argon2.IDKey(pwd, salt, ArgonTime, ArgonMemory, ArgonThreads, ArgonKeyLength)
 	return fmt.Sprintf("%s:%s", hex.EncodeToString(salt), hex.EncodeToString(hash)), nil
 }
 
@@ -48,13 +45,11 @@ func HashPassword(password string) (string, error) {
 // It tries the current parameters first, then falls back to legacy parameters
 // for backward compatibility with hashes created before the ArgonTime increase.
 func VerifyPassword(password, encodedHash string) (bool, error) {
-	// Split salt and hash
 	parts := strings.Split(encodedHash, ":")
 	if len(parts) != 2 {
 		return false, fmt.Errorf("invalid hash format")
 	}
 
-	// Decode salt and hash
 	salt, err := hex.DecodeString(parts[0])
 	if err != nil {
 		return false, fmt.Errorf("failed to decode salt: %w", err)
@@ -65,28 +60,25 @@ func VerifyPassword(password, encodedHash string) (bool, error) {
 		return false, fmt.Errorf("failed to decode hash: %w", err)
 	}
 
-	// Try current parameters first
-	hash := argon2.IDKey(
-		[]byte(password),
-		salt,
-		ArgonTime,
-		ArgonMemory,
-		ArgonThreads,
-		ArgonKeyLength,
-	)
+	pwd := []byte(password)
+	var pepperedPwd []byte
+	if len(pepper) > 0 {
+		pepperedPwd = append(append([]byte{}, pwd...), pepper...)
+	}
+
+	if len(pepperedPwd) > 0 {
+		hash := argon2.IDKey(pepperedPwd, salt, ArgonTime, ArgonMemory, ArgonThreads, ArgonKeyLength)
+		if subtle.ConstantTimeCompare(hash, expectedHash) == 1 {
+			return true, nil
+		}
+	}
+
+	hash := argon2.IDKey(pwd, salt, ArgonTime, ArgonMemory, ArgonThreads, ArgonKeyLength)
 	if subtle.ConstantTimeCompare(hash, expectedHash) == 1 {
 		return true, nil
 	}
 
-	// Fall back to legacy parameters
-	legacyHash := argon2.IDKey(
-		[]byte(password),
-		salt,
-		legacyArgonTime,
-		ArgonMemory,
-		ArgonThreads,
-		ArgonKeyLength,
-	)
+	legacyHash := argon2.IDKey(pwd, salt, legacyArgonTime, ArgonMemory, ArgonThreads, ArgonKeyLength)
 	return subtle.ConstantTimeCompare(legacyHash, expectedHash) == 1, nil
 }
 
@@ -108,14 +100,11 @@ func NeedsRehash(password, encodedHash string) bool {
 		return false
 	}
 
-	// If hash matches current params, no rehash needed
-	hash := argon2.IDKey(
-		[]byte(password),
-		salt,
-		ArgonTime,
-		ArgonMemory,
-		ArgonThreads,
-		ArgonKeyLength,
-	)
+	pwd := []byte(password)
+	if len(pepper) > 0 {
+		pwd = append(pwd, pepper...)
+	}
+
+	hash := argon2.IDKey(pwd, salt, ArgonTime, ArgonMemory, ArgonThreads, ArgonKeyLength)
 	return subtle.ConstantTimeCompare(hash, expectedHash) != 1
 }

@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -86,7 +87,16 @@ func main() {
 	if cfg.IsDevelopment() {
 		log.Info().Msg("Running database seeders")
 		seeder := seeds.NewSeeder(db.DB)
-		if err := seeder.RunAll(os.Getenv("ADMIN_PASSWORD")); err != nil {
+		adminPassword := os.Getenv("ADMIN_PASSWORD")
+		if adminPassword == "" {
+			if filePath := os.Getenv("ADMIN_PASSWORD_FILE"); filePath != "" {
+				data, err := os.ReadFile(filePath)
+				if err == nil {
+					adminPassword = strings.TrimSpace(string(data))
+				}
+			}
+		}
+		if err := seeder.RunAll(adminPassword); err != nil {
 			log.Fatal().Err(err).Msg("Failed to run seeders")
 		}
 	}

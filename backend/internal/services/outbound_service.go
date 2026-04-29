@@ -13,15 +13,19 @@ import (
 
 // OutboundService handles outbound management operations
 type OutboundService struct {
-	db            *gorm.DB
-	configService *ConfigService
+	db             *gorm.DB
+	configService  *ConfigService
+	schemaProvider protocol.SchemaProvider
+	validator      protocol.Validator
 }
 
 // NewOutboundService creates a new outbound service
-func NewOutboundService(db *gorm.DB, configService *ConfigService) *OutboundService {
+func NewOutboundService(db *gorm.DB, configService *ConfigService, registry protocol.Registry) *OutboundService {
 	return &OutboundService{
-		db:            db,
-		configService: configService,
+		db:             db,
+		configService:  configService,
+		schemaProvider: registry,
+		validator:      registry,
 	}
 }
 
@@ -45,13 +49,13 @@ func (s *OutboundService) CreateOutbound(outbound *models.Outbound) error {
 	}
 
 	// Validate protocol against schema registry
-	schema, ok := protocol.GetProtocolSchema(outbound.Protocol)
+	schema, ok := s.schemaProvider.GetSchema(outbound.Protocol)
 	if !ok {
 		return fmt.Errorf("unknown protocol: %s", outbound.Protocol)
 	}
 
 	// Validate protocol supports this core
-	if !protocol.ValidateProtocolForCore(outbound.Protocol, coreModel.Name) {
+	if !s.validator.SupportsCore(outbound.Protocol, coreModel.Name) {
 		return fmt.Errorf("protocol %s is not supported by core %s", outbound.Protocol, coreModel.Name)
 	}
 
@@ -65,7 +69,7 @@ func (s *OutboundService) CreateOutbound(outbound *models.Outbound) error {
 		if err := validateJSON(outbound.ConfigJSON); err != nil {
 			return fmt.Errorf("invalid config_json: %w", err)
 		}
-		if err := protocol.ValidateConfigJSON(outbound.Protocol, outbound.ConfigJSON); err != nil {
+		if err := s.validator.ValidateConfig(outbound.Protocol, outbound.ConfigJSON); err != nil {
 			return fmt.Errorf("config validation: %w", err)
 		}
 	} else {
@@ -138,11 +142,11 @@ func (s *OutboundService) UpdateOutbound(id uint, updates map[string]interface{}
 
 	// If protocol is being changed, validate it
 	if newProtocol, ok := updates["protocol"].(string); ok && newProtocol != outbound.Protocol {
-		schema, exists := protocol.GetProtocolSchema(newProtocol)
+		schema, exists := s.schemaProvider.GetSchema(newProtocol)
 		if !exists {
 			return nil, fmt.Errorf("unknown protocol: %s", newProtocol)
 		}
-		if !protocol.ValidateProtocolForCore(newProtocol, coreModel.Name) {
+		if !s.validator.SupportsCore(newProtocol, coreModel.Name) {
 			return nil, fmt.Errorf("protocol %s is not supported by core %s", newProtocol, coreModel.Name)
 		}
 		if schema.Direction == "inbound" {

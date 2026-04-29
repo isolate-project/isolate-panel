@@ -6,10 +6,18 @@ import (
 	"github.com/isolate-project/isolate-panel/internal/protocol"
 )
 
-type ProtocolsHandler struct{}
+type ProtocolsHandler struct {
+	lister        protocol.Lister
+	schemaProvider protocol.SchemaProvider
+	uiGenerator   protocol.UIGenerator
+}
 
-func NewProtocolsHandler() *ProtocolsHandler {
-	return &ProtocolsHandler{}
+func NewProtocolsHandler(registry protocol.Registry) *ProtocolsHandler {
+	return &ProtocolsHandler{
+		lister:         registry,
+		schemaProvider: registry,
+		uiGenerator:    registry,
+	}
 }
 
 // ListProtocols returns summaries of all registered protocols.
@@ -39,11 +47,11 @@ func (h *ProtocolsHandler) ListProtocols(c fiber.Ctx) error {
 
 	switch {
 	case coreName != "" && direction != "":
-		summaries = protocol.GetProtocolsByCoreAndDirection(coreName, direction)
+		summaries = h.lister.ListByCoreAndDirection(coreName, direction)
 	case coreName != "":
-		summaries = protocol.GetProtocolsByCore(coreName)
+		summaries = h.lister.ListByCore(coreName)
 	default:
-		summaries = protocol.GetAllProtocols()
+		summaries = h.lister.List()
 		// If only direction filter provided, filter manually
 		if direction != "" {
 			filtered := make([]protocol.ProtocolSummary, 0)
@@ -81,7 +89,7 @@ func (h *ProtocolsHandler) GetProtocol(c fiber.Ctx) error {
 		})
 	}
 
-	schema, ok := protocol.GetProtocolSchema(name)
+	schema, ok := h.schemaProvider.GetSchema(name)
 	if !ok {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "Protocol not found",
@@ -91,7 +99,7 @@ func (h *ProtocolsHandler) GetProtocol(c fiber.Ctx) error {
 	// Fill default widgets if not set
 	for key, param := range schema.Parameters {
 		if param.Widget == "" {
-			param.Widget = protocol.DefaultWidget(param.Type)
+			param.Widget = h.uiGenerator.DefaultWidget(param.Type)
 			schema.Parameters[key] = param
 		}
 	}
@@ -119,7 +127,7 @@ func (h *ProtocolsHandler) GetProtocolDefaults(c fiber.Ctx) error {
 		})
 	}
 
-	schema, ok := protocol.GetProtocolSchema(name)
+	schema, ok := h.schemaProvider.GetSchema(name)
 	if !ok {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "Protocol not found",
@@ -129,7 +137,7 @@ func (h *ProtocolsHandler) GetProtocolDefaults(c fiber.Ctx) error {
 	defaults := make(map[string]interface{})
 	for key, param := range schema.Parameters {
 		if param.AutoGenerate && param.AutoGenFunc != "" {
-			generated, err := protocol.AutoGenerate(param.AutoGenFunc)
+			generated, err := h.uiGenerator.AutoGenerate(param.AutoGenFunc)
 			if err == nil {
 				defaults[key] = generated
 			}

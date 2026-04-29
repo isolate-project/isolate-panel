@@ -35,7 +35,7 @@ func NewTrafficCollector(
 	settings *SettingsService,
 	interval time.Duration,
 	xrayAddr, singboxAddr, mihomoAddr string,
-	singboxAPIKey, mihomoAPIKey string,
+	getSingboxAPIKey, getMihomoAPIKey func() string,
 ) *TrafficCollector {
 	// Auto-detect interval based on monitoring_mode setting
 	if interval == 0 {
@@ -66,12 +66,12 @@ func NewTrafficCollector(
 
 	// Initialize Sing-box client
 	if singboxAddr != "" {
-		tc.singboxClient = singbox.NewStatsClient(singboxAddr, singboxAPIKey)
+		tc.singboxClient = singbox.NewStatsClient(singboxAddr, getSingboxAPIKey)
 	}
 
 	// Initialize Mihomo client
 	if mihomoAddr != "" {
-		tc.mihomoClient = mihomo.NewStatsClient(mihomoAddr, mihomoAPIKey)
+		tc.mihomoClient = mihomo.NewStatsClient(mihomoAddr, getMihomoAPIKey)
 	}
 
 	return tc

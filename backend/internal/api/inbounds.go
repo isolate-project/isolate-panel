@@ -6,6 +6,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"gorm.io/gorm"
 
+	"github.com/isolate-project/isolate-panel/internal/api/dto"
 	"github.com/isolate-project/isolate-panel/internal/haproxy"
 	"github.com/isolate-project/isolate-panel/internal/middleware"
 	"github.com/isolate-project/isolate-panel/internal/models"
@@ -69,13 +70,12 @@ func (h *InboundsHandler) ListInbounds(c fiber.Ctx) error {
 
 	totalPages := (total + int64(params.PageSize) - 1) / int64(params.PageSize)
 
-	return c.JSON(fiber.Map{
-		"success":   true,
-		"inbounds":  inbounds,
-		"total":     total,
-		"page":      params.Page,
-		"page_size": params.PageSize,
-		"pages":     totalPages,
+	return c.JSON(dto.ListResponse[models.Inbound]{
+		Data:     inbounds,
+		Total:    total,
+		Page:     params.Page,
+		PageSize: params.PageSize,
+		Pages:    totalPages,
 	})
 }
 
@@ -156,7 +156,7 @@ func (h *InboundsHandler) UpdateInbound(c fiber.Ctx) error {
 		})
 	}
 
-	var req UpdateInboundDTO
+	var req dto.UpdateInboundRequest
 	if err := c.Bind().JSON(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid request body",
@@ -204,8 +204,8 @@ func (h *InboundsHandler) DeleteInbound(c fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(fiber.Map{
-		"message": "Inbound deleted successfully",
+	return c.JSON(dto.MessageResponse{
+		Message: "Inbound deleted successfully",
 	})
 }
 
@@ -267,8 +267,8 @@ func (h *InboundsHandler) AssignInboundToUser(c fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(fiber.Map{
-		"message": "Inbound assigned to user successfully",
+	return c.JSON(dto.MessageResponse{
+		Message: "Inbound assigned to user successfully",
 	})
 }
 
@@ -302,8 +302,8 @@ func (h *InboundsHandler) UnassignInboundFromUser(c fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(fiber.Map{
-		"message": "Inbound unassigned from user successfully",
+	return c.JSON(dto.MessageResponse{
+		Message: "Inbound unassigned from user successfully",
 	})
 }
 
@@ -332,9 +332,9 @@ func (h *InboundsHandler) GetInboundUsers(c fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(fiber.Map{
-		"users": users,
-		"total": len(users),
+	return c.JSON(dto.ListResponse[models.User]{
+		Data:  users,
+		Total: int64(len(users)),
 	})
 }
 
@@ -382,6 +382,13 @@ func (h *InboundsHandler) BulkAssignUsers(c fiber.Ctx) error {
 		"added":   added,
 		"removed": removed,
 	})
+}
+
+// BulkAssignResponse represents the response for bulk assign operations
+type BulkAssignResponse struct {
+	Message string `json:"message"`
+	Added   int    `json:"added"`
+	Removed int    `json:"removed"`
 }
 
 // CheckPort checks if a port is available

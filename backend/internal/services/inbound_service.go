@@ -17,14 +17,16 @@ type InboundService struct {
 	lifecycleManager *CoreLifecycleManager
 	portManager      *PortManager
 	subscriptions    *SubscriptionService
+	validator        protocol.Validator
 }
 
 // NewInboundService creates a new inbound service
-func NewInboundService(db *gorm.DB, lifecycleManager *CoreLifecycleManager, portManager *PortManager) *InboundService {
+func NewInboundService(db *gorm.DB, lifecycleManager *CoreLifecycleManager, portManager *PortManager, validator protocol.Validator) *InboundService {
 	return &InboundService{
 		db:               db,
 		lifecycleManager: lifecycleManager,
 		portManager:      portManager,
+		validator:        validator,
 	}
 }
 
@@ -414,8 +416,10 @@ func (s *InboundService) ValidateInboundConfig(protocolName string, configJSON s
 		return fmt.Errorf("invalid JSON: %w", err)
 	}
 
-	if err := protocol.ValidateConfigJSON(protocolName, configJSON); err != nil {
-		return err
+	if s.validator != nil {
+		if err := s.validator.ValidateConfig(protocolName, configJSON); err != nil {
+			return err
+		}
 	}
 
 	return nil

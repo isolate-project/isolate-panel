@@ -3,6 +3,7 @@ package api
 import (
 	"github.com/gofiber/fiber/v3"
 
+	"github.com/isolate-project/isolate-panel/internal/api/dto"
 	"github.com/isolate-project/isolate-panel/internal/cores"
 )
 
@@ -28,8 +29,8 @@ func NewCoresHandler(coreManager *cores.CoreManager) *CoresHandler {
 func (h *CoresHandler) ListCores(c fiber.Ctx) error {
 	cores, err := h.coreManager.ListCores(c.Context())
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to list cores",
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse{
+			Error: "Failed to list cores",
 		})
 	}
 
@@ -50,15 +51,15 @@ func (h *CoresHandler) ListCores(c fiber.Ctx) error {
 func (h *CoresHandler) GetCore(c fiber.Ctx) error {
 	name := c.Params("name")
 	if name == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Core name is required",
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
+			Error: "Core name is required",
 		})
 	}
 
 	coreInfo, err := h.coreManager.GetCoreStatus(c.Context(), name)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error": "Core not found",
+		return c.Status(fiber.StatusNotFound).JSON(dto.ErrorResponse{
+			Error: "Core not found",
 		})
 	}
 
@@ -79,14 +80,14 @@ func (h *CoresHandler) GetCore(c fiber.Ctx) error {
 func (h *CoresHandler) StartCore(c fiber.Ctx) error {
 	name := c.Params("name")
 	if name == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Core name is required",
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
+			Error: "Core name is required",
 		})
 	}
 
 	if err := h.coreManager.StartCore(c.Context(), name); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse{
+			Error: "Internal server error",
 		})
 	}
 
@@ -110,14 +111,14 @@ func (h *CoresHandler) StartCore(c fiber.Ctx) error {
 func (h *CoresHandler) StopCore(c fiber.Ctx) error {
 	name := c.Params("name")
 	if name == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Core name is required",
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
+			Error: "Core name is required",
 		})
 	}
 
 	if err := h.coreManager.StopCore(c.Context(), name); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse{
+			Error: "Internal server error",
 		})
 	}
 
@@ -141,14 +142,14 @@ func (h *CoresHandler) StopCore(c fiber.Ctx) error {
 func (h *CoresHandler) RestartCore(c fiber.Ctx) error {
 	name := c.Params("name")
 	if name == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Core name is required",
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
+			Error: "Core name is required",
 		})
 	}
 
 	if err := h.coreManager.RestartCore(c.Context(), name); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse{
+			Error: "Internal server error",
 		})
 	}
 
@@ -172,25 +173,26 @@ func (h *CoresHandler) RestartCore(c fiber.Ctx) error {
 func (h *CoresHandler) GetCoreStatus(c fiber.Ctx) error {
 	name := c.Params("name")
 	if name == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Core name is required",
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
+			Error: "Core name is required",
 		})
 	}
 
 	coreInfo, err := h.coreManager.GetCoreStatus(c.Context(), name)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error": "Core not found",
+		return c.Status(fiber.StatusNotFound).JSON(dto.ErrorResponse{
+			Error: "Core not found",
 		})
 	}
 
-	return c.JSON(fiber.Map{
-		"name":       coreInfo.Name,
-		"is_running": coreInfo.IsRunning,
-		"is_enabled": coreInfo.IsEnabled,
-		"pid":        coreInfo.PID,
-		"uptime":     coreInfo.UptimeSeconds,
-		"restarts":   coreInfo.RestartCount,
-		"last_error": coreInfo.LastError,
+	return c.JSON(dto.CoreStatusResponse{
+		Name:          coreInfo.Name,
+		IsRunning:     coreInfo.IsRunning,
+		IsEnabled:     coreInfo.IsEnabled,
+		PID:           coreInfo.PID,
+		UptimeSeconds: coreInfo.UptimeSeconds,
+		RestartCount:  coreInfo.RestartCount,
+		LastError:     coreInfo.LastError,
+		HealthStatus:  coreInfo.HealthStatus,
 	})
 }

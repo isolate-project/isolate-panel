@@ -6,6 +6,8 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
+	"github.com/isolate-project/isolate-panel/internal/auth"
+	"github.com/isolate-project/isolate-panel/internal/middleware"
 	"github.com/isolate-project/isolate-panel/internal/models"
 	"github.com/isolate-project/isolate-panel/internal/services"
 )
@@ -32,28 +34,28 @@ func NewWarpHandler(warpService *services.WARPService, geoService *services.GeoS
 // RegisterRoutes registers WARP API routes
 func (h *WarpHandler) RegisterRoutes(router fiber.Router) {
 	warp := router.Group("/warp")
-	warp.Get("/routes", h.GetWarpRoutes)
-	warp.Post("/routes", h.CreateWarpRoute)
-	warp.Put("/routes/:id", h.UpdateWarpRoute)
-	warp.Delete("/routes/:id", h.DeleteWarpRoute)
-	warp.Post("/routes/:id/toggle", h.ToggleWarpRoute)
-	warp.Post("/sync", h.SyncWarpRoutes)
-	warp.Get("/status", h.GetWarpStatus)
-	warp.Post("/register", h.RegisterWARP)
-	warp.Get("/presets", h.GetWarpPresets)
-	warp.Post("/presets/:name/apply", h.ApplyWarpPreset)
+	warp.Get("/routes", middleware.RequirePermission(auth.PermViewDashboard), h.GetWarpRoutes)
+	warp.Post("/routes", middleware.RequirePermission(auth.PermManageWarp), h.CreateWarpRoute)
+	warp.Put("/routes/:id", middleware.RequirePermission(auth.PermManageWarp), h.UpdateWarpRoute)
+	warp.Delete("/routes/:id", middleware.RequirePermission(auth.PermManageWarp), h.DeleteWarpRoute)
+	warp.Post("/routes/:id/toggle", middleware.RequirePermission(auth.PermManageWarp), h.ToggleWarpRoute)
+	warp.Post("/sync", middleware.RequirePermission(auth.PermManageWarp), h.SyncWarpRoutes)
+	warp.Get("/status", middleware.RequirePermission(auth.PermViewDashboard), h.GetWarpStatus)
+	warp.Post("/register", middleware.RequirePermission(auth.PermManageWarp), h.RegisterWARP)
+	warp.Get("/presets", middleware.RequirePermission(auth.PermViewDashboard), h.GetWarpPresets)
+	warp.Post("/presets/:name/apply", middleware.RequirePermission(auth.PermManageWarp), h.ApplyWarpPreset)
 
 	// Geo routes
 	geo := router.Group("/geo")
-	geo.Get("/rules", h.GetGeoRules)
-	geo.Post("/rules", h.CreateGeoRule)
-	geo.Put("/rules/:id", h.UpdateGeoRule)
-	geo.Delete("/rules/:id", h.DeleteGeoRule)
-	geo.Post("/rules/:id/toggle", h.ToggleGeoRule)
-	geo.Get("/countries", h.GetCountries)
-	geo.Get("/categories", h.GetCategories)
-	geo.Get("/databases", h.GetGeoDatabases)
-	geo.Post("/update", h.UpdateGeoDatabases)
+	geo.Get("/rules", middleware.RequirePermission(auth.PermViewDashboard), h.GetGeoRules)
+	geo.Post("/rules", middleware.RequirePermission(auth.PermManageGeo), h.CreateGeoRule)
+	geo.Put("/rules/:id", middleware.RequirePermission(auth.PermManageGeo), h.UpdateGeoRule)
+	geo.Delete("/rules/:id", middleware.RequirePermission(auth.PermManageGeo), h.DeleteGeoRule)
+	geo.Post("/rules/:id/toggle", middleware.RequirePermission(auth.PermManageGeo), h.ToggleGeoRule)
+	geo.Get("/countries", middleware.RequirePermission(auth.PermViewDashboard), h.GetCountries)
+	geo.Get("/categories", middleware.RequirePermission(auth.PermViewDashboard), h.GetCategories)
+	geo.Get("/databases", middleware.RequirePermission(auth.PermViewDashboard), h.GetGeoDatabases)
+	geo.Post("/update", middleware.RequirePermission(auth.PermManageGeo), h.UpdateGeoDatabases)
 }
 
 // parseID parses ID from URL params

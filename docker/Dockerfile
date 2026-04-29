@@ -28,7 +28,7 @@ FROM node:22-alpine AS node-builder
 WORKDIR /app
 
 COPY frontend/package.json frontend/package-lock.json ./
-RUN npm install
+RUN npm ci --legacy-peer-deps
 
 COPY frontend/ ./
 RUN npm run build

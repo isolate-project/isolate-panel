@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -13,9 +14,11 @@ import (
 	"github.com/isolate-project/isolate-panel/internal/cache"
 	appconfig "github.com/isolate-project/isolate-panel/internal/config"
 	"github.com/isolate-project/isolate-panel/internal/cores"
-	_ "github.com/isolate-project/isolate-panel/internal/cores/mihomo"
-	_ "github.com/isolate-project/isolate-panel/internal/cores/singbox"
-	_ "github.com/isolate-project/isolate-panel/internal/cores/xray"
+	"github.com/isolate-project/isolate-panel/internal/cores/mihomo"
+	"github.com/isolate-project/isolate-panel/internal/cores/singbox"
+	"github.com/isolate-project/isolate-panel/internal/cores/xray"
+	"github.com/isolate-project/isolate-panel/internal/eventbus"
+	"github.com/isolate-project/isolate-panel/internal/protocol"
 	"github.com/isolate-project/isolate-panel/internal/database"
 	"github.com/isolate-project/isolate-panel/internal/haproxy"
 	applogger "github.com/isolate-project/isolate-panel/internal/logger"
@@ -33,14 +36,20 @@ type App struct {
 	subApp    *fiber.App
 
 	// Infrastructure
-	Cache           *cache.CacheManager
-	TokenSvc        *auth.TokenService
-	LoginRL         *middleware.RateLimiter
+	Cache              *cache.CacheManager
+	TokenSvc           *auth.TokenService
+	SessionManager     *auth.BFFSessionManager
+	SubscriptionSigner *auth.SubscriptionSigner
+	WebAuthnSvc        *auth.WebAuthnService
+	LoginRL            *middleware.RateLimiter
 	RefreshLogoutRL *middleware.RateLimiter // 10 req/min per IP (refresh/logout)
 	ProtectedRL     *middleware.RateLimiter // 60 req/min per admin (standard)
 	HeavyRL         *middleware.RateLimiter // 10 req/min per admin (expensive ops)
 	SubTokenRL      *middleware.RateLimiter // subscription token rate limiter
 	SubIPRL         *middleware.RateLimiter // subscription IP rate limiter
+
+	// Event Bus
+	EventBus *eventbus.Registry
 
 	// Core management
 	Cores     *cores.CoreManager
@@ -66,7 +75,11 @@ type App struct {
 	Backups           *services.BackupService
 	BackupSched       *scheduler.BackupScheduler
 	TrafficResetSched *scheduler.TrafficResetScheduler
+	LogRetentionSched *scheduler.LogRetentionScheduler
 	Quota             *services.QuotaEnforcer
+
+	// Phase 5.4: Per-node API key management
+	NodeAuth *services.NodeAuthService
 
 	// Monitoring services
 	Traffic     *services.TrafficCollector
@@ -76,6 +89,9 @@ type App struct {
 
 	// WebSocket hub
 	DashboardHub *api.DashboardHub
+
+	// Protocol registry
+	ProtocolRegistry protocol.Registry
 
 	// API handlers
 	SystemH        *api.SystemHandler
@@ -103,12 +119,37 @@ func NewApp(cfg *appconfig.Config, db *database.Database) (*App, error) {
 		gormDB:    db.DB,
 	}
 
+	// Explicit registration — replaces implicit init() side-effects
+	protocol.RegisterAllProtocols()
+	xray.Register()
+	singbox.Register()
+	mihomo.Register()
+	middleware.SetupValidation()
+
 	var err error
+
+	// Event Bus
+	a.EventBus = eventbus.NewRegistry()
+	a.ProtocolRegistry = protocol.NewRegistryAdapter()
 
 	// Cache
 	a.Cache, err = cache.NewCacheManager()
 	if err != nil {
 		return nil, fmt.Errorf("init cache: %w", err)
+	}
+
+	// Phase 5.5: Database Field Encryption Plugin
+	// Automatically encrypts/decrypts sensitive database fields using AES-256-GCM.
+	// Gracefully degrades to unencrypted if no key is configured (dev environments).
+	if encPlugin, err := database.NewEncryptionPluginFromEnv(); err != nil {
+		log.Info().Err(err).Msg("Field encryption key not configured - running without encryption")
+	} else {
+		encPlugin.RegisterDefaultFields()
+		if err := db.DB.Use(encPlugin); err != nil {
+			log.Warn().Err(err).Msg("Failed to register encryption plugin - field encryption disabled")
+		} else {
+			log.Info().Msg("Database field encryption enabled")
+		}
 	}
 
 	// Core management
@@ -135,10 +176,42 @@ func NewApp(cfg *appconfig.Config, db *database.Database) (*App, error) {
 		geoDir = dataDir + "/geo"
 	}
 
-	// Resolve core API secret
-	coreAPISecret := cfg.Cores.SingboxAPIKey
-	if coreAPISecret == "" {
-		coreAPISecret = cfg.Cores.MihomoAPIKey
+	// Phase 5.4: Per-node API key management
+	// Create NodeAuthService early for per-core API key lookup
+	a.NodeAuth = services.NewNodeAuthService(db.DB)
+
+	// Create per-core API key lookup callback with fallback to global config
+	getCoreAPISecret := func(coreID uint) (string, error) {
+		key, err := a.NodeAuth.GetCoreAPIKey(coreID)
+		if err != nil {
+			// Fallback to global config secret for backwards compatibility
+			// when no per-core key has been generated yet
+			globalSecret := cfg.Cores.SingboxAPIKey
+			if globalSecret == "" {
+				globalSecret = cfg.Cores.MihomoAPIKey
+			}
+			if globalSecret != "" {
+				return globalSecret, nil
+			}
+			return "", err
+		}
+		return key, nil
+	}
+
+	// Create callbacks for stats clients that lookup by core name
+	getSingboxAPIKey := func() string {
+		key, err := a.NodeAuth.GetCoreAPIKeyByName("singbox")
+		if err != nil {
+			return cfg.Cores.SingboxAPIKey
+		}
+		return key
+	}
+	getMihomoAPIKey := func() string {
+		key, err := a.NodeAuth.GetCoreAPIKeyByName("mihomo")
+		if err != nil {
+			return cfg.Cores.MihomoAPIKey
+		}
+		return key
 	}
 
 	// Resolve V2Ray API listen address
@@ -147,10 +220,10 @@ func NewApp(cfg *appconfig.Config, db *database.Database) (*App, error) {
 		v2rayAPIListenAddr = fmt.Sprintf("127.0.0.1:%d", cfg.Cores.V2RayAPIPort)
 	}
 
-	a.Cores = cores.NewCoreManager(db.DB, cfg.Cores.SupervisorURL, coreCfg, cfg.Cores.ConfigDir, warpDir, geoDir, coreAPISecret, v2rayAPIListenAddr)
+	a.Cores = cores.NewCoreManager(db.DB, cfg.Cores.SupervisorURL, coreCfg, cfg.Cores.ConfigDir, warpDir, geoDir, getCoreAPISecret, v2rayAPIListenAddr)
 	a.Lifecycle = services.NewCoreLifecycleManager(db.DB, a.Cores)
 	a.Watchdog = NewWatchdog(db.DB, a.Cores, 30*time.Second, 5*time.Second)
-	a.Config = services.NewConfigService(db.DB, a.Cores, cfg.Cores.ConfigDir, coreAPISecret)
+	a.Config = services.NewConfigService(db.DB, a.Cores, cfg.Cores.ConfigDir, getCoreAPISecret)
 	a.Config.SetCoreConfig(coreCfg)
 	a.Lifecycle.SetConfigService(a.Config)
 	if err := a.Lifecycle.InitializeCores(); err != nil {
@@ -158,6 +231,8 @@ func NewApp(cfg *appconfig.Config, db *database.Database) (*App, error) {
 	}
 
 	// Auth
+	auth.SetPepper(cfg.Security.PasswordPepper)
+
 	adminValidator := func(adminID uint) (isActive bool, isSuperAdmin bool, mustChangePassword bool, err error) {
 		var admin models.Admin
 		if err := db.DB.Select("is_active, is_super_admin, must_change_password").First(&admin, adminID).Error; err != nil {
@@ -165,17 +240,47 @@ func NewApp(cfg *appconfig.Config, db *database.Database) (*App, error) {
 		}
 		return admin.IsActive, admin.IsSuperAdmin, admin.MustChangePassword, nil
 	}
-	a.TokenSvc = auth.NewTokenService(
+	a.TokenSvc, err = auth.NewTokenService(
 		cfg.JWT.Secret,
 		time.Duration(cfg.JWT.AccessTokenTTL)*time.Second,
 		time.Duration(cfg.JWT.RefreshTokenTTL)*time.Second,
 		adminValidator,
 		db.DB,
 	)
+	if err != nil {
+		return nil, fmt.Errorf("init token service: %w", err)
+	}
+	a.SessionManager = auth.NewBFFSessionManager(time.Duration(cfg.JWT.RefreshTokenTTL) * time.Second)
+	a.SubscriptionSigner = auth.NewSubscriptionSigner(cfg.JWT.Secret)
 	a.LoginRL = middleware.NewRateLimiter(5, time.Minute)
 	a.RefreshLogoutRL = middleware.NewRateLimiter(10, time.Minute)
 	a.ProtectedRL = middleware.NewRateLimiter(600, time.Minute)
 	a.HeavyRL = middleware.NewRateLimiter(60, time.Minute)
+
+	// WebAuthn
+	rpID := "localhost"
+	rpOrigin := cfg.App.PanelURL
+	if rpOrigin == "" {
+		rpOrigin = "http://localhost:8080"
+	}
+	// Extract RP ID from origin (hostname only)
+	if len(rpOrigin) > 0 {
+		// Simple extraction - remove protocol and port
+		if idx := strings.Index(rpOrigin, "://"); idx != -1 {
+			rpID = rpOrigin[idx+3:]
+			if idx := strings.Index(rpID, ":"); idx != -1 {
+				rpID = rpID[:idx]
+			}
+			if idx := strings.Index(rpID, "/"); idx != -1 {
+				rpID = rpID[:idx]
+			}
+		}
+	}
+	a.WebAuthnSvc, err = auth.NewWebAuthnService(db.DB, rpID, rpOrigin, "Isolate Panel")
+	if err != nil {
+		log.Warn().Err(err).Msg("Failed to initialize WebAuthn service - WebAuthn features disabled")
+		a.WebAuthnSvc = nil
+	}
 
 	// Audit
 	a.Audit = services.NewAuditService(db.DB)
@@ -195,23 +300,23 @@ func NewApp(cfg *appconfig.Config, db *database.Database) (*App, error) {
 	a.Ports = services.NewPortManager(db.DB)
 	a.Settings = services.NewSettingsService(db.DB, a.Cache)
 	a.Users = services.NewUserService(db.DB, a.Notifications)
-	a.Inbounds = services.NewInboundService(db.DB, a.Lifecycle, a.Ports)
-	a.Outbounds = services.NewOutboundService(db.DB, a.Config)
+	a.Inbounds = services.NewInboundService(db.DB, a.Lifecycle, a.Ports, a.ProtocolRegistry)
+	a.Outbounds = services.NewOutboundService(db.DB, a.Config, a.ProtocolRegistry)
 	a.Subscriptions = services.NewSubscriptionService(db.DB, cfg.App.PanelURL, a.Cache)
 	a.Users.SetSubscriptionService(a.Subscriptions)    // cache invalidation on user changes
 	a.Inbounds.SetSubscriptionService(a.Subscriptions) // cache invalidation on inbound changes
 
-	// Monitoring services
+	// Monitoring services (using per-core API key callbacks)
 	a.Traffic = services.NewTrafficCollector(
 		db.DB, a.Settings, time.Duration(cfg.Traffic.CollectInterval)*time.Second,
 		cfg.Cores.XrayAPIAddr, cfg.Cores.SingboxAPIAddr, cfg.Cores.MihomoAPIAddr,
-		cfg.Cores.SingboxAPIKey, cfg.Cores.MihomoAPIKey,
+		getSingboxAPIKey, getMihomoAPIKey,
 	)
 	a.Config.SetTrafficCollector(a.Traffic)
 	a.Connections = services.NewConnectionTracker(
 		db.DB, time.Duration(cfg.Traffic.ConnInterval)*time.Second,
 		cfg.Cores.XrayAPIAddr, cfg.Cores.SingboxAPIAddr, cfg.Cores.MihomoAPIAddr,
-		cfg.Cores.SingboxAPIKey, cfg.Cores.MihomoAPIKey,
+		getSingboxAPIKey, getMihomoAPIKey,
 	)
 	a.Quota = services.NewQuotaEnforcer(db.DB, a.Config, a.Notifications)
 	a.Aggregator = services.NewDataAggregator(db.DB, 0)
@@ -250,6 +355,14 @@ func NewApp(cfg *appconfig.Config, db *database.Database) (*App, error) {
 	if err := a.TrafficResetSched.Initialize(); err != nil {
 		log.Warn().Err(err).Msg("Failed to initialize Traffic Reset Scheduler")
 	}
+	logFilePath := ""
+	if cfg.Logging.Output == "file" || cfg.Logging.Output == "both" {
+		logFilePath = cfg.Logging.FilePath
+	}
+	a.LogRetentionSched = scheduler.NewLogRetentionScheduler(db.DB, logFilePath)
+	if err := a.LogRetentionSched.Initialize(); err != nil {
+		log.Warn().Err(err).Msg("Failed to initialize Log Retention Scheduler")
+	}
 
 	// Certificates (optional — graceful degradation if ACME unavailable)
 	cfCreds := buildCloudflareCredentials()
@@ -277,12 +390,12 @@ func NewApp(cfg *appconfig.Config, db *database.Database) (*App, error) {
 
 	// API handlers
 	a.SystemH = api.NewSystemHandler(a.Connections, a.Cores)
-	a.AuthH = api.NewAuthHandler(db.DB, a.TokenSvc, a.Notifications)
+	a.AuthH = api.NewAuthHandler(db.DB, a.TokenSvc, a.SessionManager, a.Notifications, a.WebAuthnSvc)
 	a.CoresH = api.NewCoresHandler(a.Cores)
 	a.UsersH = api.NewUsersHandler(a.Users)
 	a.InboundsH = api.NewInboundsHandler(a.Inbounds, a.Ports, haproxy.NewPortValidator(db.DB), db.DB)
 	a.OutboundsH = api.NewOutboundsHandler(a.Outbounds)
-	a.ProtocolsH = api.NewProtocolsHandler()
+	a.ProtocolsH = api.NewProtocolsHandler(a.ProtocolRegistry)
 	a.SubscriptionsH = api.NewSubscriptionsHandler(a.Subscriptions)
 	a.CertificatesH = api.NewCertificatesHandler(a.Certs, db.DB)
 	a.StatsH = api.NewStatsHandler(db.DB, a.Traffic, a.Connections)

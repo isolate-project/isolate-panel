@@ -17,7 +17,7 @@ import (
 type StatsClient struct {
 	httpClient *http.Client
 	baseURL    string
-	apiKey     string
+	getAPIKey  func() string
 }
 
 // ClashTrafficResponse represents the traffic response from Clash API
@@ -61,13 +61,13 @@ type ConnMeta struct {
 }
 
 // NewStatsClient creates a new Sing-box stats client
-func NewStatsClient(baseURL, apiKey string) *StatsClient {
+func NewStatsClient(baseURL string, getAPIKey func() string) *StatsClient {
 	return &StatsClient{
 		httpClient: &http.Client{
 			Timeout: 5 * time.Second,
 		},
-		baseURL: baseURL,
-		apiKey:  apiKey,
+		baseURL:   baseURL,
+		getAPIKey: getAPIKey,
 	}
 }
 
@@ -87,8 +87,9 @@ func (c *StatsClient) GetTrafficStats(ctx context.Context, coreID uint) ([]stats
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	if c.apiKey != "" {
-		req.Header.Set("Authorization", "Bearer "+c.apiKey)
+	apiKey := c.getAPIKey()
+	if apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+apiKey)
 	}
 
 	resp, err := c.httpClient.Do(req)
@@ -119,8 +120,9 @@ func (c *StatsClient) GetActiveConnections(ctx context.Context, coreID uint) ([]
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	if c.apiKey != "" {
-		req.Header.Set("Authorization", "Bearer "+c.apiKey)
+	apiKey := c.getAPIKey()
+	if apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+apiKey)
 	}
 
 	resp, err := c.httpClient.Do(req)
@@ -189,8 +191,9 @@ func (c *StatsClient) CloseConnection(ctx context.Context, coreID uint, connecti
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
-	if c.apiKey != "" {
-		req.Header.Set("Authorization", "Bearer "+c.apiKey)
+	apiKey := c.getAPIKey()
+	if apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+apiKey)
 	}
 
 	resp, err := c.httpClient.Do(req)

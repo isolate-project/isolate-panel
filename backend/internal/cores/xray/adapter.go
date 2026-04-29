@@ -11,7 +11,7 @@ import (
 	"github.com/isolate-project/isolate-panel/internal/stats"
 )
 
-func init() {
+func Register() {
 	cores.RegisterCore("xray", func() cores.CoreAdapter { return &Adapter{} })
 }
 

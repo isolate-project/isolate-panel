@@ -10,7 +10,7 @@ import (
 	"github.com/isolate-project/isolate-panel/internal/stats"
 )
 
-func init() {
+func Register() {
 	cores.RegisterCore("singbox", func() cores.CoreAdapter { return &Adapter{} })
 }
 
@@ -83,7 +83,8 @@ func (a *Adapter) GetDefaultLogPaths() (string, string) {
 }
 
 func (a *Adapter) CreateStatsClient(endpoint string) (cores.StatsClient, error) {
-	client := NewStatsClient(endpoint, a.APIKey)
+	getAPIKey := func() string { return a.APIKey }
+	client := NewStatsClient(endpoint, getAPIKey)
 	return &singboxStatsClientWrapper{client: client}, nil
 }
 
@@ -129,7 +130,8 @@ func (a *Adapter) WriteConfigToDir(config any, configDir string, coreName string
 }
 
 func (a *Adapter) NewStatsClient(config cores.StatsClientConfig) cores.StatsClient {
-	client := NewStatsClient(config.ClashBaseURL, config.APIKey)
+	getAPIKey := func() string { return config.APIKey }
+	client := NewStatsClient(config.ClashBaseURL, getAPIKey)
 	return &singboxStatsClientWrapper{client: client}
 }
 

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/isolate-project/isolate-panel/internal/database"
@@ -85,6 +86,14 @@ func main() {
 		}
 		seeder := seeds.NewSeeder(gormDB)
 		adminPassword := os.Getenv("ADMIN_PASSWORD")
+		if adminPassword == "" {
+			if filePath := os.Getenv("ADMIN_PASSWORD_FILE"); filePath != "" {
+				data, err := os.ReadFile(filePath)
+				if err == nil {
+					adminPassword = strings.TrimSpace(string(data))
+				}
+			}
+		}
 		if adminPassword == "" {
 			fmt.Println("WARNING: ADMIN_PASSWORD environment variable not set. Using default.")
 		}

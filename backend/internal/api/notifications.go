@@ -5,6 +5,8 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
+	"github.com/isolate-project/isolate-panel/internal/auth"
+	"github.com/isolate-project/isolate-panel/internal/middleware"
 	"github.com/isolate-project/isolate-panel/internal/models"
 	"github.com/isolate-project/isolate-panel/internal/services"
 )
@@ -25,14 +27,12 @@ func NewNotificationHandler(notificationService *services.NotificationService) *
 func (h *NotificationHandler) RegisterRoutes(router fiber.Router) {
 	notifications := router.Group("/notifications")
 
-	// Notification operations
-	notifications.Get("/", h.ListNotifications)
-	// Static routes MUST be before parameterized /:id
-	notifications.Get("/settings", h.GetSettings)
-	notifications.Put("/settings", h.UpdateSettings)
-	notifications.Post("/test", h.SendTestNotification)
-	notifications.Get("/:id", h.GetNotification)
-	notifications.Delete("/:id", h.DeleteNotification)
+	notifications.Get("/", middleware.RequirePermission(auth.PermViewDashboard), h.ListNotifications)
+	notifications.Get("/settings", middleware.RequirePermission(auth.PermViewDashboard), h.GetSettings)
+	notifications.Put("/settings", middleware.RequirePermission(auth.PermManageNotifications), h.UpdateSettings)
+	notifications.Post("/test", middleware.RequirePermission(auth.PermManageNotifications), h.SendTestNotification)
+	notifications.Get("/:id", middleware.RequirePermission(auth.PermViewDashboard), h.GetNotification)
+	notifications.Delete("/:id", middleware.RequirePermission(auth.PermManageNotifications), h.DeleteNotification)
 }
 
 // ListNotifications returns list of notifications

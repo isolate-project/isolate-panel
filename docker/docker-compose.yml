@@ -9,6 +9,9 @@
 #
 # For CI/testing, use:
 #   docker compose -f docker-compose.test.yml up
+#
+# For production with Caddy reverse proxy and additional services:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 # =============================================================================
 
 name: isolate-panel
@@ -19,14 +22,27 @@ services:
     container_name: isolate-panel
     restart: unless-stopped
     stop_signal: SIGTERM
+    # Use tini as init system for proper signal handling and zombie reaping
+    init: true
+
+    # Docker log rotation: JSON driver with 100MB max size, 3 files max
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+        labels: "service_name,environment"
+        env: "APP_ENV,LOG_LEVEL"
 
     ports:
       # ── Panel ──────────────────────────────────────────────
       - "127.0.0.1:8080:8080"     # Admin panel (SSH tunnel only)
 
       # ── Subscription listener ──────────────────────────────
-      - "443:443/tcp"              # HTTPS subscriptions + TLS inbounds
-      - "443:443/udp"              # QUIC (Hysteria2, TUIC)
+      # Note: When using Caddy reverse proxy, these ports are handled by Caddy
+      # Uncomment if running without Caddy:
+      # - "443:443/tcp"              # HTTPS subscriptions + TLS inbounds
+      # - "443:443/udp"              # QUIC (Hysteria2, TUIC)
 
       # ── Inbound ports ─────────────────────────────────────
       # Add your inbound ports here. Examples:
@@ -50,13 +66,22 @@ services:
     env_file:
       - .env
 
+    secrets:
+      - jwt_secret
+      - password_pepper
+      - admin_password
+      - data_encryption_key
+
     environment:
       - PORT=8080
       - CONFIG_PATH=/app/configs/config.yaml
       - DATABASE_PATH=/app/data/isolate-panel.db
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - APP_ENV=${APP_ENV:-production}
-      - JWT_SECRET=${JWT_SECRET:-}
+      - JWT_SECRET_FILE=/run/secrets/jwt_secret
+      - PASSWORD_PEPPER_FILE=/run/secrets/password_pepper
+      - ADMIN_PASSWORD_FILE=/run/secrets/admin_password
+      - DATA_ENCRYPTION_KEY_FILE=/run/secrets/data_encryption_key
       - TZ=${TZ:-UTC}
       - MONITORING_MODE=${MONITORING_MODE:-lite}
       - DOCKER_CONTENT_TRUST=1
@@ -87,12 +112,23 @@ services:
     networks:
       - isolate-network
 
+    # Health check: HTTP endpoint check
     healthcheck:
-      test: ["CMD", "/docker-healthcheck.sh"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/healthz"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 60s
+
+secrets:
+  jwt_secret:
+    file: ./secrets/jwt_secret.txt
+  password_pepper:
+    file: ./secrets/password_pepper.txt
+  admin_password:
+    file: ./secrets/admin_password.txt
+  data_encryption_key:
+    file: ./secrets/data_encryption_key.txt
 
 networks:
   isolate-network:

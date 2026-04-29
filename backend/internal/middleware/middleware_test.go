@@ -12,8 +12,8 @@ import (
 
 func TestAuthMiddleware_ValidToken(t *testing.T) {
 	// Create token service
-	secret := "test-secret"
-	tokenService := auth.NewTokenService(secret, 15*time.Minute, 7*24*time.Hour, nil, nil)
+	secret := "this-is-a-very-long-test-secret-that-exceeds-the-minimum-64-byte-requirement-for-jwt-hs256"
+	tokenService , _ := auth.NewTokenService(secret, 15*time.Minute, 7*24*time.Hour, nil, nil)
 
 	// Generate valid token
 	token, err := tokenService.GenerateAccessToken(1, "testuser", false, false)
@@ -23,7 +23,7 @@ func TestAuthMiddleware_ValidToken(t *testing.T) {
 
 	// Create Fiber app with middleware
 	app := fiber.New()
-	app.Use(middleware.AuthMiddleware(tokenService))
+	app.Use(middleware.AuthMiddleware(tokenService, nil))
 	app.Get("/test", func(c fiber.Ctx) error {
 		return c.SendString("success")
 	})
@@ -44,11 +44,11 @@ func TestAuthMiddleware_ValidToken(t *testing.T) {
 }
 
 func TestAuthMiddleware_MissingToken(t *testing.T) {
-	secret := "test-secret"
-	tokenService := auth.NewTokenService(secret, 15*time.Minute, 7*24*time.Hour, nil, nil)
+	secret := "this-is-a-very-long-test-secret-that-exceeds-the-minimum-64-byte-requirement-for-jwt-hs256"
+	tokenService , _ := auth.NewTokenService(secret, 15*time.Minute, 7*24*time.Hour, nil, nil)
 
 	app := fiber.New()
-	app.Use(middleware.AuthMiddleware(tokenService))
+	app.Use(middleware.AuthMiddleware(tokenService, nil))
 	app.Get("/test", func(c fiber.Ctx) error {
 		return c.SendString("success")
 	})
@@ -67,11 +67,11 @@ func TestAuthMiddleware_MissingToken(t *testing.T) {
 }
 
 func TestAuthMiddleware_InvalidToken(t *testing.T) {
-	secret := "test-secret"
-	tokenService := auth.NewTokenService(secret, 15*time.Minute, 7*24*time.Hour, nil, nil)
+	secret := "this-is-a-very-long-test-secret-that-exceeds-the-minimum-64-byte-requirement-for-jwt-hs256"
+	tokenService , _ := auth.NewTokenService(secret, 15*time.Minute, 7*24*time.Hour, nil, nil)
 
 	app := fiber.New()
-	app.Use(middleware.AuthMiddleware(tokenService))
+	app.Use(middleware.AuthMiddleware(tokenService, nil))
 	app.Get("/test", func(c fiber.Ctx) error {
 		return c.SendString("success")
 	})
@@ -91,11 +91,11 @@ func TestAuthMiddleware_InvalidToken(t *testing.T) {
 }
 
 func TestAuthMiddleware_InvalidFormat(t *testing.T) {
-	secret := "test-secret"
-	tokenService := auth.NewTokenService(secret, 15*time.Minute, 7*24*time.Hour, nil, nil)
+	secret := "this-is-a-very-long-test-secret-that-exceeds-the-minimum-64-byte-requirement-for-jwt-hs256"
+	tokenService , _ := auth.NewTokenService(secret, 15*time.Minute, 7*24*time.Hour, nil, nil)
 
 	app := fiber.New()
-	app.Use(middleware.AuthMiddleware(tokenService))
+	app.Use(middleware.AuthMiddleware(tokenService, nil))
 	app.Get("/test", func(c fiber.Ctx) error {
 		return c.SendString("success")
 	})

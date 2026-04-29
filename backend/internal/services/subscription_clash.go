@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/isolate-project/isolate-panel/internal/models"
+	"github.com/isolate-project/isolate-panel/internal/services/subscription"
 	"gopkg.in/yaml.v3"
 )
 
@@ -78,7 +79,7 @@ type clashSnellObfsOpts struct {
 
 func boolPtr(b bool) *bool { return &b }
 
-func buildClashProxy(protocol, name, server string, port int, user models.User, config map[string]interface{}, tlsInfo inboundTLSInfo, certsByIDs map[uint]*models.Certificate, realityInfo *inboundRealityInfo) *clashProxy {
+func buildClashProxy(protocol, name, server string, port int, user models.User, config map[string]interface{}, tlsInfo subscription.InboundTLSInfo, certsByIDs map[uint]*models.Certificate, realityInfo *subscription.InboundRealityInfo) *clashProxy {
 	p := &clashProxy{
 		Name:   name,
 		Server: server,
@@ -95,7 +96,7 @@ func buildClashProxy(protocol, name, server string, port int, user models.User, 
 		p.UUID = user.UUID
 		p.TLS = boolPtr(inbound2TLS(config, tlsInfo))
 		p.SkipCertVerify = boolPtr(false)
-		p.Network = getStringOrDefault(config, "transport", "tcp")
+		p.Network = subscription.GetStringOrDefault(config, "transport", "tcp")
 		if *p.TLS && sni != server {
 			p.ServerName = sni
 		}
@@ -161,7 +162,7 @@ func buildClashProxy(protocol, name, server string, port int, user models.User, 
 		p.Cipher = "auto"
 		p.TLS = boolPtr(inbound2TLS(config, tlsInfo))
 		p.SkipCertVerify = boolPtr(false)
-		p.Network = getStringOrDefault(config, "transport", "tcp")
+		p.Network = subscription.GetStringOrDefault(config, "transport", "tcp")
 		if *p.TLS && sni != server {
 			p.ServerName = sni
 		}
@@ -219,19 +220,19 @@ func buildClashProxy(protocol, name, server string, port int, user models.User, 
 		p.SkipCertVerify = boolPtr(false)
 	case "shadowsocks":
 		p.Type = "ss"
-		p.Cipher = getStringOrDefault(config, "method", "aes-256-gcm")
-		p.Password = getStringOrDefault(config, "password", user.UUID)
+		p.Cipher = subscription.GetStringOrDefault(config, "method", "aes-256-gcm")
+		p.Password = subscription.GetStringOrDefault(config, "password", user.UUID)
 	case "hysteria2":
 		p.Type = "hysteria2"
-		p.Password = getStringOrDefault(config, "password", user.UUID)
+		p.Password = subscription.GetStringOrDefault(config, "password", user.UUID)
 		p.SkipCertVerify = boolPtr(false)
 		if sni != server {
 			p.SNI = sni
 		}
 		extra := map[string]interface{}{}
-		if obfsType := getStringOrDefault(config, "obfs_type", ""); obfsType != "" {
+		if obfsType := subscription.GetStringOrDefault(config, "obfs_type", ""); obfsType != "" {
 			obfsOpts := map[string]interface{}{"type": obfsType}
-			if obfsPass := getStringOrDefault(config, "obfs_password", ""); obfsPass != "" {
+			if obfsPass := subscription.GetStringOrDefault(config, "obfs_password", ""); obfsPass != "" {
 				obfsOpts["password"] = obfsPass
 			}
 			extra["obfs"] = obfsOpts
@@ -247,7 +248,7 @@ func buildClashProxy(protocol, name, server string, port int, user models.User, 
 		}
 		p.Token = token
 		p.Version = 4
-		p.CongestionController = getStringOrDefault(config, "congestion_control", "bbr")
+		p.CongestionController = subscription.GetStringOrDefault(config, "congestion_control", "bbr")
 		p.SkipCertVerify = boolPtr(false)
 	case "tuic_v5", "tuic":
 		p.Type = "tuic"
@@ -258,14 +259,14 @@ func buildClashProxy(protocol, name, server string, port int, user models.User, 
 		p.UUID = user.UUID
 		p.Password = password
 		p.Version = 5
-		p.CongestionController = getStringOrDefault(config, "congestion_control", "bbr")
+		p.CongestionController = subscription.GetStringOrDefault(config, "congestion_control", "bbr")
 		p.SkipCertVerify = boolPtr(false)
 	case "ssr", "shadowsocksr":
 		p.Type = "ssr"
-		p.Cipher = getStringOrDefault(config, "cipher", getStringOrDefault(config, "method", "chacha20-poly1305"))
+		p.Cipher = subscription.GetStringOrDefault(config, "cipher", subscription.GetStringOrDefault(config, "method", "chacha20-poly1305"))
 		p.Password = user.UUID
-		p.Protocol = getStringOrDefault(config, "protocol", "origin")
-		p.Obfs = getStringOrDefault(config, "obfs", "plain")
+		p.Protocol = subscription.GetStringOrDefault(config, "protocol", "origin")
+		p.Obfs = subscription.GetStringOrDefault(config, "obfs", "plain")
 	case "snell":
 		p.Type = "snell"
 		psk := user.UUID
@@ -275,14 +276,14 @@ func buildClashProxy(protocol, name, server string, port int, user models.User, 
 		p.PSK = psk
 		p.Version = getIntOrDefault(config, "version", 3)
 		p.ObfsOpts = &clashSnellObfsOpts{
-			Mode: getStringOrDefault(config, "obfs", "tls"),
+			Mode: subscription.GetStringOrDefault(config, "obfs", "tls"),
 		}
 	case "mieru":
 		p.Type = "mieru"
 		p.Password = user.UUID
 	case "sudoku":
 		p.Type = "sudoku"
-		p.Password = getStringOrDefault(config, "password", user.UUID)
+		p.Password = subscription.GetStringOrDefault(config, "password", user.UUID)
 	case "trusttunnel":
 		p.Type = "trusttunnel"
 		p.Password = user.UUID
@@ -314,14 +315,14 @@ func buildClashProxy(protocol, name, server string, port int, user models.User, 
 		}
 	case "anytls":
 		p.Type = "anytls"
-		p.Password = getStringOrDefault(config, "password", user.UUID)
+		p.Password = subscription.GetStringOrDefault(config, "password", user.UUID)
 		p.SkipCertVerify = boolPtr(false)
 		if sni != server {
 			p.SNI = sni
 		}
 	case "hysteria":
 		p.Type = "hysteria"
-		p.Password = getStringOrDefault(config, "auth_str", user.UUID)
+		p.Password = subscription.GetStringOrDefault(config, "auth_str", user.UUID)
 		p.SkipCertVerify = boolPtr(false)
 		if sni != server {
 			p.SNI = sni
@@ -333,7 +334,7 @@ func buildClashProxy(protocol, name, server string, port int, user models.User, 
 	return p
 }
 
-func inbound2TLS(config map[string]interface{}, tlsInfo inboundTLSInfo) bool {
+func inbound2TLS(config map[string]interface{}, tlsInfo subscription.InboundTLSInfo) bool {
 	return tlsInfo.SNI != "" || tlsInfo.IsTLS
 }
 

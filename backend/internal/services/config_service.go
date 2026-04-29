@@ -20,24 +20,24 @@ type ConfigService struct {
 	configDir          string
 	warpDir            string
 	geoDir             string
-	coreAPISecret      string
+	getCoreAPISecret   func(coreID uint) (string, error)
 	v2rayAPIListenAddr string
 	coreCfg            *cores.CoreConfig
 	trafficCollector   *TrafficCollector
 }
 
 // NewConfigService creates a new config service
-func NewConfigService(db *gorm.DB, coreManager *cores.CoreManager, configDir, coreAPISecret string) *ConfigService {
+func NewConfigService(db *gorm.DB, coreManager *cores.CoreManager, configDir string, getCoreAPISecret func(coreID uint) (string, error)) *ConfigService {
 	if configDir == "" {
 		configDir = "./data/cores"
 	}
 	return &ConfigService{
-		db:            db,
-		coreManager:   coreManager,
-		configDir:     configDir,
-		warpDir:       "./data/warp",
-		geoDir:        "./data/geo",
-		coreAPISecret: coreAPISecret,
+		db:               db,
+		coreManager:      coreManager,
+		configDir:        configDir,
+		warpDir:          "./data/warp",
+		geoDir:           "./data/geo",
+		getCoreAPISecret: getCoreAPISecret,
 	}
 }
 
@@ -61,7 +61,7 @@ func (s *ConfigService) configContext() *cores.ConfigContext {
 		DB:                 s.db,
 		WarpDir:            s.warpDir,
 		GeoDir:             s.geoDir,
-		CoreAPISecret:      s.coreAPISecret,
+		GetCoreAPISecret:   s.getCoreAPISecret,
 		V2RayAPIListenAddr: s.v2rayAPIListenAddr,
 		CoreConfig:         s.coreCfg,
 	}

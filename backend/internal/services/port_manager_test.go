@@ -7,7 +7,11 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
+	"github.com/isolate-project/isolate-panel/internal/cores/mihomo"
+	"github.com/isolate-project/isolate-panel/internal/cores/singbox"
+	"github.com/isolate-project/isolate-panel/internal/cores/xray"
 	"github.com/isolate-project/isolate-panel/internal/models"
+	"github.com/isolate-project/isolate-panel/internal/protocol"
 )
 
 func setupTestDB(t *testing.T) *gorm.DB {
@@ -294,7 +298,11 @@ func TestPortManager_BoundaryPorts(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
-	// Set up test environment
+	// Explicit registration replaces implicit init() side-effects
+	protocol.RegisterAllProtocols()
+	xray.Register()
+	singbox.Register()
+	mihomo.Register()
 	code := m.Run()
 	os.Exit(code)
 }

@@ -33,7 +33,7 @@ func NewConnectionTracker(
 	db *gorm.DB,
 	interval time.Duration,
 	xrayAddr, singboxAddr, mihomoAddr string,
-	singboxAPIKey, mihomoAPIKey string,
+	getSingboxAPIKey, getMihomoAPIKey func() string,
 ) *ConnectionTracker {
 	if interval == 0 {
 		interval = 10 * time.Second // Default: 10 seconds for real-time feel
@@ -56,12 +56,12 @@ func NewConnectionTracker(
 
 	// Initialize Sing-box client
 	if singboxAddr != "" {
-		ct.singboxClient = singbox.NewStatsClient(singboxAddr, singboxAPIKey)
+		ct.singboxClient = singbox.NewStatsClient(singboxAddr, getSingboxAPIKey)
 	}
 
 	// Initialize Mihomo client
 	if mihomoAddr != "" {
-		ct.mihomoClient = mihomo.NewStatsClient(mihomoAddr, mihomoAPIKey)
+		ct.mihomoClient = mihomo.NewStatsClient(mihomoAddr, getMihomoAPIKey)
 	}
 
 	return ct

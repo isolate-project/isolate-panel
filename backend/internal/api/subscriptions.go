@@ -10,6 +10,7 @@ import (
 	"github.com/skip2/go-qrcode"
 
 	"github.com/isolate-project/isolate-panel/internal/services"
+	"github.com/isolate-project/isolate-panel/internal/services/subscription"
 )
 
 // isValidSubscriptionToken validates subscription token format before DB lookup.
@@ -33,7 +34,7 @@ func isValidSubscriptionToken(token string) bool {
 }
 
 // parseSubscriptionFilter parses query parameters to create a subscription filter
-func parseSubscriptionFilter(c fiber.Ctx) *services.SubscriptionFilter {
+func parseSubscriptionFilter(c fiber.Ctx) *subscription.SubscriptionFilter {
 	protocol := c.Query("protocol")
 	core := c.Query("core")
 	coreRegex := c.Query("core_regex")
@@ -43,7 +44,7 @@ func parseSubscriptionFilter(c fiber.Ctx) *services.SubscriptionFilter {
 		return nil
 	}
 
-	return &services.SubscriptionFilter{
+	return &subscription.SubscriptionFilter{
 		ProtocolRegex: protocol,
 		CoreName:      core,
 		CoreNameRegex: coreRegex,
@@ -379,7 +380,7 @@ func (h *SubscriptionsHandler) RegenerateToken(c fiber.Ctx) error {
 }
 
 // buildUserinfo builds the Subscription-Userinfo header
-func (h *SubscriptionsHandler) buildUserinfo(data *services.UserSubscriptionData) string {
+func (h *SubscriptionsHandler) buildUserinfo(data *subscription.UserSubscriptionData) string {
 	parts := []string{
 		fmt.Sprintf("upload=0; download=%d", data.User.TrafficUsedBytes),
 	}

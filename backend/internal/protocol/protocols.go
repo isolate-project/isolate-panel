@@ -1,7 +1,8 @@
 package protocol
 
-// init registers all protocol schemas on package load
-func init() {
+// RegisterAllProtocols registers all protocol schemas explicitly.
+// Call this during application startup instead of relying on init().
+func RegisterAllProtocols() {
 	registerInboundProtocols()
 	registerOutboundProtocols()
 }

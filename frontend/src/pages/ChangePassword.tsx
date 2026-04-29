@@ -45,16 +45,10 @@ export function ChangePassword() {
     setIsLoading(true)
 
     try {
-      const response = await authApi.changePassword({
+      await authApi.changePassword({
         current_password: currentPassword,
         new_password: newPassword,
       })
-
-      const data = response.data as Record<string, unknown>
-      if (data.access_token && typeof data.access_token === 'string') {
-        localStorage.setItem('accessToken', data.access_token)
-        useAuthStore.setState({ accessToken: data.access_token })
-      }
 
       clearMustChangePassword()
       addToast({

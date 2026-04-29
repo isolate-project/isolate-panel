@@ -72,12 +72,11 @@ export function Dashboard() {
     description: 'Isolate Panel dashboard — proxy servers overview, active connections, and system resources monitoring',
   })
 
-  const accessToken = useAuthStore(s => s.accessToken)
+  const isAuthenticated = useAuthStore(s => s.isAuthenticated)
 
-  // Obtain a one-time WS ticket to avoid passing JWT in URL (prevents token leakage to logs)
   const [wsUrl, setWsUrl] = useState('')
   useEffect(() => {
-    if (!accessToken) return
+    if (!isAuthenticated) return
     let cancelled = false
     ;(async () => {
       try {
@@ -93,7 +92,7 @@ export function Dashboard() {
       }
     })()
     return () => { cancelled = true }
-  }, [accessToken])
+  }, [isAuthenticated])
 
   const { lastMessage: wsData, isConnected: wsConnected } = useWebSocket<DashboardWSPayload>(wsUrl)
 

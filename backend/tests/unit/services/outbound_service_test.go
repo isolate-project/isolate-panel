@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/isolate-project/isolate-panel/internal/protocol"
 	"github.com/isolate-project/isolate-panel/internal/services"
 	"github.com/isolate-project/isolate-panel/tests/testutil"
 )
@@ -18,7 +19,7 @@ func TestOutboundService_ListOutbounds(t *testing.T) {
 	_ = testutil.CreateTestOutbound(t, db, "Direct", core.ID)
 	_ = testutil.CreateTestOutbound(t, db, "Block", core.ID)
 
-	service := services.NewOutboundService(db, nil)
+	service := services.NewOutboundService(db, nil, protocol.NewRegistryAdapter())
 
 	t.Run("list all outbounds", func(t *testing.T) {
 		outbounds, err := service.ListOutbounds(nil, "")
@@ -41,7 +42,7 @@ func TestOutboundService_GetOutbound(t *testing.T) {
 	core := testutil.GetTestCore(t, db, "singbox")
 	outbound := testutil.CreateTestOutbound(t, db, "Direct", core.ID)
 
-	service := services.NewOutboundService(db, nil)
+	service := services.NewOutboundService(db, nil, protocol.NewRegistryAdapter())
 
 	t.Run("get existing outbound", func(t *testing.T) {
 		found, err := service.GetOutbound(outbound.ID)
@@ -65,7 +66,7 @@ func TestOutboundService_UpdateOutbound(t *testing.T) {
 	core := testutil.GetTestCore(t, db, "singbox")
 	outbound := testutil.CreateTestOutbound(t, db, "Direct", core.ID)
 
-	service := services.NewOutboundService(db, nil)
+	service := services.NewOutboundService(db, nil, protocol.NewRegistryAdapter())
 
 	t.Run("update outbound priority", func(t *testing.T) {
 		updates := map[string]interface{}{"priority": 100}
@@ -92,7 +93,7 @@ func TestOutboundService_DeleteOutbound(t *testing.T) {
 	core := testutil.GetTestCore(t, db, "singbox")
 	outbound := testutil.CreateTestOutbound(t, db, "Direct", core.ID)
 
-	service := services.NewOutboundService(db, nil)
+	service := services.NewOutboundService(db, nil, protocol.NewRegistryAdapter())
 
 	t.Run("delete existing outbound", func(t *testing.T) {
 		err := service.DeleteOutbound(outbound.ID)

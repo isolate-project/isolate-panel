@@ -6,6 +6,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
+	"github.com/isolate-project/isolate-panel/internal/api/dto"
 	"github.com/isolate-project/isolate-panel/internal/auth"
 	"github.com/isolate-project/isolate-panel/internal/middleware"
 	"github.com/isolate-project/isolate-panel/internal/models"
@@ -78,20 +79,19 @@ func (h *UsersHandler) ListUsers(c fiber.Ctx) error {
 		})
 	}
 
-	userResponses := make([]services.UserResponse, len(users))
+	userResponses := make([]dto.UserResponse, len(users))
 	for i, user := range users {
 		userResponses[i] = h.formatUserResponse(&user)
 	}
 
 	totalPages := (total + int64(params.PageSize) - 1) / int64(params.PageSize)
 
-	return c.JSON(fiber.Map{
-		"success":   true,
-		"users":     userResponses,
-		"total":     total,
-		"page":      params.Page,
-		"page_size": params.PageSize,
-		"pages":     totalPages,
+	return c.JSON(dto.ListResponse[dto.UserResponse]{
+		Data:     userResponses,
+		Total:    total,
+		Page:     params.Page,
+		PageSize: params.PageSize,
+		Pages:    totalPages,
 	})
 }
 
@@ -252,8 +252,8 @@ func (h *UsersHandler) GetUserInbounds(c fiber.Ctx) error {
 }
 
 // formatUserResponse formats a user model to response (without sensitive credentials)
-func (h *UsersHandler) formatUserResponse(user *models.User) services.UserResponse {
-	response := services.UserResponse{
+func (h *UsersHandler) formatUserResponse(user *models.User) dto.UserResponse {
+	response := dto.UserResponse{
 		ID:                user.ID,
 		Username:          user.Username,
 		Email:             user.Email,
@@ -275,20 +275,19 @@ func (h *UsersHandler) formatUserResponse(user *models.User) services.UserRespon
 }
 
 // formatUserResponseWithCredentials includes password and token (for create/regenerate only)
-func (h *UsersHandler) formatUserResponseWithCredentials(user *models.User) services.CreateUserResponse {
-	response := h.formatUserResponse(user)
+func (h *UsersHandler) formatUserResponseWithCredentials(user *models.User) dto.CreateUserResponse {
+	baseResponse := h.formatUserResponse(user)
+	response := dto.CreateUserResponse{
+		UserResponse: baseResponse,
+	}
 	response.Token = user.Token
 
 	decryptedPassword, err := auth.DecryptCredential(user.Password)
 	if err != nil {
-		return services.CreateUserResponse{
-			UserResponse: response,
-			Password:     "",
-		}
+		response.Password = ""
+		return response
 	}
 
-	return services.CreateUserResponse{
-		UserResponse: response,
-		Password:     decryptedPassword,
-	}
+	response.Password = decryptedPassword
+	return response
 }

@@ -21,7 +21,7 @@ func setupProvidersTest(t *testing.T) (*appconfig.Config, *database.Database) {
 
 	cfg := &appconfig.Config{
 		JWT: appconfig.JWTConfig{
-			Secret:          "test-jwt-secret-min-32-characters!!",
+			Secret:          "this-is-a-very-long-test-secret-that-exceeds-the-minimum-64-byte-requirement-for-jwt-hs256-security",
 			AccessTokenTTL:  900,
 			RefreshTokenTTL: 604800,
 		},
@@ -242,12 +242,10 @@ func TestNewApp_InvalidJWTSecret(t *testing.T) {
 
 	require.NoError(t, db.RunMigrations())
 
-	// NewApp should still succeed even with empty JWT secret
-	// (TokenService will be created but may not work properly)
 	a, err := NewApp(cfg, db)
-	require.NoError(t, err)
-	require.NotNil(t, a)
-	assert.NotNil(t, a.TokenSvc, "TokenSvc should still be initialized")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "JWT secret must be at least")
+	assert.Nil(t, a)
 }
 
 // TestNewApp_ServiceDependencies verifies that service dependencies are properly wired

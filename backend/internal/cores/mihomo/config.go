@@ -80,6 +80,17 @@ func GenerateConfig(ctx *cores.ConfigContext, coreID uint) (*Config, error) {
 		return nil, fmt.Errorf("failed to get outbounds: %w", err)
 	}
 
+	// Get per-core API secret
+	var apiSecret string
+	if ctx.GetCoreAPISecret != nil {
+		secret, err := ctx.GetCoreAPISecret(coreID)
+		if err != nil {
+			logger.Log.Warn().Err(err).Uint("core_id", coreID).Msg("Failed to get API secret for mihomo config")
+		} else {
+			apiSecret = secret
+		}
+	}
+
 	// Build base config
 	config := &Config{
 		Port:               0, // Disabled - we use mixed-port
@@ -89,7 +100,7 @@ func GenerateConfig(ctx *cores.ConfigContext, coreID uint) (*Config, error) {
 		Mode:               "rule",
 		LogLevel:           "warning",
 		ExternalController: "127.0.0.1:9091",
-		Secret:             ctx.CoreAPISecret,
+		Secret:             apiSecret,
 		IPv6:               true,
 		Proxies:            make([]Proxy, 0),
 		Rules:              make([]string, 0),

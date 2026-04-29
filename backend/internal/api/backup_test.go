@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/isolate-project/isolate-panel/internal/auth"
 	"github.com/isolate-project/isolate-panel/internal/models"
 	"github.com/isolate-project/isolate-panel/internal/scheduler"
 	"github.com/isolate-project/isolate-panel/internal/services"
@@ -52,6 +53,7 @@ func setupBackupApp(t *testing.T) (*fiber.App, *services.BackupService) {
 	app.Use(func(c fiber.Ctx) error {
 		c.Locals("admin_id", uint(1))
 		c.Locals("is_super_admin", true)
+		c.Locals("permissions", auth.NewPermissions(auth.PermManageBackups))
 		return c.Next()
 	})
 	

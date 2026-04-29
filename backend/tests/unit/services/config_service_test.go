@@ -33,7 +33,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 func TestConfigService(t *testing.T) {
 	t.Run("creates config service", func(t *testing.T) {
 		db := setupTestDB(t)
-		service := services.NewConfigService(db, nil, "/tmp", "test-secret")
+		service := services.NewConfigService(db, nil, "/tmp", func(coreID uint) (string, error) { return "test-secret", nil })
 		assert.NotNil(t, service)
 	})
 }

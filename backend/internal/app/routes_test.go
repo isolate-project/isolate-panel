@@ -34,7 +34,7 @@ func setupMinimalApp(t *testing.T) (*fiber.App, *App) {
 	t.Helper()
 	db := setupRoutesDB(t)
 
-	tokenSvc := auth.NewTokenService("test-jwt-secret-min-32-characters!!", 15*time.Minute, 7*24*time.Hour, nil, nil)
+	tokenSvc , _ := auth.NewTokenService("test-jwt-secret-min-32-characters!!", 15*time.Minute, 7*24*time.Hour, nil, nil)
 	connections := services.NewConnectionTracker(db, 60*time.Second, "", "", "", "", "")
 
 	a := &App{
@@ -160,7 +160,7 @@ func setupTestCache(t *testing.T) *cache.CacheManager {
 
 func TestSetupRoutes_SubscriptionRoutes_Exist(t *testing.T) {
 	db := setupRoutesDB(t)
-	tokenSvc := auth.NewTokenService("test-jwt-secret-min-32-characters!!", 15*time.Minute, 7*24*time.Hour, nil, nil)
+	tokenSvc , _ := auth.NewTokenService("test-jwt-secret-min-32-characters!!", 15*time.Minute, 7*24*time.Hour, nil, nil)
 	connections := services.NewConnectionTracker(db, 60*time.Second, "", "", "", "", "")
 	cm := setupTestCache(t)
 

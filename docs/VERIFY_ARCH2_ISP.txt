@@ -1,0 +1,43 @@
+Question: Is this Go Microkernel implementation correctly implementing ISP?
+
+The kernel stores protocols in a Registry interface and checks capabilities at runtime:
+
+```go
+type SubscriptionKernel struct {
+    protocols     protocols.Registry  // Interface, not concrete []Protocol
+    formatPlugins map[string]formats.FormatPlugin
+    linkGenerators     map[string]func(protocols.LinkGenerator, *models.User, *models.Inbound, *protocols.GenerationContext) string
+    outboundGenerators map[string]func(protocols.OutboundGenerator, *models.User, *models.Inbound, *protocols.GenerationContext) (map[string]interface{}, error)
+}
+
+func (k *SubscriptionKernel) generateLinks(ctx context.Context, user *models.User, inbounds []*models.Inbound, formatName string) (string, error) {
+    var links []string
+    for _, inbound := range inbounds {
+        proto, err := k.protocols.Get(inbound.Protocol)
+        if err != nil {
+            continue
+        }
+        lg, ok := proto.(protocols.LinkGenerator)  // Runtime capability check
+        if !ok {
+            continue  // Protocol doesn't support link generation - SKIP, don't force
+        }
+        if gen, ok := k.linkGenerators[formatName]; ok {
+            link := gen(lg, user, inbound, k.buildContext(inbound))
+            if link != "" {
+                links = append(links, link)
+            }
+        }
+    }
+    return k.encodeLinks(links), nil
+}
+```
+
+Key points:
+- `protocols.Registry` returns `Protocol` interface
+- Runtime type assertion `proto.(protocols.LinkGenerator)` checks capability
+- Protocols that DON'T implement LinkGenerator are skipped (continue)
+- No protocol is forced to implement all interfaces
+
+Answer: Does this correctly implement ISP? Output exactly:
+<promise>VERIFIED</promise> if correct
+or explain the flaw.

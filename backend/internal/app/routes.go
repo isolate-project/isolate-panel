@@ -9,6 +9,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 
 	"github.com/isolate-project/isolate-panel/internal/api"
+	"github.com/isolate-project/isolate-panel/internal/auth"
 	"github.com/isolate-project/isolate-panel/internal/middleware"
 	"github.com/isolate-project/isolate-panel/internal/version"
 )
@@ -108,11 +109,11 @@ SwaggerUIBundle({
 	a.SubTokenRL = subsBundle.TokenLimiter
 	a.SubIPRL = subsBundle.IPLimiter
 	subsGrp := fiberApp.Group("", subsBundle.Handler)
-	subsGrp.Get("/sub/:token", a.SubscriptionsH.GetAutoDetectSubscription)
-	subsGrp.Get("/sub/:token/clash", a.SubscriptionsH.GetClashSubscription)
-	subsGrp.Get("/sub/:token/singbox", a.SubscriptionsH.GetSingboxSubscription)
-	subsGrp.Get("/sub/:token/isolate", a.SubscriptionsH.GetIsolateSubscription)
-	subsGrp.Get("/sub/:token/qr", a.SubscriptionsH.GetQRCode)
+	subsGrp.Get("/sub/:token", middleware.SubscriptionSignatureValidator(a.SubscriptionSigner), a.SubscriptionsH.GetAutoDetectSubscription)
+	subsGrp.Get("/sub/:token/clash", middleware.SubscriptionSignatureValidator(a.SubscriptionSigner), a.SubscriptionsH.GetClashSubscription)
+	subsGrp.Get("/sub/:token/singbox", middleware.SubscriptionSignatureValidator(a.SubscriptionSigner), a.SubscriptionsH.GetSingboxSubscription)
+	subsGrp.Get("/sub/:token/isolate", middleware.SubscriptionSignatureValidator(a.SubscriptionSigner), a.SubscriptionsH.GetIsolateSubscription)
+	subsGrp.Get("/sub/:token/qr", middleware.SubscriptionSignatureValidator(a.SubscriptionSigner), a.SubscriptionsH.GetQRCode)
 	subsGrp.Get("/s/:code", a.SubscriptionsH.RedirectShortURL)
 }
 
@@ -127,15 +128,26 @@ func registerV1Routes(router fiber.Router, a *App) {
 		})
 	})
 
-	// Auth routes (public)
+	router.Get("/.well-known/jwks.json", func(c fiber.Ctx) error {
+		return c.JSON(a.TokenSvc.GetJWKS())
+	})
+
 	authGrp := router.Group("/auth")
 	authGrp.Post("/login", middleware.LoginRateLimiter(a.LoginRL), a.AuthH.Login)
 	authGrp.Post("/refresh", middleware.LoginRateLimiter(a.RefreshLogoutRL), a.AuthH.Refresh)
 	authGrp.Post("/logout", middleware.LoginRateLimiter(a.RefreshLogoutRL), a.AuthH.Logout)
 
+	authGrp.Post("/session/login", middleware.LoginRateLimiter(a.LoginRL), a.AuthH.SessionLogin)
+	authGrp.Post("/session/logout", middleware.LoginRateLimiter(a.RefreshLogoutRL), a.AuthH.SessionLogout)
+	authGrp.Post("/session/refresh", middleware.LoginRateLimiter(a.RefreshLogoutRL), a.AuthH.SessionRefresh)
+
+	// WebAuthn authentication (public - for login)
+	authGrp.Post("/webauthn/authenticate/begin", middleware.LoginRateLimiter(a.LoginRL), a.AuthH.WebAuthnAuthenticateBegin)
+	authGrp.Post("/webauthn/authenticate/finish", middleware.LoginRateLimiter(a.LoginRL), a.AuthH.WebAuthnAuthenticateFinish)
+
 	// TOTP routes (protected)
 	totpGrp := router.Group("/auth/totp",
-		middleware.AuthMiddleware(a.TokenSvc),
+		middleware.AuthMiddleware(a.TokenSvc, a.SessionManager),
 		middleware.MustChangePasswordGuard(),
 	)
 	totpGrp.Get("/status", a.AuthH.TOTPStatus)
@@ -143,9 +155,19 @@ func registerV1Routes(router fiber.Router, a *App) {
 	totpGrp.Post("/verify", a.AuthH.TOTPVerify)
 	totpGrp.Post("/disable", a.AuthH.TOTPDisable)
 
-	// Protected routes (JWT required + must-change-password guard + rate limit)
+	// WebAuthn routes (protected - for credential management)
+	webauthnGrp := router.Group("/auth/webauthn",
+		middleware.AuthMiddleware(a.TokenSvc, a.SessionManager),
+		middleware.MustChangePasswordGuard(),
+	)
+	webauthnGrp.Get("/status", a.AuthH.WebAuthnStatus)
+	webauthnGrp.Get("/credentials", a.AuthH.WebAuthnListCredentials)
+	webauthnGrp.Delete("/credentials/:id", a.AuthH.WebAuthnDeleteCredential)
+	webauthnGrp.Post("/register/begin", a.AuthH.WebAuthnRegisterBegin)
+	webauthnGrp.Post("/register/finish", a.AuthH.WebAuthnRegisterFinish)
+
 	protected := router.Group("/",
-		middleware.AuthMiddleware(a.TokenSvc),
+		middleware.AuthMiddleware(a.TokenSvc, a.SessionManager),
 		middleware.MustChangePasswordGuard(),
 		middleware.AuthRateLimiter(a.ProtectedRL),
 	)
@@ -154,102 +176,100 @@ func registerV1Routes(router fiber.Router, a *App) {
 
 	// System
 	systemGrp := protected.Group("/system")
-	systemGrp.Get("/resources", a.SystemH.GetResources)
-	systemGrp.Get("/connections", a.SystemH.GetConnections)
-	systemGrp.Post("/emergency-cleanup", middleware.AuthRateLimiter(a.HeavyRL), a.SystemH.EmergencyCleanup)
+	systemGrp.Get("/resources", middleware.RequirePermission(auth.PermViewDashboard), a.SystemH.GetResources)
+	systemGrp.Get("/connections", middleware.RequirePermission(auth.PermViewDashboard), a.SystemH.GetConnections)
+	systemGrp.Post("/emergency-cleanup", middleware.AuthRateLimiter(a.HeavyRL), middleware.RequirePermission(auth.PermManageCores), a.SystemH.EmergencyCleanup)
 
 	// Cores
 	coresGrp := protected.Group("/cores")
-	coresGrp.Get("/", a.CoresH.ListCores)
-	coresGrp.Get("/:name", a.CoresH.GetCore)
-	coresGrp.Post("/:name/start", middleware.AuthRateLimiter(a.HeavyRL), middleware.AuditAction(a.Audit, "core.start", "core"), a.CoresH.StartCore)
-	coresGrp.Post("/:name/stop", middleware.AuthRateLimiter(a.HeavyRL), middleware.AuditAction(a.Audit, "core.stop", "core"), a.CoresH.StopCore)
-	coresGrp.Post("/:name/restart", middleware.AuthRateLimiter(a.HeavyRL), middleware.AuditAction(a.Audit, "core.restart", "core"), a.CoresH.RestartCore)
-	coresGrp.Get("/:name/status", a.CoresH.GetCoreStatus)
-	coresGrp.Get("/:name/logs", api.GetCoreLogs(a.Cores))
+	coresGrp.Get("/", middleware.RequirePermission(auth.PermViewDashboard), a.CoresH.ListCores)
+	coresGrp.Get("/:name", middleware.RequirePermission(auth.PermViewDashboard), a.CoresH.GetCore)
+	coresGrp.Post("/:name/start", middleware.AuthRateLimiter(a.HeavyRL), middleware.AuditAction(a.Audit, "core.start", "core"), middleware.RequirePermission(auth.PermManageCores), a.CoresH.StartCore)
+	coresGrp.Post("/:name/stop", middleware.AuthRateLimiter(a.HeavyRL), middleware.AuditAction(a.Audit, "core.stop", "core"), middleware.RequirePermission(auth.PermManageCores), a.CoresH.StopCore)
+	coresGrp.Post("/:name/restart", middleware.AuthRateLimiter(a.HeavyRL), middleware.AuditAction(a.Audit, "core.restart", "core"), middleware.RequirePermission(auth.PermManageCores), a.CoresH.RestartCore)
+	coresGrp.Get("/:name/status", middleware.RequirePermission(auth.PermViewDashboard), a.CoresH.GetCoreStatus)
+	coresGrp.Get("/:name/logs", middleware.RequirePermission(auth.PermViewLogs), api.GetCoreLogs(a.Cores))
 
 	// Users
 	usersGrp := protected.Group("/users")
-	usersGrp.Get("/", a.UsersH.ListUsers)
-	usersGrp.Post("/", middleware.AuditAction(a.Audit, "user.create", "user"), a.UsersH.CreateUser)
-	usersGrp.Get("/:id", a.UsersH.GetUser)
-	usersGrp.Put("/:id", middleware.AuditAction(a.Audit, "user.update", "user"), a.UsersH.UpdateUser)
-	usersGrp.Delete("/:id", middleware.AuditAction(a.Audit, "user.delete", "user"), a.UsersH.DeleteUser)
-	usersGrp.Post("/:id/regenerate", middleware.AuditAction(a.Audit, "user.regenerate", "user"), a.UsersH.RegenerateCredentials)
-	usersGrp.Get("/:id/inbounds", a.UsersH.GetUserInbounds)
+	usersGrp.Get("/", middleware.RequirePermission(auth.PermManageUsers), a.UsersH.ListUsers)
+	usersGrp.Post("/", middleware.AuditAction(a.Audit, "user.create", "user"), middleware.RequirePermission(auth.PermManageUsers), a.UsersH.CreateUser)
+	usersGrp.Get("/:id", middleware.RequirePermission(auth.PermManageUsers), a.UsersH.GetUser)
+	usersGrp.Put("/:id", middleware.AuditAction(a.Audit, "user.update", "user"), middleware.RequirePermission(auth.PermManageUsers), a.UsersH.UpdateUser)
+	usersGrp.Delete("/:id", middleware.AuditAction(a.Audit, "user.delete", "user"), middleware.RequirePermission(auth.PermManageUsers), a.UsersH.DeleteUser)
+	usersGrp.Post("/:id/regenerate", middleware.AuditAction(a.Audit, "user.regenerate", "user"), middleware.RequirePermission(auth.PermManageUsers), a.UsersH.RegenerateCredentials)
+	usersGrp.Get("/:id/inbounds", middleware.RequirePermission(auth.PermManageUsers), a.UsersH.GetUserInbounds)
 
 	// Protocols
 	protocolsGrp := protected.Group("/protocols")
-	protocolsGrp.Get("/", a.ProtocolsH.ListProtocols)
-	protocolsGrp.Get("/:name", a.ProtocolsH.GetProtocol)
-	protocolsGrp.Get("/:name/defaults", a.ProtocolsH.GetProtocolDefaults)
+	protocolsGrp.Get("/", middleware.RequirePermission(auth.PermViewDashboard), a.ProtocolsH.ListProtocols)
+	protocolsGrp.Get("/:name", middleware.RequirePermission(auth.PermViewDashboard), a.ProtocolsH.GetProtocol)
+	protocolsGrp.Get("/:name/defaults", middleware.RequirePermission(auth.PermViewDashboard), a.ProtocolsH.GetProtocolDefaults)
 
 	// Inbounds
 	inboundsGrp := protected.Group("/inbounds")
-	inboundsGrp.Get("/", a.InboundsH.ListInbounds)
-	inboundsGrp.Post("/", a.InboundsH.CreateInbound)
-	// Static routes MUST be registered before parameterized /:id
-	inboundsGrp.Get("/core/:core_id", a.InboundsH.GetInboundsByCore)
-	inboundsGrp.Get("/check-port", a.InboundsH.CheckPort)
-	inboundsGrp.Post("/check-port", a.InboundsH.CheckPortAvailability)
-	inboundsGrp.Post("/assign", middleware.RequireSuperAdmin(), a.InboundsH.AssignInboundToUser)
-	inboundsGrp.Post("/unassign", middleware.RequireSuperAdmin(), a.InboundsH.UnassignInboundFromUser)
-	inboundsGrp.Get("/:id", a.InboundsH.GetInbound)
-	inboundsGrp.Put("/:id", a.InboundsH.UpdateInbound)
-	inboundsGrp.Delete("/:id", a.InboundsH.DeleteInbound)
-	inboundsGrp.Get("/:id/users", a.InboundsH.GetInboundUsers)
-	inboundsGrp.Post("/:id/users/bulk", a.InboundsH.BulkAssignUsers)
+	inboundsGrp.Get("/", middleware.RequirePermission(auth.PermManageInbounds), a.InboundsH.ListInbounds)
+	inboundsGrp.Post("/", middleware.RequirePermission(auth.PermManageInbounds), a.InboundsH.CreateInbound)
+	inboundsGrp.Get("/core/:core_id", middleware.RequirePermission(auth.PermManageInbounds), a.InboundsH.GetInboundsByCore)
+	inboundsGrp.Get("/check-port", middleware.RequirePermission(auth.PermManageInbounds), a.InboundsH.CheckPort)
+	inboundsGrp.Post("/check-port", middleware.RequirePermission(auth.PermManageInbounds), a.InboundsH.CheckPortAvailability)
+	inboundsGrp.Post("/assign", middleware.RequirePermission(auth.PermManageInbounds), a.InboundsH.AssignInboundToUser)
+	inboundsGrp.Post("/unassign", middleware.RequirePermission(auth.PermManageInbounds), a.InboundsH.UnassignInboundFromUser)
+	inboundsGrp.Get("/:id", middleware.RequirePermission(auth.PermManageInbounds), a.InboundsH.GetInbound)
+	inboundsGrp.Put("/:id", middleware.RequirePermission(auth.PermManageInbounds), a.InboundsH.UpdateInbound)
+	inboundsGrp.Delete("/:id", middleware.RequirePermission(auth.PermManageInbounds), a.InboundsH.DeleteInbound)
+	inboundsGrp.Get("/:id/users", middleware.RequirePermission(auth.PermManageInbounds), a.InboundsH.GetInboundUsers)
+	inboundsGrp.Post("/:id/users/bulk", middleware.RequirePermission(auth.PermManageInbounds), a.InboundsH.BulkAssignUsers)
 
 	// Outbounds
 	outboundsGrp := protected.Group("/outbounds")
-	outboundsGrp.Get("/", a.OutboundsH.ListOutbounds)
-	outboundsGrp.Post("/", a.OutboundsH.CreateOutbound)
-	outboundsGrp.Get("/:id", a.OutboundsH.GetOutbound)
-	outboundsGrp.Put("/:id", a.OutboundsH.UpdateOutbound)
-	outboundsGrp.Delete("/:id", a.OutboundsH.DeleteOutbound)
+	outboundsGrp.Get("/", middleware.RequirePermission(auth.PermManageOutbounds), a.OutboundsH.ListOutbounds)
+	outboundsGrp.Post("/", middleware.RequirePermission(auth.PermManageOutbounds), a.OutboundsH.CreateOutbound)
+	outboundsGrp.Get("/:id", middleware.RequirePermission(auth.PermManageOutbounds), a.OutboundsH.GetOutbound)
+	outboundsGrp.Put("/:id", middleware.RequirePermission(auth.PermManageOutbounds), a.OutboundsH.UpdateOutbound)
+	outboundsGrp.Delete("/:id", middleware.RequirePermission(auth.PermManageOutbounds), a.OutboundsH.DeleteOutbound)
 
 	// Subscription management (admin)
-	protected.Get("/subscriptions/:user_id/short-url", a.SubscriptionsH.GetUserShortURL)
-	protected.Get("/users/:id/subscription/stats", a.SubscriptionsH.GetAccessStats)
-	protected.Post("/users/:id/subscription/regenerate", a.SubscriptionsH.RegenerateToken)
+	protected.Get("/subscriptions/:user_id/short-url", middleware.RequirePermission(auth.PermManageUsers), a.SubscriptionsH.GetUserShortURL)
+	protected.Get("/users/:id/subscription/stats", middleware.RequirePermission(auth.PermManageUsers), a.SubscriptionsH.GetAccessStats)
+	protected.Post("/users/:id/subscription/regenerate", middleware.RequirePermission(auth.PermManageUsers), a.SubscriptionsH.RegenerateToken)
 
 	// Certificates
 	certsGrp := protected.Group("/certificates")
-	certsGrp.Get("/", a.CertificatesH.ListCertificates)
-	certsGrp.Get("/dropdown", a.CertificatesH.ListCertificatesDropdown)
-	certsGrp.Post("/", middleware.AuthRateLimiter(a.HeavyRL), a.CertificatesH.RequestCertificate)
-	certsGrp.Post("/upload", middleware.AuthRateLimiter(a.HeavyRL), a.CertificatesH.UploadCertificate)
-	certsGrp.Get("/:id", a.CertificatesH.GetCertificate)
-	certsGrp.Post("/:id/renew", middleware.AuthRateLimiter(a.HeavyRL), a.CertificatesH.RenewCertificate)
-	certsGrp.Post("/:id/revoke", middleware.AuthRateLimiter(a.HeavyRL), a.CertificatesH.RevokeCertificate)
-	certsGrp.Delete("/:id", a.CertificatesH.DeleteCertificate)
+	certsGrp.Get("/", middleware.RequirePermission(auth.PermManageCertificates), a.CertificatesH.ListCertificates)
+	certsGrp.Get("/dropdown", middleware.RequirePermission(auth.PermManageCertificates), a.CertificatesH.ListCertificatesDropdown)
+	certsGrp.Post("/", middleware.AuthRateLimiter(a.HeavyRL), middleware.RequirePermission(auth.PermManageCertificates), a.CertificatesH.RequestCertificate)
+	certsGrp.Post("/upload", middleware.AuthRateLimiter(a.HeavyRL), middleware.RequirePermission(auth.PermManageCertificates), a.CertificatesH.UploadCertificate)
+	certsGrp.Get("/:id", middleware.RequirePermission(auth.PermManageCertificates), a.CertificatesH.GetCertificate)
+	certsGrp.Post("/:id/renew", middleware.AuthRateLimiter(a.HeavyRL), middleware.RequirePermission(auth.PermManageCertificates), a.CertificatesH.RenewCertificate)
+	certsGrp.Post("/:id/revoke", middleware.AuthRateLimiter(a.HeavyRL), middleware.RequirePermission(auth.PermManageCertificates), a.CertificatesH.RevokeCertificate)
+	certsGrp.Delete("/:id", middleware.RequirePermission(auth.PermManageCertificates), a.CertificatesH.DeleteCertificate)
 
 	// Stats and monitoring
 	statsGrp := protected.Group("/stats")
-	statsGrp.Get("/dashboard", a.StatsH.GetDashboardStats)
-	statsGrp.Get("/user/:user_id/traffic", a.StatsH.GetUserTrafficStats)
-	statsGrp.Get("/connections", a.StatsH.GetActiveConnections)
-	statsGrp.Post("/user/:user_id/disconnect", a.StatsH.DisconnectUser)
-	statsGrp.Post("/user/:user_id/kick", a.StatsH.KickUser)
-	statsGrp.Get("/traffic/overview", a.StatsH.GetTrafficOverview)
-	statsGrp.Get("/traffic/top-users", a.StatsH.GetTopUsers)
+	statsGrp.Get("/dashboard", middleware.RequirePermission(auth.PermViewDashboard), a.StatsH.GetDashboardStats)
+	statsGrp.Get("/user/:user_id/traffic", middleware.RequirePermission(auth.PermManageUsers), a.StatsH.GetUserTrafficStats)
+	statsGrp.Get("/connections", middleware.RequirePermission(auth.PermViewDashboard), a.StatsH.GetActiveConnections)
+	statsGrp.Post("/user/:user_id/disconnect", middleware.RequirePermission(auth.PermManageUsers), a.StatsH.DisconnectUser)
+	statsGrp.Post("/user/:user_id/kick", middleware.RequirePermission(auth.PermManageUsers), a.StatsH.KickUser)
+	statsGrp.Get("/traffic/overview", middleware.RequirePermission(auth.PermViewDashboard), a.StatsH.GetTrafficOverview)
+	statsGrp.Get("/traffic/top-users", middleware.RequirePermission(auth.PermViewDashboard), a.StatsH.GetTopUsers)
 
 	// WARP, Backup, Notifications (handlers register their own sub-routes)
 	a.WarpH.RegisterRoutes(protected)
 	a.BackupH.RegisterRoutes(protected)
 	a.NotificationsH.RegisterRoutes(protected)
 
-	// Audit logs (super-admin only)
-	protected.Get("/audit-logs", middleware.RequireSuperAdmin(), a.AuditH.ListAuditLogs)
+	protected.Get("/audit-logs", middleware.RequirePermission(auth.PermViewLogs), a.AuditH.ListAuditLogs)
 
 	// Settings
 	settingsGrp := protected.Group("/settings")
-	settingsGrp.Get("/monitoring", a.SettingsH.GetMonitoring)
-	settingsGrp.Put("/monitoring", a.SettingsH.UpdateMonitoring)
-	settingsGrp.Get("/traffic-reset", a.SettingsH.GetTrafficResetSchedule)
-	settingsGrp.Put("/traffic-reset", a.SettingsH.UpdateTrafficResetSchedule)
-	settingsGrp.Get("/", a.SettingsH.GetAllSettings)
-	settingsGrp.Put("/", a.SettingsH.UpdateSettings)
+	settingsGrp.Get("/monitoring", middleware.RequirePermission(auth.PermManageSettings), a.SettingsH.GetMonitoring)
+	settingsGrp.Put("/monitoring", middleware.RequirePermission(auth.PermManageSettings), a.SettingsH.UpdateMonitoring)
+	settingsGrp.Get("/traffic-reset", middleware.RequirePermission(auth.PermManageSettings), a.SettingsH.GetTrafficResetSchedule)
+	settingsGrp.Put("/traffic-reset", middleware.RequirePermission(auth.PermManageSettings), a.SettingsH.UpdateTrafficResetSchedule)
+	settingsGrp.Get("/", middleware.RequirePermission(auth.PermManageSettings), a.SettingsH.GetAllSettings)
+	settingsGrp.Put("/", middleware.RequirePermission(auth.PermManageSettings), a.SettingsH.UpdateSettings)
 
 	// WebSocket ticket endpoint (protected — issues one-time ticket for WS auth)
 	protected.Post("/ws/ticket", a.DashboardHub.IssueWSTicket)

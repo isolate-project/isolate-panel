@@ -1,0 +1,7 @@
+# SHA256 checksums for proxy core binaries
+# Generated: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+# Verify before building: sha256sum -c checksums.txt
+
+3f650abf1fc4a4fbf5abe7fc9990a2658020907cd984214e9c075b4b00989fea  xray/xray
+d13f700d506cdf35086a81d84c993d5e7cde545c9b7c5ad86723e1f1d94fb38e  mihomo/mihomo
+55978348e9967befdc6242af1a5bbd2e151d60408e635b8c26324066e3e129b5  singbox/sing-box

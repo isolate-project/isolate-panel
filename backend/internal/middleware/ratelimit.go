@@ -6,114 +6,50 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"golang.org/x/time/rate"
 )
 
+// RateLimiter uses a token-bucket algorithm for O(1) memory and CPU per key.
 type RateLimiter struct {
-	requests map[string][]time.Time
+	limiters map[string]*rate.Limiter
 	mu       sync.RWMutex
-	limit    int
-	window   time.Duration
-	done     chan struct{}
+	rate     rate.Limit
+	burst    int
 }
 
-func NewRateLimiter(limit int, window time.Duration) *RateLimiter {
-	rl := &RateLimiter{
-		requests: make(map[string][]time.Time),
-		limit:    limit,
-		window:   window,
-		done:     make(chan struct{}),
-	}
-
-	// Cleanup old entries every minute
-	go rl.cleanup()
-
-	return rl
-}
-
-// Stop terminates the cleanup goroutine.
-func (rl *RateLimiter) Stop() {
-	close(rl.done)
-}
-
-func (rl *RateLimiter) cleanup() {
-	ticker := time.NewTicker(1 * time.Minute)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-rl.done:
-			return
-		case <-ticker.C:
-			rl.mu.Lock()
-			now := time.Now()
-			for key, timestamps := range rl.requests {
-				valid := make([]time.Time, 0)
-				for _, ts := range timestamps {
-					if now.Sub(ts) < rl.window {
-						valid = append(valid, ts)
-					}
-				}
-				if len(valid) == 0 {
-					delete(rl.requests, key)
-				} else {
-					rl.requests[key] = valid
-				}
-			}
-			rl.mu.Unlock()
-		}
+func NewRateLimiter(requests int, window time.Duration) *RateLimiter {
+	r := rate.Every(window / time.Duration(requests))
+	return &RateLimiter{
+		limiters: make(map[string]*rate.Limiter),
+		rate:     r,
+		burst:    requests,
 	}
 }
 
 func (rl *RateLimiter) Allow(key string) bool {
 	rl.mu.Lock()
-	defer rl.mu.Unlock()
-
-	now := time.Now()
-
-	// Get existing timestamps for this key
-	timestamps, exists := rl.requests[key]
-	if !exists {
-		timestamps = make([]time.Time, 0)
+	lim, ok := rl.limiters[key]
+	if !ok {
+		lim = rate.NewLimiter(rl.rate, rl.burst)
+		rl.limiters[key] = lim
 	}
-
-	// Remove old timestamps
-	valid := make([]time.Time, 0)
-	for _, ts := range timestamps {
-		if now.Sub(ts) < rl.window {
-			valid = append(valid, ts)
-		}
-	}
-
-	// Check if limit exceeded
-	if len(valid) >= rl.limit {
-		return false
-	}
-
-	// Add current timestamp
-	valid = append(valid, now)
-	rl.requests[key] = valid
-
-	return true
+	rl.mu.Unlock()
+	return lim.Allow()
 }
 
-// LoginRateLimiter creates a rate limiter middleware for login attempts
+func (rl *RateLimiter) Stop() {}
+
 func LoginRateLimiter(limiter *RateLimiter) fiber.Handler {
 	return func(c fiber.Ctx) error {
-		ip := c.IP()
-
-		if !limiter.Allow(ip) {
+		if !limiter.Allow(c.IP()) {
 			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
 				"error": "Too many login attempts. Please try again later.",
 			})
 		}
-
 		return c.Next()
 	}
 }
 
-// AuthRateLimiter creates a rate limiter middleware for authenticated endpoints.
-// Key is the admin ID extracted from JWT context (set by AuthMiddleware).
-// Falls back to IP when admin_id is not in context.
 func AuthRateLimiter(limiter *RateLimiter) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		var key string
@@ -131,43 +67,15 @@ func AuthRateLimiter(limiter *RateLimiter) fiber.Handler {
 	}
 }
 
-// SubscriptionRateLimiter creates a rate limiter for subscription endpoints
-// Limits: 10 requests/hour per token, 30 requests/hour per IP
-func SubscriptionRateLimiter() fiber.Handler {
-	tokenLimiter := NewRateLimiter(10, 1*time.Hour)
-	ipLimiter := NewRateLimiter(30, 1*time.Hour)
-
-	return func(c fiber.Ctx) error {
-		// Get token from URL
-		token := c.Params("token")
-		if token != "" {
-			if !tokenLimiter.Allow("token:" + token) {
-				return c.Status(fiber.StatusTooManyRequests).SendString("Subscription rate limit exceeded (token). Please try again later.")
-			}
-		}
-
-		// Also check IP
-		ip := c.IP()
-		if !ipLimiter.Allow("ip:" + ip) {
-			return c.Status(fiber.StatusTooManyRequests).SendString("Subscription rate limit exceeded (IP). Please try again later.")
-		}
-
-		return c.Next()
-	}
-}
-
-// SubRateLimiterBundle holds rate limiters and handler for graceful shutdown.
 type SubRateLimiterBundle struct {
 	TokenLimiter *RateLimiter
 	IPLimiter    *RateLimiter
 	Handler      fiber.Handler
 }
 
-// SubscriptionRateLimiterWithStop creates a subscription rate limiter with
-// externally managed limiters that can be stopped on shutdown.
 func SubscriptionRateLimiterWithStop() SubRateLimiterBundle {
-	tokenLimiter := NewRateLimiter(10, 1*time.Hour)
-	ipLimiter := NewRateLimiter(30, 1*time.Hour)
+	tokenLimiter := NewRateLimiter(10, time.Hour)
+	ipLimiter := NewRateLimiter(30, time.Hour)
 
 	handler := func(c fiber.Ctx) error {
 		token := c.Params("token")

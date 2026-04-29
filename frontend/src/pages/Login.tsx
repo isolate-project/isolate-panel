@@ -14,7 +14,7 @@ import { AxiosError } from 'axios'
 
 export function Login() {
   const { t } = useTranslation()
-  const { setTokens, setUser } = useAuthStore()
+  const { setAuthenticated, setUser } = useAuthStore()
   const { addToast } = useToastStore()
 
   useMetaTags({
@@ -45,15 +45,13 @@ export function Login() {
         return
       }
 
-      const { access_token, refresh_token, admin, must_change_password } = data as {
-        access_token: string
-        refresh_token: string
+      const { admin, must_change_password } = data as {
         admin: Parameters<typeof setUser>[0]
         must_change_password?: boolean
       }
 
-      setTokens(access_token, refresh_token)
       setUser(admin)
+      setAuthenticated(true)
 
       addToast({
         type: 'success',

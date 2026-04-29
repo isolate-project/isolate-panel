@@ -12,6 +12,7 @@ type Admin struct {
 	TOTPSecret   string     `json:"-"`
 	TOTPEnabled  bool       `gorm:"default:false" json:"totp_enabled"`
 	IsSuperAdmin bool       `gorm:"default:false" json:"is_super_admin"`
+	Permissions  uint64     `gorm:"default:0" json:"permissions"`
 	CreatedAt    time.Time  `json:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`
 	LastLoginAt      *time.Time `json:"last_login_at"`
