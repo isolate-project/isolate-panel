@@ -84,7 +84,8 @@ services:
 
     cap_add:
       - NET_BIND_SERVICE
-      - NET_ADMIN  # Required for WARP WireGuard and TUN mode. Remove if not using WARP/TUN features.
+      - NET_ADMIN
+      - DAC_OVERRIDE
 
     deploy:
       resources:
