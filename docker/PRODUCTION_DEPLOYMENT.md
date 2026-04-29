@@ -286,49 +286,32 @@ curl -fsSL https://raw.githubusercontent.com/isolate-project/isolate-panel/main/
 curl -fsSL https://raw.githubusercontent.com/isolate-project/isolate-panel/main/docker/caddy/Dockerfile -o caddy/Dockerfile
 ```
 
-### 3. Generate Secrets
-
-```bash
-# Generate JWT secret
-openssl rand -hex 32 > secrets/jwt_secret.txt
-
-# Generate password pepper
-openssl rand -hex 32 > secrets/password_pepper.txt
-
-# Generate admin password (change this!)
-openssl rand -base64 24 > secrets/admin_password.txt
-
-# Generate backup encryption password
-openssl rand -base64 32 > secrets/backup_password.txt
-
-# Generate database field encryption key (AES-256)
-openssl rand -base64 32 > secrets/data_encryption_key.txt
-
-# Set proper permissions
-chmod 600 secrets/*.txt
-```
-
-### 4. Configure Environment
+### 3. Configure Environment (Optional)
 
 ```bash
 nano .env
 ```
 
-Minimum required settings:
+All secrets (JWT, password pepper, data encryption key, admin password) are **auto-generated on first run** and persisted in `/app/data/.core-secrets` inside the container volume. You only need `.env` for non-secret settings:
+
 ```
 # Application
 APP_ENV=production
 TZ=UTC
 
-# Admin credentials
+# Admin credentials (password auto-generated if left empty)
 ADMIN_USERNAME=admin
-ADMIN_PASSWORD=$(cat secrets/admin_password.txt)
 
 # Backup
-BACKUP_PASSWORD=$(cat secrets/backup_password.txt)
+BACKUP_PASSWORD=$(openssl rand -base64 32)
 
 # Monitoring
 MONITORING_MODE=lite
+```
+
+If you want to set a custom admin password instead of auto-generated:
+```
+ADMIN_PASSWORD=your-secure-password-here
 ```
 
 ### 5. Start Services
@@ -556,9 +539,8 @@ docker compose logs isolate-panel
 # Check for port conflicts
 sudo netstat -tlnp | grep -E '8080|443|80'
 
-# Verify secrets exist
-ls -la secrets/
-cat secrets/admin_password.txt
+# Check auto-generated secrets
+docker compose exec isolate-panel cat /app/data/.core-secrets
 ```
 
 ### Health Check Failures
@@ -729,8 +711,8 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml \
 - [ ] UFW firewall enabled with minimal ports open
 - [ ] DOCKER-USER chain configured
 - [ ] Docker user namespace remapping enabled
-- [ ] All secrets generated and secured (600 permissions)
-- [ ] Admin password is strong and unique
+- [ ] Auto-generated secrets persisted in data volume
+- [ ] Admin password saved from first-run logs (or set explicitly in .env)
 - [ ] Backup encryption password generated
 - [ ] Auto-updates configured (Diun)
 - [ ] Fail2ban installed and configured

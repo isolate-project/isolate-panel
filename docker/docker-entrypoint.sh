@@ -40,6 +40,63 @@ if [ -z "$JWT_SECRET" ] || [ "$JWT_SECRET" = "change-this-in-production-use-a-st
 fi
 export JWT_SECRET
 
+# ── Auto-generate password pepper ──────────────────────────────────
+if [ -z "$PASSWORD_PEPPER" ]; then
+    if [ -f "$SECRETS_FILE" ]; then
+        PASSWORD_PEPPER=$(grep "^PASSWORD_PEPPER=" "$SECRETS_FILE" | cut -d'=' -f2-)
+    fi
+    if [ -z "$PASSWORD_PEPPER" ]; then
+        echo "🔐 Generating password pepper..."
+        PASSWORD_PEPPER=$(head -c 32 /dev/urandom | xxd -p -c 64 | head -c 64)
+        echo "PASSWORD_PEPPER=$PASSWORD_PEPPER" >> "$SECRETS_FILE"
+        echo "  ✅ Password pepper generated and saved to $SECRETS_FILE"
+    else
+        echo "  ✅ Password pepper loaded from $SECRETS_FILE"
+    fi
+fi
+export PASSWORD_PEPPER
+
+# ── Auto-generate data encryption key ──────────────────────────────────
+if [ -z "$DATA_ENCRYPTION_KEY" ]; then
+    if [ -f "$SECRETS_FILE" ]; then
+        DATA_ENCRYPTION_KEY=$(grep "^DATA_ENCRYPTION_KEY=" "$SECRETS_FILE" | cut -d'=' -f2-)
+    fi
+    if [ -z "$DATA_ENCRYPTION_KEY" ]; then
+        echo "🔐 Generating data encryption key..."
+        DATA_ENCRYPTION_KEY=$(head -c 32 /dev/urandom | xxd -p -c 64 | head -c 64)
+        echo "DATA_ENCRYPTION_KEY=$DATA_ENCRYPTION_KEY" >> "$SECRETS_FILE"
+        echo "  ✅ Data encryption key generated and saved to $SECRETS_FILE"
+    else
+        echo "  ✅ Data encryption key loaded from $SECRETS_FILE"
+    fi
+fi
+export DATA_ENCRYPTION_KEY
+
+# ── Auto-generate admin password (if not provided) ──────────────────────────────────
+if [ -z "$ADMIN_PASSWORD" ]; then
+    if [ -f "$SECRETS_FILE" ]; then
+        ADMIN_PASSWORD=$(grep "^ADMIN_PASSWORD=" "$SECRETS_FILE" | cut -d'=' -f2-)
+    fi
+    if [ -z "$ADMIN_PASSWORD" ]; then
+        echo "🔐 Generating admin password..."
+        ADMIN_PASSWORD=$(head -c 24 /dev/urandom | xxd -p -c 48 | head -c 48)
+        echo "ADMIN_PASSWORD=$ADMIN_PASSWORD" >> "$SECRETS_FILE"
+        echo ""
+        echo "  ┌─────────────────────────────────────────────────────────────┐"
+        echo "  │  ⚠️  AUTO-GENERATED ADMIN PASSWORD                           │"
+        echo "  │                                                             │"
+        echo "  │  $ADMIN_PASSWORD                                           │"
+        echo "  │                                                             │"
+        echo "  │  Save this password now. It will not be shown again.       │"
+        echo "  │  Store it in a password manager.                           │"
+        echo "  └─────────────────────────────────────────────────────────────┘"
+        echo ""
+    else
+        echo "  ✅ Admin password loaded from $SECRETS_FILE"
+    fi
+fi
+export ADMIN_PASSWORD
+
 # ── Auto-generate user credential encryption key ──────────────────────────────────
 USER_CRED_KEY="/app/data/.user_cred_key"
 if [ ! -f "$USER_CRED_KEY" ]; then

@@ -66,22 +66,12 @@ services:
     env_file:
       - .env
 
-    secrets:
-      - jwt_secret
-      - password_pepper
-      - admin_password
-      - data_encryption_key
-
     environment:
       - PORT=8080
       - CONFIG_PATH=/app/configs/config.yaml
       - DATABASE_PATH=/app/data/isolate-panel.db
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - APP_ENV=${APP_ENV:-production}
-      - JWT_SECRET_FILE=/run/secrets/jwt_secret
-      - PASSWORD_PEPPER_FILE=/run/secrets/password_pepper
-      - ADMIN_PASSWORD_FILE=/run/secrets/admin_password
-      - DATA_ENCRYPTION_KEY_FILE=/run/secrets/data_encryption_key
       - TZ=${TZ:-UTC}
       - MONITORING_MODE=${MONITORING_MODE:-lite}
       - DOCKER_CONTENT_TRUST=1
@@ -119,16 +109,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
-
-secrets:
-  jwt_secret:
-    file: ./secrets/jwt_secret.txt
-  password_pepper:
-    file: ./secrets/password_pepper.txt
-  admin_password:
-    file: ./secrets/admin_password.txt
-  data_encryption_key:
-    file: ./secrets/data_encryption_key.txt
 
 networks:
   isolate-network:
