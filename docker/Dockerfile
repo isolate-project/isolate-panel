@@ -38,6 +38,12 @@ RUN npm run build
 # =============================================================================
 FROM alpine:3.21
 
+ARG VERSION=0.1.0
+LABEL org.opencontainers.image.source="https://github.com/isolate-project/isolate-panel"
+LABEL org.opencontainers.image.description="Isolate Panel - VPN proxy administration panel for Xray, Sing-box, Mihomo"
+LABEL org.opencontainers.image.licenses="MIT"
+LABEL org.opencontainers.image.version="${VERSION}"
+
 WORKDIR /app
 
 # Install runtime dependencies (including libcap for setcap)
@@ -92,14 +98,10 @@ COPY docker/supervisord.conf /etc/supervisord.conf
 COPY docker/docker-entrypoint.sh /docker-entrypoint.sh
 COPY docker/docker-healthcheck.sh /docker-healthcheck.sh
 
-# Create directories and set permissions
 RUN mkdir -p /app/data /var/log/isolate-panel /var/log/supervisor && \
     chmod +x /docker-entrypoint.sh && \
     chmod +x /docker-healthcheck.sh && \
     chown -R isolate:isolate /app /var/www/html /var/log/isolate-panel /var/log/supervisor /var/run
-
-# Switch to non-root user
-USER isolate
 
 # Expose ports
 EXPOSE 8080 443 8443

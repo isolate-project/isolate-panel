@@ -3,6 +3,8 @@ set -e
 
 echo "🚀 Isolate Panel Starting..."
 
+chown -R isolate:isolate /app/data /var/log/isolate-panel 2>/dev/null || true
+
 # ── Auto-generate core API keys ──────────────────────────────────
 SECRETS_FILE="/app/data/.core-secrets"
 if [ ! -f "$SECRETS_FILE" ]; then
