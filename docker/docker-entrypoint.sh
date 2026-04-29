@@ -299,9 +299,7 @@ isolate-migrate -db "$DB_PATH" -cmd setup
 
 echo "  ✅ Database initialization complete"
 
-# Set proper permissions
-chown -R isolate:isolate /app/data
-chmod 755 /app/data
+chmod 755 /app/data 2>/dev/null || true
 
 echo ""
 echo "🌐 Starting Isolate Panel..."
