@@ -67,9 +67,9 @@ func (r *GORMCoreRepository) UpdateStatus(ctx context.Context, id uint, isRunnin
 		"is_running": isRunning,
 	}
 	if pid != nil {
-		updates["p_id"] = *pid
+		updates["pid"] = *pid
 	} else {
-		updates["p_id"] = nil
+		updates["pid"] = nil
 	}
 	if err := r.db.WithContext(ctx).Model(&models.Core{}).
 		Where("id = ?", id).

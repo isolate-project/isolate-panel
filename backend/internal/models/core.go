@@ -10,7 +10,7 @@ type Core struct {
 	Version    string `gorm:"not null" json:"version"`
 	IsEnabled  bool   `gorm:"default:true" json:"is_enabled"`
 	IsRunning  bool   `gorm:"default:false" json:"is_running"`
-	PID        *int   `json:"pid"`
+	PID        *int   `gorm:"column:pid" json:"pid"`
 	ConfigPath string `json:"config_path"`
 	LogPath    string `json:"log_path"`
 	APIPort    int    `gorm:"default:10085" json:"api_port"` // Random port for Xray gRPC API (security)
